@@ -122,17 +122,17 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
           
           {showAttributes === 'all' && player.mental && (
             <>
-              <StatBar label="Visão" value={player.mental.vision} maxValue={20} />
-              <StatBar label="Decisões" value={player.mental.decisions} maxValue={20} />
-              <StatBar label="Compostura" value={player.mental.composure} maxValue={20} />
+              <StatBar label="Visão" value={player.mental.vision ?? 0} maxValue={20} />
+              <StatBar label="Decisões" value={player.mental.decisions ?? 0} maxValue={20} />
+              <StatBar label="Compostura" value={player.mental.composure ?? 0} maxValue={20} />
             </>
           )}
           
           {showAttributes === 'all' && player.physical && (
             <>
-              <StatBar label="Velocidade" value={player.physical.speed} maxValue={20} />
-              <StatBar label="Força" value={player.physical.strength} maxValue={20} />
-              <StatBar label="Resistência" value={player.physical.stamina} maxValue={20} />
+              <StatBar label="Velocidade" value={player.physical.speed ?? 0} maxValue={20} />
+              <StatBar label="Força" value={player.physical.strength ?? 0} maxValue={20} />
+              <StatBar label="Resistência" value={player.physical.stamina ?? 0} maxValue={20} />
             </>
           )}
         </div>

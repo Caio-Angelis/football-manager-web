@@ -21,7 +21,12 @@ export const TeamSelection: React.FC = () => {
       </header>
 
       <div className="fm-team-selection__teams">
-        {teams.map((team) => (
+        {teams.length === 0 ? (
+          <div className="fm-empty">
+            <p>Nenhum time disponível. Clique em &quot;Nova Partida&quot; para gerar times.</p>
+          </div>
+        ) : (
+          teams.map((team) => (
           <div key={team.id} className="fm-team-card">
             <h2 className="fm-team-card__name">{team.name}</h2>
             <div className="fm-team-card__info">
@@ -40,8 +45,9 @@ export const TeamSelection: React.FC = () => {
                 Jogar
               </Button>
             </div>
-          </div>
-        ))}
+            </div>
+          ))
+        )}
       </div>
 
       <div className="fm-team-selection__new-game">

@@ -1,7 +1,11 @@
 // Engine de Geração Procedural de Jogadores
 // Baseado na especificação Football Manager Web
 
-import type { Player, PlayerAttribute, GKAttributes, HiddenAttributes } from '../types/game';
+import type { Player, HiddenAttributes, Team, PlayerAttribute, GKAttributes, TeamTacticsConfig } from '../types/game';
+
+export function createDefaultTacticsConfig(): TeamTacticsConfig {
+  return { playerRoles: [], playerInstructions: [] };
+}
 
 // ============================================================
 // BANCO DE NOMES POR NACIONALIDADE
@@ -65,15 +69,6 @@ function gaussianRandom(mean: number, stdDev: number): number {
   const u2 = Math.random();
   const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
   return Math.max(1, Math.min(20, Math.round(mean + z * stdDev)));
-}
-
-function weightedAverage(values: number[]): number {
-  const weights = [0.3, 0.25, 0.2, 0.1, 0.1, 0.05];
-  let sum = 0;
-  for (let i = 0; i < values.length; i++) {
-    sum += values[i] * weights[i];
-  }
-  return Math.round(sum);
 }
 
 function calculateOverall(technical: Partial<PlayerAttribute>, mental: Partial<PlayerAttribute>, physical: Partial<PlayerAttribute>): number {
@@ -162,8 +157,8 @@ export function generatePlayer(options: {
   const potentialAbility = generatePA(age, overall);
   
   // Gerar nome
-  const name = NAMES_DATABASE[nationalty]!.first[Math.floor(Math.random() * 30)];
-  const surname = NAMES_DATABASE[nationalty]!.last[Math.floor(Math.random() * 10)];
+  const name = (NAMES_DATABASE as Record<string, { first: string[]; last: string[] }>)[nationality]!.first[Math.floor(Math.random() * 30)];
+  const surname = (NAMES_DATABASE as Record<string, { first: string[]; last: string[] }>)[nationality]!.last[Math.floor(Math.random() * 10)];
   
   // Atributos de guarda-redes se aplicável
   let goalkeeping: GKAttributes | undefined;
@@ -281,7 +276,7 @@ export function generateYouthIntake(youthLevel: number, count: number = 10): Pla
     
     // Ajustar baseado no nível das instalações
     player.currentAbility = Math.max(10, baseAbility - 20 + Math.floor(Math.random() * 20));
-    player.potentialAbility = Math.max(50, basePA) + Math.floor(youthLevel * 3);
+    player.potentialAbility = Math.max(50, Math.round(baseAbility * 1.5 + Math.random() * 20)) + Math.floor(youthLevel * 3);
     
     players.push(player);
   }
@@ -353,7 +348,8 @@ export function generateTeam(options: {
     boardExpectation: reputation > 70 ? 'title' : reputation > 50 ? 'top4' : 'midtable',
     transferBudget: reputation * 3 + Math.random() * 100,
     staffLevel: Math.floor(reputation / 10),
-    boardPromises: []
+    boardPromises: [],
+    tacticsConfig: createDefaultTacticsConfig(),
   };
 }
 

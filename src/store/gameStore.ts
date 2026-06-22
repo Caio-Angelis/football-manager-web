@@ -1,70 +1,91 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { GameState, Player, Team, Match, MatchEvent, MatchStats, PlayerAttribute, GKAttributes } from '../types/game';
-import { generatePlayer, generateTeam, generateYouthIntake } from '../utils/playerGenerator';
+import type {
+  GameStore, Player, Team, Match, MatchEvent, MatchStats,
+  InboxMessage, IncomingTransfer, ScoutReport, WeeklyTrainingPlan,
+} from '../types/game';
+import { generateTeam, generateYouthIntake } from '../utils/playerGenerator';
 
 // ============================================================
-// CÁLCULO DE FORÇA DO TIME - Baseado em atributos 1-20
+// CÁLCULO DE FORÇA DO TIME
 // ============================================================
+
+function getTacticalBonus(team: Team): number {
+  let bonus = 0;
+  if (team.tactic === 'attacking') bonus += 0.08;
+  if (team.tactic === 'defensive') bonus += 0.05;
+  if (team.teamMentality === 'offensive' || team.teamMentality === 'very offensive') bonus += 0.05;
+  if (team.teamMentality === 'defensive' || team.teamMentality === 'very defensive') bonus += 0.04;
+  if (team.highPress) bonus += 0.03;
+  if (team.counterPress) bonus += 0.03;
+  if (team.highLine) bonus += 0.02;
+  if (team.aggressiveTackling) bonus += 0.02;
+  if (team.workBallIntoBox) bonus += 0.02;
+  if (team.tempo === 'fast') bonus += 0.03;
+  if (team.passingStyle === 'short') bonus += 0.02;
+  return bonus;
+}
 
 function calculateTeamStrength(team: Team): number {
   const starting11 = team.squad.slice(0, 11);
   let totalStrength = 0;
-  
+
   starting11.forEach(player => {
-    // Calcular média dos atributos 1-20 e converter para escala 1-100
     let sum = 0;
     let count = 0;
-    
-    // Técnicos
+
     if (player.technical) {
-      const techValues = [player.technical.passing, player.technical.technique, player.technical.finishing, player.technical.dribbling, player.technical.crossing];
-      techValues.forEach(v => { if (v) { sum += v * 4; count++; } });
+      [player.technical.passing, player.technical.technique, player.technical.finishing,
+        player.technical.dribbling, player.technical.crossing].forEach(v => {
+        if (v) { sum += v * 4; count++; }
+      });
     }
-    
-    // Mentais
     if (player.mental) {
-      const mentalValues = [player.mental.vision, player.mental.decisions, player.mental.composure, player.mental.anticipation, player.mental.positioning];
-      mentalValues.forEach(v => { if (v) { sum += v * 5; count++; } });
+      [player.mental.vision, player.mental.decisions, player.mental.composure,
+        player.mental.anticipation, player.mental.positioning].forEach(v => {
+        if (v) { sum += v * 5; count++; }
+      });
     }
-    
-    // Físicos
     if (player.physical) {
-      const physicalValues = [player.physical.speed, player.physical.stamina, player.physical.strength, player.physical.agility, player.physical.acceleration];
-      physicalValues.forEach(v => { if (v) { sum += v * 3; count++; } });
+      [player.physical.speed, player.physical.stamina, player.physical.strength,
+        player.physical.agility, player.physical.acceleration].forEach(v => {
+        if (v) { sum += v * 3; count++; }
+      });
     }
-    
-    // CA contribui mais que overall
-    const playerStrength = (player.currentAbility * 0.6 + (sum / count) * 5.5) * 1.2;
-    totalStrength += playerStrength;
+
+    const playerStrength = (player.currentAbility * 0.6 + (sum / Math.max(count, 1)) * 5.5) * 1.2;
+    totalStrength += playerStrength * (player.form / 100) * (player.fitness / 100);
   });
-  
-  // Bônus de tática
-  const tacticBonus = team.tactic === 'attacking' ? 0.15 : team.tactic === 'defensive' ? 0.1 : 0.125;
-  const mentalityBonus = team.teamMentality === 'offensive' ? 0.05 : team.teamMentality === 'defensive' ? 0.08 : 0;
-  
-  return (totalStrength / starting11.length) * (1 + tacticBonus + mentalityBonus);
+
+  return (totalStrength / Math.max(starting11.length, 1)) * (1 + getTacticalBonus(team));
+}
+
+function getPossessionBias(home: Team, away: Team): number {
+  const homePass = home.squad.slice(0, 11).reduce((s, p) => s + (p.technical?.passing ?? 10), 0);
+  const awayPass = away.squad.slice(0, 11).reduce((s, p) => s + (p.technical?.passing ?? 10), 0);
+  const homeTactic = home.passingStyle === 'short' ? 0.05 : home.passingStyle === 'direct' ? -0.03 : 0;
+  const awayTactic = away.passingStyle === 'short' ? 0.05 : away.passingStyle === 'direct' ? -0.03 : 0;
+  const total = homePass + awayPass + 1;
+  return (homePass / total) + homeTactic - awayTactic + 0.02;
 }
 
 // ============================================================
-// MOTOR DE PARTIDA - Algoritmo baseado em turnos
+// MOTOR DE PARTIDA
 // ============================================================
 
-function simulateMatchResult(homeTeam: Team, awayTeam: Team): { 
-  homeGoals: number; 
-  awayGoals: number; 
+function simulateMatchResult(homeTeam: Team, awayTeam: Team, homeBoost = 0, awayBoost = 0): {
+  homeGoals: number;
+  awayGoals: number;
   events: MatchEvent[];
   stats: MatchStats;
 } {
-  const homeStrength = calculateTeamStrength(homeTeam);
-  const awayStrength = calculateTeamStrength(awayTeam);
-  const homeAdvantage = 0.12; // Casa
-  
-  // Probabilidade de gol baseada em força relativa
+  const homeStrength = calculateTeamStrength(homeTeam) * (1 + homeBoost);
+  const awayStrength = calculateTeamStrength(awayTeam) * (1 + awayBoost);
+  const homeAdvantage = 0.12;
+
   const homeGoalChance = (homeStrength + homeAdvantage) / (homeStrength + awayStrength + homeAdvantage);
   const awayGoalChance = 1 - homeGoalChance;
-  
-  // Simular 90 minutos virtuais
+
   const events: MatchEvent[] = [];
   let homeGoals = 0;
   let awayGoals = 0;
@@ -74,91 +95,82 @@ function simulateMatchResult(homeTeam: Team, awayTeam: Team): {
   let awayShotsOnTarget = 0;
   let homePasses = 0;
   let awayPasses = 0;
-  
-  for (let minute = 0; minute < 90; minute++) {
-    // Chance de evento baseado no minuto
+
+  const homePossession = Math.min(0.75, Math.max(0.25, getPossessionBias(homeTeam, awayTeam)));
+
+  for (let minute = 1; minute <= 90; minute++) {
     const eventProbability = 0.05 + Math.random() * 0.1;
-    
-    // Posse baseada em tática e atributos de passe
-    const homePossession = homeGoalChance + (Math.random() * 0.1 - 0.05);
-    
+
     if (Math.random() < eventProbability) {
-      // Chance de chute
       if (Math.random() < homePossession) {
         homeShots += Math.floor(Math.random() * 3) + 1;
         homePasses += Math.floor(Math.random() * 15) + 5;
-        
-        // Chance de gol
+
         if (Math.random() < 0.15 * homeGoalChance) {
           homeShotsOnTarget++;
           if (Math.random() < 0.4) {
             homeGoals++;
+            const scorer = homeTeam.squad[Math.floor(Math.random() * Math.min(11, homeTeam.squad.length))];
             events.push({
               minute,
               type: 'goal',
               team: 'home',
-              description: `GOOOL! ${homeTeam.name} marca!`
+              player: scorer?.name,
+              description: `GOOOL! ${scorer?.name ?? homeTeam.name} marca!`,
             });
+          } else {
+            events.push({ minute, type: 'shot', team: 'home', description: 'Chute perigoso' });
           }
         }
       } else {
         awayShots += Math.floor(Math.random() * 3) + 1;
         awayPasses += Math.floor(Math.random() * 15) + 5;
-        
+
         if (Math.random() < 0.15 * awayGoalChance) {
           awayShotsOnTarget++;
           if (Math.random() < 0.4) {
             awayGoals++;
+            const scorer = awayTeam.squad[Math.floor(Math.random() * Math.min(11, awayTeam.squad.length))];
             events.push({
               minute,
               type: 'goal',
               team: 'away',
-              description: `GOOOL! ${awayTeam.name} marca!`
+              player: scorer?.name,
+              description: `GOOOL! ${scorer?.name ?? awayTeam.name} marca!`,
             });
+          } else {
+            events.push({ minute, type: 'shot', team: 'away', description: 'Chute perigoso' });
           }
         }
       }
-      
-      // Eventos aleatórios
-      if (Math.random() < 0.08) {
-        events.push({
-          minute,
-          type: 'shot',
-          team: Math.random() < 0.5 ? 'home' : 'away',
-          description: 'Chute perigoso'
-        });
-      }
-      
+
       if (Math.random() < 0.05) {
         events.push({
           minute,
           type: 'save',
           team: Math.random() < 0.5 ? 'away' : 'home',
-          description: 'Grande defesa!'
+          description: 'Grande defesa!',
         });
       }
-      
       if (Math.random() < 0.06) {
         events.push({
           minute,
           type: 'corner',
           team: Math.random() < 0.5 ? 'home' : 'away',
-          description: 'Escanteio'
+          description: 'Escanteio',
         });
       }
-      
       if (Math.random() < 0.04) {
         events.push({
           minute,
           type: 'foul',
           team: Math.random() < 0.5 ? 'home' : 'away',
-          description: 'Falta'
+          description: 'Falta',
         });
       }
     }
   }
-  
-  // Gerar estatísticas
+
   const stats: MatchStats = {
     homeXG: Math.round(homeGoals * (0.8 + Math.random() * 0.4) * 100) / 100,
     awayXG: Math.round(awayGoals * (0.8 + Math.random() * 0.4) * 100) / 100,
@@ -171,114 +183,209 @@ function simulateMatchResult(homeTeam: Team, awayTeam: Team): {
     homePasses,
     awayPasses,
     homePassAccuracy: Math.round(70 + Math.random() * 20),
-    awayPassAccuracy: Math.round(70 + Math.random() * 20)
+    awayPassAccuracy: Math.round(70 + Math.random() * 20),
   };
-  
+
   return { homeGoals, awayGoals, events, stats };
 }
 
-// ============================================================
-// GERADOR DE PARTIDAS DA SEMANA
-// ============================================================
-
-function generateWeekMatches(teams: Team[]): Match[] {
+function generateWeekMatches(teams: Team[], week: number): Match[] {
   const matches: Match[] = [];
   const shuffled = [...teams].sort(() => Math.random() - 0.5);
-  
+
   for (let i = 0; i < shuffled.length; i += 2) {
     if (shuffled[i + 1]) {
-      const weekNumber = Math.floor(shuffled.length / 2) + 1;
-      const day = (i + 1) % 5 + 1; // Dias da semana
+      const day = (i / 2) % 5 + 1;
       matches.push({
         homeTeam: shuffled[i].id,
         awayTeam: shuffled[i + 1].id,
         homeGoals: 0,
         awayGoals: 0,
-        date: `Semana ${weekNumber} - Dia ${day}`,
+        date: `Semana ${week} - Dia ${day}`,
         completed: false,
+        isLive: false,
+        liveMinute: 0,
+        liveEvents: [],
+        liveStats: {
+          homeXG: 0,
+          awayXG: 0,
+          homePossession: 50,
+          awayPossession: 50,
+          homeShots: 0,
+          awayShots: 0,
+          homeShotsOnTarget: 0,
+          awayShotsOnTarget: 0,
+          homePasses: 0,
+          awayPasses: 0,
+          homePassAccuracy: 70,
+          awayPassAccuracy: 70,
+        },
+        homeSubstitutions: 0,
+        awaySubstitutions: 0,
         events: [],
-        stats: undefined
+        stats: undefined,
       });
     }
   }
-  
+
   return matches;
 }
 
-// ============================================================
-// GERADOR DE EVENTOS DA CAIXA DE ENTRADA
-// ============================================================
-
-function generateInboxMessage(week: number): { id: string; type: string; subject: string; body: string; priority: 'low' | 'medium' | 'high' } {
-  const types = ['transfer', 'injury', 'suggestion', 'training', 'financial'];
+function generateInboxMessage(week: number): InboxMessage {
+  const types: InboxMessage['type'][] = ['transfer', 'injury', 'suggestion', 'training', 'financial', 'board', 'youth'];
   const type = types[Math.floor(Math.random() * types.length)];
-  
+
   const messages = {
-    transfer: {
-      subject: 'Proposta de Transferência Recebida',
-      body: 'Um clube está interessado em um jogador do seu plantel.'
-    },
-    injury: {
-      subject: 'Relatório Médico - Lesão',
-      body: 'Um jogador sofreu uma lesão durante o treino.'
-    },
-    suggestion: {
-      subject: 'Recomendação de Treino',
-      body: 'O auxiliar técnico sugere mudanças no treinamento.'
-    },
-    training: {
-      subject: 'Relatório de Treino',
-      body: 'Os jogadores responderam bem ao treino físico.'
-    },
-    financial: {
-      subject: 'Relatório Financeiro',
-      body: 'Os gastos da equipe estão dentro do orçamento.'
-    }
+    transfer: { subject: 'Proposta de Transferência Recebida', body: 'Um clube está interessado em um jogador do seu plantel.' },
+    injury: { subject: 'Relatório Médico - Lesão', body: 'Um jogador sofreu uma lesão durante o treino.' },
+    suggestion: { subject: 'Recomendação de Treino', body: 'O auxiliar técnico sugere foco em treino físico esta semana.' },
+    training: { subject: 'Relatório de Treino', body: 'Os jogadores responderam bem ao treino físico.' },
+    financial: { subject: 'Relatório Financeiro', body: 'Os gastos da equipe estão dentro do orçamento.' },
+    board: { subject: 'Comunicado da Diretoria', body: 'A diretoria faz um comunicado sobre as expectativas do clube.' },
+    youth: { subject: 'Jovem Promessa Identificada', body: 'Um jovem talento foi identificado nas categorias de base. Convocar para o plantel?' },
   };
-  
-  const msg = messages[type as keyof typeof messages];
-  
+
+  const msg = messages[type];
+
   return {
     id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     type,
     subject: msg.subject,
     body: msg.body,
-    priority: Math.random() < 0.3 ? 'high' : Math.random() < 0.6 ? 'medium' : 'low'
+    priority: Math.random() < 0.3 ? 'high' : Math.random() < 0.6 ? 'medium' : 'low',
+    timestamp: Date.now(),
+    read: false,
   };
 }
-
-// ============================================================
-// ATUALIZAÇÃO DE ATRIBUTOS DOS JOGADORES
-// ============================================================
 
 function updatePlayerAttributes(player: Player, trainingType: string): Player {
   const updated = { ...player };
   const improvement = Math.random() * 0.8 + 0.2;
-  
+
   if (trainingType === 'physical') {
     if (updated.physical) {
-      updated.physical.stamina = Math.min(20, updated.physical.stamina + improvement);
-      updated.physical.speed = Math.min(20, updated.physical.speed + improvement * 0.5);
+      updated.physical.stamina = Math.min(20, (updated.physical.stamina ?? 0) + improvement);
+      updated.physical.speed = Math.min(20, (updated.physical.speed ?? 0) + improvement * 0.5);
     }
-    updated.fitness = Math.max(0, updated.fitness - 5); // Fadiga
+    updated.fitness = Math.max(0, updated.fitness - 8);
+    if (Math.random() < 0.05 + (updated.hidden.injuryProneness * 0.01)) {
+      updated.injury = { active: true, days: 7 + Math.floor(Math.random() * 14) };
+    }
   } else if (trainingType === 'technical') {
     if (updated.technical) {
       updated.technical.passing = Math.min(20, updated.technical.passing + improvement * 0.8);
       updated.technical.technique = Math.min(20, updated.technical.technique + improvement * 0.8);
+      updated.technical.finishing = Math.min(20, updated.technical.finishing + improvement * 0.5);
     }
+    updated.fitness = Math.max(0, updated.fitness - 3);
   } else if (trainingType === 'cohesion') {
-    // Melhora moral sem alterar atributos
     updated.morale = Math.min(100, updated.morale + 5);
+    updated.fitness = Math.max(0, updated.fitness - 2);
   }
-  
+
   return updated;
 }
 
+function applyMatchResultToTeams(
+  teams: Team[],
+  homeId: string,
+  awayId: string,
+  result: ReturnType<typeof simulateMatchResult>,
+): Team[] {
+  const updated = [...teams];
+  const homeIdx = updated.findIndex(t => t.id === homeId);
+  const awayIdx = updated.findIndex(t => t.id === awayId);
+  if (homeIdx === -1 || awayIdx === -1) return teams;
+
+  const homeTeam = { ...updated[homeIdx] };
+  const awayTeam = { ...updated[awayIdx] };
+
+  homeTeam.played++;
+  awayTeam.played++;
+  homeTeam.goalsFor += result.homeGoals;
+  awayTeam.goalsFor += result.awayGoals;
+  homeTeam.goalsAgainst += result.awayGoals;
+  awayTeam.goalsAgainst += result.homeGoals;
+
+  if (result.homeGoals > result.awayGoals) {
+    homeTeam.points += 3;
+    homeTeam.won++;
+    awayTeam.lost++;
+  } else if (result.homeGoals < result.awayGoals) {
+    awayTeam.points += 3;
+    awayTeam.won++;
+    homeTeam.lost++;
+  } else {
+    homeTeam.points += 1;
+    awayTeam.points += 1;
+    homeTeam.drawn++;
+    awayTeam.drawn++;
+  }
+
+  updated[homeIdx] = homeTeam;
+  updated[awayIdx] = awayTeam;
+  return updated;
+}
+
+function generateScoutReport(player: Player): ScoutReport {
+  const reliability = Math.min(5, Math.floor(Math.random() * 3) + 2);
+  const fuzz = (val: number) => {
+    const range = Math.max(2, 6 - reliability);
+    return [Math.max(1, val - range), Math.min(20, val + range)] as [number, number];
+  };
+
+  return {
+    playerId: player.id,
+    playerName: `${player.name} ${player.surname}`,
+    position: player.position,
+    age: player.age,
+    nationality: player.nationality,
+    currentAbility: player.currentAbility,
+    potentialAbility: player.potentialAbility,
+    attributesRange: {
+      passing: fuzz(player.technical.passing),
+      technique: fuzz(player.technical.technique),
+      finishing: fuzz(player.technical.finishing),
+      speed: fuzz(player.physical.speed ?? 10),
+      stamina: fuzz(player.physical.stamina ?? 10),
+    },
+    stars: Math.min(5, Math.ceil(player.potentialAbility / 40)),
+    reliability,
+  };
+}
+
+function maybeGenerateIncomingTransfer(teams: Team[], selectedTeamId: string): IncomingTransfer | null {
+  if (Math.random() > 0.35) return null;
+
+  const userTeam = teams.find(t => t.id === selectedTeamId);
+  if (!userTeam || userTeam.squad.length === 0) return null;
+
+  const player = userTeam.squad[Math.floor(Math.random() * userTeam.squad.length)];
+  const buyerTeams = teams.filter(t => t.id !== selectedTeamId);
+  const buyer = buyerTeams[Math.floor(Math.random() * buyerTeams.length)];
+  if (!buyer) return null;
+
+  return {
+    playerId: player.id,
+    offerPrice: Math.round(player.marketValue * (0.8 + Math.random() * 0.4) * 10) / 10,
+    fromTeam: buyer.id,
+    contractProposal: {
+      salary: Math.round(player.salary * 1.1),
+      duration: 52 + Math.floor(Math.random() * 104),
+      clause: Math.round(player.marketValue * 1.5 * 10) / 10,
+    },
+  };
+}
+
+function recalcWageBill(team: Team): number {
+  return team.squad.reduce((sum, p) => sum + p.salary, 0) / 1000;
+}
+
 // ============================================================
-// STORE DO JOGO
+// STORE
 // ============================================================
 
-export const useGameStore = create<GameState>()(
+export const useGameStore = create<GameStore>()(
   persist(
     (set, get) => ({
       selectedTeam: null,
@@ -291,201 +398,604 @@ export const useGameStore = create<GameState>()(
       inbox: [],
       trainingPlan: null,
       youthIntakeCompleted: false,
-      
-      // Selecionar time
+      scoutReports: [],
+
       selectTeam: (teamId: string) => set({ selectedTeam: teamId }),
-      
-      // Iniciar jogo com times gerados
+
       initGame: () => {
-        const numTeams = 8;
         const teams: Team[] = [];
-        
-        for (let i = 0; i < numTeams; i++) {
+        for (let i = 0; i < 8; i++) {
           const reputation = 30 + Math.floor(Math.random() * 60);
-          teams.push(generateTeam({
+          const team = generateTeam({
             division: i < 4 ? 'Série A' : 'Série B',
             league: 'Brasileirão',
-            reputation
-          }));
+            reputation,
+          });
+          team.wageBill = recalcWageBill(team);
+          teams.push(team);
         }
-        
-        const matches = generateWeekMatches(teams);
-        
+
         set({
           teams,
-          matches,
+          matches: generateWeekMatches(teams, 1),
           currentWeek: 0,
-          currentSeason: 1
+          currentSeason: 1,
+          selectedTeam: null,
+          inbox: [],
+          incomingTransfers: [],
+          scoutReports: [],
+          youthIntakeCompleted: false,
+          trainingPlan: null,
         });
       },
-      
-      // Avançar semana
+
+      updateTeam: (teamId: string, updater: (team: Team) => Team) => {
+        const state = get();
+        set({
+          teams: state.teams.map(t => (t.id === teamId ? updater({ ...t }) : t)),
+        });
+      },
+
       advanceWeek: () => {
         const state = get();
-        const newWeek = state.currentWeek + 1;
-        const newSeason = newWeek >= 38 ? state.currentSeason + 1 : state.currentSeason;
-        
-        // Gerar nova rodada
-        const newMatches = generateWeekMatches(state.teams);
-        
-        // Simular partidas dos outros times automaticamente
-        const updatedTeams = [...state.teams];
+        let newWeek = state.currentWeek + 1;
+        let newSeason = state.currentSeason;
+        let youthReset = state.youthIntakeCompleted;
+
+        if (newWeek > 38) {
+          newWeek = 1;
+          newSeason += 1;
+          youthReset = false;
+        }
+
+        const newMatches = generateWeekMatches(state.teams, newWeek);
+        let updatedTeams = [...state.teams];
+
         const updatedMatches = newMatches.map(m => {
           const match = { ...m };
-          
-          // Simular partidas que não envolvem o time do jogador
           if (m.homeTeam !== state.selectedTeam && m.awayTeam !== state.selectedTeam) {
             const result = simulateMatchResult(
               updatedTeams.find(t => t.id === m.homeTeam)!,
-              updatedTeams.find(t => t.id === m.awayTeam)!
+              updatedTeams.find(t => t.id === m.awayTeam)!,
             );
-            
             match.homeGoals = result.homeGoals;
             match.awayGoals = result.awayGoals;
             match.completed = true;
             match.events = result.events;
             match.stats = result.stats;
-            
-            // Atualizar classificações
-            const homeIdx = updatedTeams.findIndex(t => t.id === m.homeTeam);
-            const awayIdx = updatedTeams.findIndex(t => t.id === m.awayTeam);
-            
-            const homeTeam = { ...updatedTeams[homeIdx] };
-            const awayTeam = { ...updatedTeams[awayIdx] };
-            
-            homeTeam.played++;
-            awayTeam.played++;
-            homeTeam.goalsFor += result.homeGoals;
-            awayTeam.goalsFor += result.awayGoals;
-            homeTeam.goalsAgainst += result.awayGoals;
-            awayTeam.goalsAgainst += result.homeGoals;
-            
-            if (result.homeGoals > result.awayGoals) {
-              homeTeam.points += 3;
-              awayTeam.lost++;
-            } else if (result.homeGoals < result.awayGoals) {
-              awayTeam.points += 3;
-              homeTeam.lost++;
-            } else {
-              homeTeam.points += 1;
-              awayTeam.points += 1;
-              homeTeam.drawn++;
-              awayTeam.drawn++;
-            }
-            
-            updatedTeams[homeIdx] = homeTeam;
-            updatedTeams[awayIdx] = awayTeam;
+            updatedTeams = applyMatchResultToTeams(updatedTeams, m.homeTeam, m.awayTeam, result);
           }
-          
           return match;
         });
-        
-        // Gerar mensagem na caixa de entrada
+
         const inboxMessage = generateInboxMessage(newWeek);
-        
-        // Verificar youth intake
-        const youthIntake = newWeek === 0 && !state.youthIntakeCompleted;
-        
+        let youthIntakeCompleted = youthReset;
+
+        if (newWeek === 1 && !youthIntakeCompleted && state.selectedTeam) {
+          const teamIdx = updatedTeams.findIndex(t => t.id === state.selectedTeam);
+          if (teamIdx !== -1) {
+            const team = updatedTeams[teamIdx];
+            const youthPlayers = generateYouthIntake(team.youthFacilitiesLevel, 6);
+            updatedTeams[teamIdx] = {
+              ...team,
+              squad: [...team.squad, ...youthPlayers],
+              wageBill: recalcWageBill({ ...team, squad: [...team.squad, ...youthPlayers] }),
+            };
+            youthIntakeCompleted = true;
+          }
+        }
+
+        if (state.trainingPlan) {
+          get().applyWeeklyTraining();
+        }
+
+        if (state.selectedTeam) {
+          const teamIdx = updatedTeams.findIndex(t => t.id === state.selectedTeam);
+          if (teamIdx !== -1) {
+            const team = updatedTeams[teamIdx];
+            const ticketRevenue = (team.reputation / 100) * 0.5;
+            const sponsorship = (team.reputation / 100) * 0.3;
+            updatedTeams[teamIdx] = {
+              ...team,
+              budget: Math.max(0, team.budget + ticketRevenue + sponsorship - team.wageBill * 0.01),
+            };
+          }
+        }
+
+        const newIncoming = state.selectedTeam
+          ? maybeGenerateIncomingTransfer(updatedTeams, state.selectedTeam)
+          : null;
+
         set({
           currentWeek: newWeek,
           currentSeason: newSeason,
           matches: updatedMatches,
           teams: updatedTeams,
           inbox: [inboxMessage, ...state.inbox],
-          youthIntakeCompleted: youthIntake ? true : state.youthIntakeCompleted
+          youthIntakeCompleted,
+          incomingTransfers: newIncoming
+            ? [...state.incomingTransfers, newIncoming]
+            : state.incomingTransfers,
         });
       },
-      
-      // Simular partida específica
+
       simulateMatch: (matchIndex: number) => {
         const state = get();
         const match = state.matches[matchIndex];
-        if (match.completed) return;
-        
+        if (!match || match.completed) return;
+
         const homeTeam = state.teams.find(t => t.id === match.homeTeam)!;
         const awayTeam = state.teams.find(t => t.id === match.awayTeam)!;
-        
-        const result = simulateMatchResult(homeTeam, awayTeam);
-        
+
+        // Start live match instead of finishing immediately
         const updatedMatches = [...state.matches];
         updatedMatches[matchIndex] = {
-          ...updatedMatches[matchIndex],
-          homeGoals: result.homeGoals,
-          awayGoals: result.awayGoals,
-          completed: true,
-          events: result.events,
-          stats: result.stats
+          ...match,
+          isLive: true,
+          liveMinute: 1,
+          liveEvents: [],
+          liveStats: {
+            homeXG: 0,
+            awayXG: 0,
+            homePossession: Math.round(match.liveStats?.homePossession || 50),
+            awayPossession: 100 - (match.liveStats?.homePossession || 50),
+            homeShots: 0,
+            awayShots: 0,
+            homeShotsOnTarget: 0,
+            awayShotsOnTarget: 0,
+            homePasses: 0,
+            awayPasses: 0,
+            homePassAccuracy: 70,
+            awayPassAccuracy: 70,
+          },
         };
-        
-        // Atualizar times
-        const homeTeamIdx = state.teams.findIndex(t => t.id === match.homeTeam);
-        const awayTeamIdx = state.teams.findIndex(t => t.id === match.awayTeam);
-        
-        const homeTeamUpdated = { ...state.teams[homeTeamIdx] };
-        const awayTeamUpdated = { ...state.teams[awayTeamIdx] };
-        
-        homeTeamUpdated.played += 1;
-        awayTeamUpdated.played += 1;
-        homeTeamUpdated.goalsFor += result.homeGoals;
-        awayTeamUpdated.goalsFor += result.awayGoals;
-        homeTeamUpdated.goalsAgainst += result.awayGoals;
-        awayTeamUpdated.goalsAgainst += result.homeGoals;
-        
-        if (result.homeGoals > result.awayGoals) {
-          homeTeamUpdated.points += 3;
-          homeTeamUpdated.won += 1;
-          awayTeamUpdated.lost += 1;
-        } else if (result.homeGoals < result.awayGoals) {
-          awayTeamUpdated.points += 3;
-          awayTeamUpdated.won += 1;
-          homeTeamUpdated.lost += 1;
-        } else {
-          homeTeamUpdated.points += 1;
-          awayTeamUpdated.points += 1;
-          homeTeamUpdated.drawn += 1;
-          awayTeamUpdated.drawn += 1;
-        }
-        
-        const updatedTeams = [...state.teams];
-        updatedTeams[homeTeamIdx] = homeTeamUpdated;
-        updatedTeams[awayTeamIdx] = awayTeamUpdated;
-        
-        set({ matches: updatedMatches, teams: updatedTeams });
+
+        set({ matches: updatedMatches });
       },
-      
-      // Atualizar atributos do jogador
+
+      generateLiveMatchMinute: (matchIndex: number) => {
+        const state = get();
+        const match = state.matches[matchIndex];
+        if (!match || !match.isLive || match.liveMinute >= 90) {
+          // Finish the match if it hasn't been completed
+          if (match && !match.completed && match.isLive) {
+            const homeTeam = state.teams.find(t => t.id === match.homeTeam)!;
+            const awayTeam = state.teams.find(t => t.id === match.awayTeam)!;
+            const result = simulateMatchResult(homeTeam, awayTeam);
+
+            const updatedMatches = [...state.matches];
+            updatedMatches[matchIndex] = {
+              ...match,
+              completed: true,
+              homeGoals: match.homeGoals + result.homeGoals,
+              awayGoals: match.awayGoals + result.awayGoals,
+              isLive: false,
+              events: [...(match.events || []), ...match.liveEvents, ...result.events],
+              stats: result.stats,
+            };
+            const updatedTeams = applyMatchResultToTeams(state.teams, match.homeTeam, match.awayTeam, result);
+            set({ matches: updatedMatches, teams: updatedTeams });
+          }
+          return;
+        }
+
+        const homeTeam = state.teams.find(t => t.id === match.homeTeam)!;
+        const awayTeam = state.teams.find(t => t.id === match.awayTeam)!;
+
+        // Simulate one minute of live play
+        const minute = match.liveMinute + 1;
+        const homePossession = (match.liveStats?.homePossession || 50) / 100;
+        const homeGoalChance = (homeTeam.reputation / 100) / (homeTeam.reputation / 100 + awayTeam.reputation / 100 + 0.12);
+        const awayGoalChance = 1 - homeGoalChance;
+
+        const newEvents = [...(match.liveEvents || [])];
+        const newStats = { ...match.liveStats };
+        let goalsScored = false;
+
+        // Generate events for this minute
+        if (Math.random() < 0.05) {
+          if (Math.random() < homePossession) {
+            newStats.homeShots += Math.floor(Math.random() * 3) + 1;
+            newStats.homePasses += Math.floor(Math.random() * 15) + 5;
+
+            if (Math.random() < 0.15 * homeGoalChance) {
+              newStats.homeShotsOnTarget++;
+              if (Math.random() < 0.3) {
+                const scorer = homeTeam.squad[Math.floor(Math.random() * Math.min(11, homeTeam.squad.length))];
+                match.homeGoals++;
+                goalsScored = true;
+                newEvents.push({
+                  minute,
+                  type: 'goal',
+                  team: 'home',
+                  player: scorer?.name,
+                  description: `GOOOL! ${scorer?.name ?? homeTeam.name} marca!`,
+                });
+              } else {
+                newEvents.push({ minute, type: 'shot', team: 'home', description: 'Chute perigoso' });
+              }
+            }
+          } else {
+            newStats.awayShots += Math.floor(Math.random() * 3) + 1;
+            newStats.awayPasses += Math.floor(Math.random() * 15) + 5;
+
+            if (Math.random() < 0.15 * awayGoalChance) {
+              newStats.awayShotsOnTarget++;
+              if (Math.random() < 0.3) {
+                const scorer = awayTeam.squad[Math.floor(Math.random() * Math.min(11, awayTeam.squad.length))];
+                match.awayGoals++;
+                goalsScored = true;
+                newEvents.push({
+                  minute,
+                  type: 'goal',
+                  team: 'away',
+                  player: scorer?.name,
+                  description: `GOOOL! ${scorer?.name ?? awayTeam.name} marca!`,
+                });
+              } else {
+                newEvents.push({ minute, type: 'shot', team: 'away', description: 'Chute perigoso' });
+              }
+            }
+          }
+        }
+
+        if (Math.random() < 0.05) {
+          newEvents.push({
+            minute,
+            type: 'save',
+            team: Math.random() < 0.5 ? 'away' : 'home',
+            description: 'Grande defesa!',
+          });
+        }
+        if (Math.random() < 0.06) {
+          newEvents.push({
+            minute,
+            type: 'corner',
+            team: Math.random() < 0.5 ? 'home' : 'away',
+            description: 'Escanteio',
+          });
+        }
+        if (Math.random() < 0.04) {
+          newEvents.push({
+            minute,
+            type: 'foul',
+            team: Math.random() < 0.5 ? 'home' : 'away',
+            description: 'Falta',
+          });
+        }
+
+        // Update stats
+        const totalPossession = newStats.homePossession + newStats.awayPossession || 100;
+        const homePct = Math.round((newStats.homePossession / totalPossession) * 100);
+        newStats.homePossession = homePct;
+        newStats.awayPossession = 100 - homePct;
+
+        // Calculate xG
+        newStats.homeXG = Math.round((match.homeGoals + newStats.homeShotsOnTarget * 0.3) * 100) / 100;
+        newStats.awayXG = Math.round((match.awayGoals + newStats.awayShotsOnTarget * 0.3) * 100) / 100;
+
+        const updatedMatches = [...state.matches];
+        updatedMatches[matchIndex] = {
+          ...match,
+          liveMinute: minute,
+          liveEvents: newEvents,
+          liveStats: newStats,
+        };
+
+        set({ matches: updatedMatches });
+      },
+
+      applyMatchIntervention: (matchIndex: number, type: 'substitution' | 'shout') => {
+        const state = get();
+        const match = state.matches[matchIndex];
+        if (!match || !match.isLive || !state.selectedTeam) {
+          // Fallback to old behavior if match is not live
+          if (!match || match.completed) return;
+
+          const isHome = match.homeTeam === state.selectedTeam;
+          const boost = type === 'shout' ? 0.08 : 0.04;
+
+          const homeTeam = state.teams.find(t => t.id === match.homeTeam)!;
+          const awayTeam = state.teams.find(t => t.id === match.awayTeam)!;
+          const result = simulateMatchResult(
+            homeTeam,
+            awayTeam,
+            isHome ? boost : 0,
+            isHome ? 0 : boost,
+          );
+
+          const updatedMatches = [...state.matches];
+          updatedMatches[matchIndex] = {
+            ...match,
+            homeGoals: result.homeGoals,
+            awayGoals: result.awayGoals,
+            completed: true,
+            events: [
+              ...result.events,
+              {
+                minute: 45,
+                type: 'substitution',
+                team: isHome ? 'home' : 'away',
+                description: type === 'shout' ? 'Gritos à equipa!' : 'Substituição tática',
+              },
+            ],
+            stats: result.stats,
+          };
+
+          const updatedTeams = applyMatchResultToTeams(state.teams, match.homeTeam, match.awayTeam, result);
+
+          if (type === 'shout') {
+            const teamIdx = updatedTeams.findIndex(t => t.id === state.selectedTeam);
+            if (teamIdx !== -1) {
+              updatedTeams[teamIdx] = {
+                ...updatedTeams[teamIdx],
+                squad: updatedTeams[teamIdx].squad.map(p => ({
+                  ...p,
+                  morale: Math.min(100, p.morale + 3),
+                })),
+              };
+            }
+          }
+
+          set({ matches: updatedMatches, teams: updatedTeams });
+          return;
+        }
+
+        const isHome = match.homeTeam === state.selectedTeam;
+        const minute = match.liveMinute;
+        const boost = type === 'shout' ? 0.08 : 0.04;
+
+        // Apply live intervention to ongoing match
+        const updatedMatches = [...state.matches];
+        const interventionEvent: MatchEvent = {
+          minute: minute + 1,
+          type: 'substitution',
+          team: isHome ? 'home' : 'away',
+          description: type === 'shout' ? 'Gritos à equipa!' : 'Substituição tática',
+        };
+
+        // For substitution, simulate an extra shot/event
+        if (type === 'substitution') {
+          const team = isHome ? updatedMatches[matchIndex].homeTeam : updatedMatches[matchIndex].awayTeam;
+          const stats = { ...updatedMatches[matchIndex].liveStats };
+          if (isHome) {
+            stats.homeShots += 2;
+            stats.homeShotsOnTarget += 1;
+          } else {
+            stats.awayShots += 2;
+            stats.awayShotsOnTarget += 1;
+          }
+          updatedMatches[matchIndex] = {
+            ...updatedMatches[matchIndex],
+            liveMinute: Math.min(90, minute + 5),
+            liveEvents: [...updatedMatches[matchIndex].liveEvents, interventionEvent],
+            liveStats: stats,
+          };
+        } else {
+          // Shout boosts morale
+          const teamIdx = state.teams.findIndex(t => t.id === state.selectedTeam);
+          const updatedTeams = [...state.teams];
+          if (teamIdx !== -1) {
+            updatedTeams[teamIdx] = {
+              ...updatedTeams[teamIdx],
+              squad: updatedTeams[teamIdx].squad.map(p => ({
+                ...p,
+                morale: Math.min(100, p.morale + 3),
+              })),
+            };
+          }
+          updatedMatches[matchIndex] = {
+            ...updatedMatches[matchIndex],
+            liveMinute: Math.min(90, minute + 3),
+            liveEvents: [...updatedMatches[matchIndex].liveEvents, interventionEvent],
+          };
+          set({ matches: updatedMatches, teams: updatedTeams });
+          return;
+        }
+
+        set({ matches: updatedMatches });
+      },
+
       updatePlayerAttributes: (playerId: string, trainingType: string) => {
         const state = get();
         const teamIdx = state.teams.findIndex(t => t.squad.some(p => p.id === playerId));
         if (teamIdx === -1) return;
-        
+
         const team = { ...state.teams[teamIdx] };
         const playerIdx = team.squad.findIndex(p => p.id === playerId);
-        const player = team.squad[playerIdx];
-        
-        if (!player) return;
-        
-        team.squad[playerIdx] = updatePlayerAttributes(player, trainingType);
-        
-        set({ teams: [...state.teams] });
+        team.squad = [...team.squad];
+        team.squad[playerIdx] = updatePlayerAttributes(team.squad[playerIdx], trainingType);
+
+        const updatedTeams = [...state.teams];
+        updatedTeams[teamIdx] = team;
+        set({ teams: updatedTeams });
       },
-      
-      // Completar youth intake
+
+      setTrainingPlan: (plan: WeeklyTrainingPlan) => set({ trainingPlan: plan }),
+
+      applyWeeklyTraining: () => {
+        const state = get();
+        if (!state.selectedTeam || !state.trainingPlan) return;
+
+        const teamIdx = state.teams.findIndex(t => t.id === state.selectedTeam);
+        if (teamIdx === -1) return;
+
+        const team = { ...state.teams[teamIdx] };
+        const focus = state.trainingPlan.teamFocus;
+
+        team.squad = team.squad.map(p => {
+          if (p.injury?.active) return p;
+          return updatePlayerAttributes(p, focus === 'cohesion' ? 'cohesion' : focus === 'physical' ? 'physical' : 'technical');
+        });
+
+        const updatedTeams = [...state.teams];
+        updatedTeams[teamIdx] = team;
+        set({ teams: updatedTeams });
+      },
+
+      markAsRead: (messageId: string) => {
+        const state = get();
+        set({
+          inbox: state.inbox.map(m => (m.id === messageId ? { ...m, read: true } : m)),
+        });
+      },
+
+      removeMessage: (messageId: string) => {
+        set({ inbox: get().inbox.filter(m => m.id !== messageId) });
+      },
+
       completeYouthIntake: () => {
         const state = get();
-        const player = state.teams.find(t => t.id === state.selectedTeam);
-        if (!player) return;
-        
-        const youthPlayers = generateYouthIntake(player.youthFacilitiesLevel, 8);
+        const team = state.teams.find(t => t.id === state.selectedTeam);
+        if (!team) return;
+
+        const youthPlayers = generateYouthIntake(team.youthFacilitiesLevel, 8);
+        const newSquad = [...team.squad, ...youthPlayers];
         set({
-          teams: state.teams.map(t => t.id === state.selectedTeam ? { ...t, squad: [...t.squad, ...youthPlayers] } : t),
-          youthIntakeCompleted: true
+          teams: state.teams.map(t =>
+            t.id === state.selectedTeam
+              ? { ...t, squad: newSquad, wageBill: recalcWageBill({ ...t, squad: newSquad }) }
+              : t,
+          ),
+          youthIntakeCompleted: true,
         });
-      }
+      },
+
+      assignScout: () => {
+        const state = get();
+        if (!state.selectedTeam) return;
+
+        const userTeam = state.teams.find(t => t.id === state.selectedTeam)!;
+        const candidates = state.teams
+          .filter(t => t.id !== state.selectedTeam)
+          .flatMap(t => t.squad)
+          .filter(p => !state.scoutReports.some(r => r.playerId === p.id))
+          .slice(0, 3);
+
+        if (candidates.length === 0) return;
+
+        const newReports = candidates.map(generateScoutReport);
+        set({ scoutReports: [...state.scoutReports, ...newReports] });
+      },
+
+      buyPlayer: (playerId: string, sellerTeamId: string) => {
+        const state = get();
+        if (!state.selectedTeam) return false;
+
+        const buyerIdx = state.teams.findIndex(t => t.id === state.selectedTeam);
+        const sellerIdx = state.teams.findIndex(t => t.id === sellerTeamId);
+        if (buyerIdx === -1 || sellerIdx === -1) return false;
+
+        const buyer = { ...state.teams[buyerIdx] };
+        const seller = { ...state.teams[sellerIdx] };
+        const playerIdx = seller.squad.findIndex(p => p.id === playerId);
+        if (playerIdx === -1) return false;
+
+        const player = seller.squad[playerIdx];
+        const fee = player.marketValue;
+
+        if (buyer.budget < fee) return false;
+
+        buyer.budget -= fee;
+        buyer.squad = [...buyer.squad, { ...player, squadStatus: 'Rotation' }];
+        buyer.wageBill = recalcWageBill(buyer);
+        seller.squad = seller.squad.filter(p => p.id !== playerId);
+        seller.budget += fee * 0.8;
+        seller.wageBill = recalcWageBill(seller);
+
+        const updatedTeams = [...state.teams];
+        updatedTeams[buyerIdx] = buyer;
+        updatedTeams[sellerIdx] = seller;
+
+        set({
+          teams: updatedTeams,
+          scoutReports: state.scoutReports.filter(r => r.playerId !== playerId),
+        });
+        return true;
+      },
+
+      acceptIncomingTransfer: (playerId: string) => {
+        const state = get();
+        const offer = state.incomingTransfers.find(o => o.playerId === playerId);
+        if (!offer || !state.selectedTeam) return;
+
+        const teamIdx = state.teams.findIndex(t => t.id === state.selectedTeam);
+        if (teamIdx === -1) return;
+
+        const team = { ...state.teams[teamIdx] };
+        const playerIdx = team.squad.findIndex(p => p.id === playerId);
+        if (playerIdx === -1) return;
+
+        const player = team.squad[playerIdx];
+        team.budget += offer.offerPrice;
+        team.squad = team.squad.filter(p => p.id !== playerId);
+        team.wageBill = recalcWageBill(team);
+
+        const buyerIdx = state.teams.findIndex(t => t.id === offer.fromTeam);
+        const updatedTeams = [...state.teams];
+        updatedTeams[teamIdx] = team;
+
+        if (buyerIdx !== -1) {
+          const buyer = { ...state.teams[buyerIdx] };
+          buyer.squad = [...buyer.squad, player];
+          buyer.budget -= offer.offerPrice;
+          buyer.wageBill = recalcWageBill(buyer);
+          updatedTeams[buyerIdx] = buyer;
+        }
+
+        set({
+          teams: updatedTeams,
+          incomingTransfers: state.incomingTransfers.filter(o => o.playerId !== playerId),
+        });
+      },
+
+      rejectIncomingTransfer: (playerId: string) => {
+        set({ incomingTransfers: get().incomingTransfers.filter(o => o.playerId !== playerId) });
+      },
+
+      handleInboxAction: (messageId: string, actionLabel: string) => {
+        const state = get();
+        const message = state.inbox.find(m => m.id === messageId);
+        if (!message) return;
+
+        if (actionLabel === 'Marcar como Lido') {
+          get().markAsRead(messageId);
+          return;
+        }
+        if (actionLabel === 'Arquivar' || actionLabel === 'Ignorar' || actionLabel === 'Dispensar') {
+          get().removeMessage(messageId);
+          return;
+        }
+        if (actionLabel === 'Convocar' && message.type === 'youth') {
+          get().completeYouthIntake();
+          get().markAsRead(messageId);
+          return;
+        }
+        if (actionLabel === 'Aplicar' && message.type === 'suggestion') {
+          get().setTrainingPlan({
+            week: state.currentWeek,
+            teamFocus: 'physical',
+            sessions: [],
+          });
+          get().markAsRead(messageId);
+          return;
+        }
+        if (actionLabel === 'Marcar Treino' && message.type === 'injury') {
+          get().setTrainingPlan({
+            week: state.currentWeek,
+            teamFocus: 'cohesion',
+            sessions: [],
+          });
+          get().markAsRead(messageId);
+          return;
+        }
+
+        get().markAsRead(messageId);
+      },
     }),
     {
-      name: 'fm-game-storage-v2',
+      name: 'fm-game-storage-v3',
       storage: createJSONStorage(() => localStorage),
-    }
-  )
+    },
+  ),
 );

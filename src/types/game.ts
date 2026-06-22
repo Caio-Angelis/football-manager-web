@@ -193,6 +193,9 @@ export interface Team {
   
   // Promessas da diretoria
   boardPromises: { goal: string; deadline: number; fulfilled: boolean }[];
+  
+  // Configuração tática avançada
+  tacticsConfig: TeamTacticsConfig;
 }
 
 // ============================================================
@@ -229,6 +232,15 @@ export interface Match {
   awayGoals: number;
   date: string;
   completed: boolean;
+  // Live match tracking
+  isLive: boolean;
+  liveMinute: number; // 0-90
+  liveEvents: MatchEvent[];
+  liveStats: MatchStats;
+  // Substitution limits (5 per team)
+  homeSubstitutions: number;
+  awaySubstitutions: number;
+  // Previous events (from completed matches)
   events?: MatchEvent[];
   stats?: MatchStats;
 }
@@ -280,6 +292,51 @@ export interface InboxMessage {
 }
 
 // ============================================================
+// TÁTICAS E TÁTICAS INDIVIDUAIS
+// ============================================================
+
+export interface PlayerRole {
+  position: string; // 'GK', 'DEF', 'MID', 'FWD'
+  slotIndex: number; // índice na formação (0-10 para 4-4-2, 0-14 para 4-3-3, etc.)
+  role: string; // valor do role (ex: 'sweeperKeeper', 'wingBack', 'centralMidfielder')
+  duty: string; // 'attack', 'defend', 'balance'
+}
+
+export interface PlayerInstruction {
+  playerId: string;
+  // Instruções de posse
+  passMore: boolean;
+  passLess: boolean;
+  shootMore: boolean;
+  shootLess: boolean;
+  dribbMore: boolean;
+  dribbLess: boolean;
+  goGoal: boolean;
+  stayBack: boolean;
+  // Instruções de cruzamento
+  crossMore: boolean;
+  crossLess: boolean;
+  // Instruções de movimento
+  cutInside: boolean;
+  RunThrough: boolean;
+  // Instruções de jogo
+  playSlower: boolean;
+  playFaster: boolean;
+  throwInMore: boolean;
+  takeMoreRisks: boolean;
+  // Instruções de defesa
+  tackleMore: boolean;
+  tackleLess: boolean;
+  beMoreAggressive: boolean;
+  beFairer: boolean;
+}
+
+export interface TeamTacticsConfig {
+  playerRoles: PlayerRole[];
+  playerInstructions: PlayerInstruction[];
+}
+
+// ============================================================
 // TREINO
 // ============================================================
 
@@ -311,4 +368,27 @@ export interface GameState {
   inbox: InboxMessage[];
   trainingPlan: WeeklyTrainingPlan | null;
   youthIntakeCompleted: boolean;
+  scoutReports: ScoutReport[];
 }
+
+export interface GameActions {
+  initGame: () => void;
+  selectTeam: (teamId: string) => void;
+  simulateMatch: (matchIndex: number) => void;
+  advanceWeek: () => void;
+  markAsRead: (messageId: string) => void;
+  removeMessage: (messageId: string) => void;
+  updatePlayerAttributes: (playerId: string, trainingType: string) => void;
+  completeYouthIntake: () => void;
+  updateTeam: (teamId: string, updater: (team: Team) => Team) => void;
+  buyPlayer: (playerId: string, sellerTeamId: string) => boolean;
+  acceptIncomingTransfer: (playerId: string) => void;
+  rejectIncomingTransfer: (playerId: string) => void;
+  assignScout: () => void;
+  setTrainingPlan: (plan: WeeklyTrainingPlan) => void;
+  applyWeeklyTraining: () => void;
+  handleInboxAction: (messageId: string, actionLabel: string) => void;
+  applyMatchIntervention: (matchIndex: number, type: 'substitution' | 'shout') => void;
+}
+
+export type GameStore = GameState & GameActions;
