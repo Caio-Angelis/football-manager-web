@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "web-design-expert": {
+      "source": "erichowens/some_claude_skills",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/web-design-expert/SKILL.md",
+      "computedHash": "38702077d601a6b40fdd6adcf43d74f860880a2ac39842e7f9def7a8a46d04db"
+    }
+  }
+}
