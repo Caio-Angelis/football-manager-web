@@ -10,79 +10,64 @@ A filosofia central é **minimalismo funcional**:
 - Foco em gameplay de gestão de time, simulação de partidas e transferências
 - Performance otimizada para rodar em qualquer navegador moderno
 
-## 🎮 Funcionalidades Planeadas
+## 🎮 Funcionalidades Implementadas (Fase 1 — Expandida)
 
-### Fase 1 - MVP (Atual)
-- ✅ Seleção de time ao iniciar
-- ✅ Visualização de elenco com cards 2D
-- ✅ Simulação de partidas baseada em atributos
-- ✅ Classificação automática
-- ✅ Mercado de transferências básico
-- ✅ Configuração de táticas e formações
+### Core
+- ✅ Seleção de time com geração procedural (8 clubes: 4 Série A + 4 Série B)
+- ✅ Visualização de elenco com tabela e painel de detalhes
+- ✅ Simulação de partidas ao vivo (minuto a minuto) com intervenções
+- ✅ Classificação automática e calendário round-robin
+- ✅ Persistência em localStorage (Zustand persist)
 
-### Fase 2 - Expansão Planeada
+### Transferências
+- ✅ Mercado com scouting e nevoeiro de atributos
+- ✅ Ofertas recebidas, contra-ofertas e negociação
+- ✅ Parcelas, bónus por performance e acordos contratuais
+
+### Táticas e Treino
+- ✅ Formações com drag-and-drop, roles/duties e instruções coletivas (3 fases)
+- ✅ Plano de treino semanal com progressão de atributos visível
+- ✅ Prevenção de lesões e monitor de fadiga
+
+### Gestão
+- ✅ Caixa de entrada com ações funcionais (lesão, diretoria, financeiro, juventude)
+- ✅ Dinâmica de plantel: hierarquia, árvore social, promessas com countdown
+- ✅ Finanças com projeção e controle interativo de salários
+
+## 🎮 Funcionalidades Planeadas (Fase 2)
 
 #### 📊 Sistema de Liga Avançado
-- **Múltiplas divisões** - Campeonato com descenso/subida entre divisões
-- **Torneios paralelos** - Copa regional, campeonato estadual
-- **Escalação automática** - Sugestão de time titular baseada em forma
-- **Análise pós-jogo** - Estatísticas detalhadas por partida (chutes, posse, etc.)
+- **Múltiplas divisões** — descenso/subida entre divisões
+- **Torneios paralelos** — Copa regional, campeonato estadual
+- **Escalação automática** — sugestão de time titular baseada em forma
+- **Análise pós-jogo** — estatísticas detalhadas por partida
 
-#### 💰 Sistema de Transferências Completo
-- **Negociação dinâmica** - Sistema de ofertas e contra-ofertas
-- **Avaliação de mercado** - Previsão de valor baseada em idade, forma e atributos
-- **Scouting** - Relatórios sobre jogadores de outros times
-- **Contratos** - Renegociação, renovação e expiração de contratos
-- **Finanças** - Orçamento dinâmico baseado em resultados
-
-#### 🏋️ Sistema de Treinamento
-- **Progressão de atributos** - Melhoria dos jogadores via treinamento
-- **Sistemas de treino** - Foco em diferentes atributos (velocidade, chute, passe)
-- **Prevenção de lesões** - Gerenciamento de carga física
-- **Desenvolvimento de jovens** - Academia de jovens talentos
-
-#### 🎯 Sistema de Formação
-- **Campo visual 2D** - Representação visual dos jogadores no campo
-- **Interatividade** - Arrastar e soltar jogadores para mudar posições
-- **Sistema de roles** - Definição de papéis (líder, ponta, pivô)
-- **Análise de compatibilidade** - Sugestão automática de formações
-
-#### 📈 Progressão do Jogador
-- **Morale e Form dinâmicos** - Atributos que mudam baseado em resultados
-- **Experiência** - Melhoria com idade e tempo de jogo
-- **Especializações** - Trajets de desenvolvimento (jogador técnico, físico, líder)
-
-### Fase 3 - Expansão Future
-
-#### 🌍 Expansão de Conteúdo
-- **Base de dados expandida** - 1000+ jogadores, 500+ times
-- **Jogadores reais** - Dados reais com licenças
-- **Diferentes ligas** - Brasileiro, Europeu, Sul-Americano
-- **Histórico de jogadores** - Carreira completa de cada jogador
+#### 💰 Sistema de Transferências Avançado
+- **Avaliação de mercado** — previsão de valor dinâmica
+- **Renegociação de contratos** — renovação e expiração
 
 #### 🤖 Sistema de IA
-- **Treinador adversário** - Oponente com táticas variáveis
-- **Gerenciamento financeiro automático** - AI que gerencia outros times
-- **Sistema de scouting inteligente** - Sugestões baseadas em necessidades do time
+- **Treinador adversário** — oponente com táticas variáveis
+- **Gerenciamento financeiro automático** — AI que gerencia outros times
 
-#### 📱 Multiplataforma
-- **PWA (Progressive Web App)** - Instalável como app nativo
-- **Sincronização cloud** - Backup e restore via serviço cloud
-- **Modo offline** - Funcionalidade sem internet
+### Fase 3 — Expansão Future
+- Base de dados expandida (1000+ jogadores, 500+ times)
+- PWA instalável + sincronização cloud
+- Multiplayer
 
 ## 🎨 Filosofia de Design
 
 ### Interface 2D Minimalista
-- **Botões** - Toda interação através de botões simples
-- **Barras de atributo** - Stats representados como barras horizontais coloridas
-- **Cards** - Informações dos jogadores em cards visuais
-- **Tabelas** - Classificação e dados organizados em tabelas limpas
+- **Botões** — toda interação através de botões simples
+- **Barras de atributo** — stats representados como barras horizontais coloridas
+- **Cards** — informações dos jogadores em cards visuais
+- **Tabelas** — classificação e dados organizados em tabelas limpas
 
 ### Performance
-- **Sem Canvas/WebGL** - Renderização puramente HTML/CSS
-- **Componentes leves** - Sem dependências pesadas
-- **Estado local** - Tudo rodando no cliente
-- **Carregamento instantâneo** - Sem loading screens
+- **Sem Canvas/WebGL** — renderização puramente HTML/CSS
+- **Componentes leves** — sem dependências pesadas
+- **Estado local** — tudo rodando no cliente
+- **Build de produção** — ~373 KB JS gzip ~104 KB
 
 ## 🔧 Stack Tecnológica
 
@@ -91,10 +76,10 @@ A filosofia central é **minimalismo funcional**:
 | Build | Vite 6 |
 | Framework | React 19 |
 | Linguagem | TypeScript 5.6 |
-| State Management | Zustand 5 |
-| Styling | CSS puro com variáveis |
-| Dados | JSON estático |
-| Persistência | localStorage |
+| State Management | Zustand 5 (persist) |
+| Styling | CSS puro com variáveis (`--fm-*`) |
+| Dados | Geração procedural (`playerGenerator.ts`) |
+| Persistência | localStorage (`fm-game-storage-v3`) |
 
 ## 📐 Arquitetura
 
@@ -104,13 +89,13 @@ A filosofia central é **minimalismo funcional**:
 │  (React Components 2D)      │
 ├─────────────────────────────┤
 │       Game Engine           │
-│  (Simulação, Transferências) │
+│  (gameStore.ts ~2600 linhas) │
 ├─────────────────────────────┤
-│       Data Layer            │
-│  (JSON estáticos)           │
+│    Procedural Generator     │
+│  (playerGenerator.ts)       │
 ├─────────────────────────────┤
 │      Storage Layer          │
-│  (localStorage)             │
+│  (localStorage via Zustand)  │
 └─────────────────────────────┘
 ```
 
@@ -125,9 +110,9 @@ A filosofia central é **minimalismo funcional**:
 
 | Fase | Timeline | Conteúdo |
 |------|----------|----------|
-| MVP | ✅ Feito | 3 times, 18 jogadores, 4 formações |
-| Expansão | Planeado | 100+ times, 500+ jogadores, Copa |
-| Completo | Future | Multiplayer, IA avançada, dados reais |
+| MVP Expandido | ✅ ~92% | 8 times procedurais, 9 telas, live match, transferências completas |
+| Expansão | Planeado | 100+ times, copa, IA adversária |
+| Completo | Future | Multiplayer, PWA, dados reais |
 
 ## 📝 Licença
 
@@ -136,5 +121,5 @@ Este projeto é pessoal e educacional. O código é aberto para estudo e referê
 ---
 
 **Versão:** 0.1.0  
-**Status:** MVP Implementado  
+**Status:** Fase 1 Expandida (~92% da spec)  
 **Última atualização:** Junho 2026

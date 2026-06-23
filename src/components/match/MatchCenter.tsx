@@ -202,7 +202,7 @@ export const MatchCenter: React.FC = () => {
                       <Button onClick={() => {
                         generateLiveMatchMinute(index);
                         setLiveMatchWatching(null);
-                      }} style={{ marginLeft: 8 }}>
+                      }} className="fm-match-finish-btn">
                         Finalizar
                       </Button>
                     </div>

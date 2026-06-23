@@ -18,8 +18,38 @@ function getSatisfaction(player: Player) {
   return { playingTime, contract, morale, performance };
 }
 
+function getCoachTreatmentLabel(type: string): string {
+  const labels: Record<string, string> = {
+    starter: 'Titular',
+    substitute: 'Suplente',
+    bench: 'Banquilha',
+    training: 'Treino',
+    rest: 'Descanso',
+  };
+  return labels[type] || type;
+}
+
+function getFormRatingColor(rating: string): string {
+  const colors: Record<string, string> = {
+    excellent: '#22c32a',
+    good: '#66b634',
+    average: '#eab308',
+    poor: '#f59e0b',
+    terrible: '#ef4444',
+  };
+  return colors[rating] || '#eab308';
+}
+
+function getInfluenceColor(influence: number): string {
+  if (influence >= 80) return '#22c32a';
+  if (influence >= 60) return '#66b634';
+  if (influence >= 40) return '#eab308';
+  if (influence >= 20) return '#f59e0b';
+  return '#ef4444';
+}
+
 export const DynamicsView: React.FC = () => {
-  const { selectedTeam, teams } = useGameStore();
+  const { selectedTeam, teams, socialTree, generateSocialTree, getActivePromises } = useGameStore();
   const team = teams.find(t => t.id === selectedTeam);
 
   if (!team) {
@@ -39,7 +69,7 @@ export const DynamicsView: React.FC = () => {
     socialGroups[group].push(p);
   });
 
-  const playersWithPromises = team.squad.filter(p => p.promises.length > 0);
+  const activePromises = getActivePromises();
 
   return (
     <div className="fm-dynamics-view">
@@ -91,11 +121,14 @@ export const DynamicsView: React.FC = () => {
               <th>Moral</th>
               <th>Forma</th>
               <th>Status</th>
+              <th>Trat. Treinador</th>
+              <th>Confiança</th>
             </tr>
           </thead>
           <tbody>
             {team.squad.map((player) => {
               const s = getSatisfaction(player);
+              const ct = player.coachTreatment;
               return (
                 <tr key={player.id}>
                   <td>{player.name} {player.surname}</td>
@@ -108,11 +141,64 @@ export const DynamicsView: React.FC = () => {
                   <td>{s.morale}%</td>
                   <td>{s.performance}%</td>
                   <td>{player.squadStatus}</td>
+                  <td>{getCoachTreatmentLabel(ct.type)}</td>
+                  <td>
+                    <div className="fm-promise-bar">
+                      <div
+                        className="fm-promise-bar__fill"
+                        style={{
+                          width: `${ct.trustLevel}%`,
+                          backgroundColor: ct.trustLevel >= 70 ? '#22c32a' : ct.trustLevel >= 40 ? '#eab308' : '#ef4444',
+                        }}
+                      />
+                    </div>
+                  </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
+      </section>
+
+      <section className="fm-dynamics-view__section">
+        <h2>Performance do Clube na Tabela</h2>
+        <div className="fm-club-performance">
+          <div className="fm-club-performance__header">
+            <div className="fm-club-performance__stat">
+              <span className="fm-club-performance__label">Posição</span>
+              <span className="fm-club-performance__value">{team.leaguePosition}</span>
+            </div>
+            <div className="fm-club-performance__stat">
+              <span className="fm-club-performance__label">Forma</span>
+              <span
+                className="fm-club-performance__value"
+                style={{ color: getFormRatingColor(team.formRating) }}
+              >
+                {team.formRating === 'excellent' ? 'Excelente' :
+                 team.formRating === 'good' ? 'Boa' :
+                 team.formRating === 'average' ? 'Média' :
+                 team.formRating === 'poor' ? 'Fraca' :
+                 'Péssima'}
+              </span>
+            </div>
+          </div>
+          {team.leagueForm.length > 0 && (
+            <div className="fm-club-performance__form">
+              <span className="fm-club-performance__label">Últimos jogos:</span>
+              <div className="fm-club-performance__form-badges">
+                {team.leagueForm.map((result, i) => (
+                  <span
+                    key={i}
+                    className={`fm-form-badge fm-form-badge--${result.toLowerCase()}`}
+                    title={result === 'W' ? 'Vitória' : result === 'D' ? 'Empate' : 'Derrota'}
+                  >
+                    {result === 'W' ? 'V' : result === 'D' ? 'E' : 'D'}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </section>
 
       <section className="fm-dynamics-view__section">
@@ -137,26 +223,126 @@ export const DynamicsView: React.FC = () => {
       </section>
 
       <section className="fm-dynamics-view__section">
+        <h2>Árvore Social</h2>
+        <div className="fm-social-tree-actions">
+          <button
+            className="fm-social-tree__generate-btn"
+            onClick={generateSocialTree}
+            disabled={!!socialTree}
+          >
+            {socialTree ? 'Árvore já gerada (sem. ' + socialTree.generatedWeek + ')' : 'Gerar Árvore Social'}
+          </button>
+        </div>
+
+        {socialTree ? (
+          <div className="fm-social-tree-display">
+            {/* Root Node */}
+            <div className="fm-social-tree__root">
+              <div className="fm-social-tree__root-node">
+                <span className="fm-social-tree__root-label">Centralizador</span>
+                <div className="fm-social-tree__node-info">
+                  {socialTree.nodes.find(n => n.playerId === socialTree.rootNodeId)?.playerName || 'Desconhecido'}
+                </div>
+                <div className="fm-social-tree__node-influence">
+                  Influência: {socialTree.nodes.find(n => n.playerId === socialTree.rootNodeId)?.influence}%
+                </div>
+              </div>
+            </div>
+
+            {/* Nodes Grid */}
+            <div className="fm-social-tree__nodes">
+              {socialTree.nodes.map((node) => {
+                const isRoot = node.playerId === socialTree.rootNodeId;
+                return (
+                  <div
+                    key={node.playerId}
+                    className={`fm-social-tree__node${isRoot ? ' fm-social-tree__node--root' : ''}`}
+                    style={{
+                      borderLeft: isRoot ? '4px solid #22c32a' : 'none',
+                      paddingLeft: isRoot ? 8 : 4,
+                    }}
+                  >
+                    <div className="fm-social-tree__node-header">
+                      <span className="fm-social-tree__node-name">{node.playerName}</span>
+                      <span className="fm-social-tree__node-position">{node.position}</span>
+                    </div>
+                    <div className="fm-social-tree__node-stats">
+                      <div className="fm-social-tree__node-stat">
+                        <span className="fm-social-tree__node-stat-label">Influência:</span>
+                        <div className="fm-social-tree__node-stat-bar" style={{ background: getInfluenceColor(node.influence) }} />
+                        <span className="fm-social-tree__node-stat-value">{node.influence}%</span>
+                      </div>
+                      <div className="fm-social-tree__node-stat">
+                        <span className="fm-social-tree__node-stat-label">Profundidade:</span>
+                        <span className="fm-social-tree__node-stat-value">{node.depth ?? 0} níveis</span>
+                      </div>
+                    </div>
+                    <div className="fm-social-tree__node-connections">
+                      {node.connections.map(connId => {
+                        const connectedNode = socialTree.nodes.find(n => n.playerId === connId);
+                        return connectedNode ? (
+                          <span key={connId} className="fm-social-tree__connection">
+                            {connectedNode.playerName}
+                          </span>
+                        ) : null;
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Edge Legend */}
+            <div className="fm-social-tree__edges-legend">
+              <h3>Força de Conexões</h3>
+              <ul>
+                <li>
+                  <span className="fm-social-tree__edge-indicator fm-social-tree__edge-indicator--strong" />
+                  <span>Fortíssima (≥0.8)</span>
+                </li>
+                <li>
+                  <span className="fm-social-tree__edge-indicator fm-social-tree__edge-indicator--medium" />
+                  <span>Forte (0.6-0.8)</span>
+                </li>
+                <li>
+                  <span className="fm-social-tree__edge-indicator fm-social-tree__edge-indicator--weak" />
+                  <span>Moderada (0.4-0.6)</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        ) : (
+          <p className="fm-dynamics-view__note">
+            Clique em "Gerar Árvore Social" para visualizar a rede de influências do plantel.
+          </p>
+        )}
+      </section>
+
+      <section className="fm-dynamics-view__section">
         <h2>Promessas Ativas</h2>
-        {playersWithPromises.length === 0 ? (
+        {activePromises.length === 0 ? (
           <p className="fm-dynamics-view__note">Nenhuma promessa ativa no momento.</p>
         ) : (
           <div className="fm-promises-list">
-            {playersWithPromises.map((player) =>
-              player.promises.map((promise, i) => (
-                <div key={`${player.id}-${i}`} className="fm-promise-card">
-                  <span className="fm-promise-card__player">{player.name}</span>
-                  <span className="fm-promise-card__goal">{promise.goal}</span>
-                  <div className="fm-promise-bar">
-                    <div
-                      className="fm-promise-bar__fill"
-                      style={{ width: `${Math.max(0, 100 - promise.deadline * 5)}%` }}
-                    />
-                  </div>
-                  <span className="fm-promise-card__deadline">{promise.deadline} semanas restantes</span>
+            {activePromises.map(({ player, promise, weeksLeft }) => (
+              <div key={`${player.id}-${promise.goal}`} className="fm-promise-card">
+                <span className="fm-promise-card__player">{player.name}</span>
+                <span className="fm-promise-card__goal">{promise.goal}</span>
+                <div className="fm-promise-bar">
+                  <div
+                    className="fm-promise-bar__fill"
+                    style={{
+                      width: `${Math.max(0, Math.min(100, (weeksLeft / Math.max(promise.deadline + weeksLeft, 1)) * 100))}%`,
+                      backgroundColor: weeksLeft <= 2 ? '#ef4444' : weeksLeft <= 5 ? '#eab308' : '#22c32a',
+                    }}
+                  />
                 </div>
-              )),
-            )}
+                <span className="fm-promise-card__deadline">
+                  {weeksLeft} semana{weeksLeft !== 1 ? 's' : ''} restante{weeksLeft !== 1 ? 's' : ''}
+                  {weeksLeft <= 0 ? ' — prazo expirado' : ''}
+                </span>
+              </div>
+            ))}
           </div>
         )}
       </section>

@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "files": ["index.html"],
+  "insertBefore": "<script type=\"module\" src=\"/src/main.tsx\"></script>",
+  "commentSyntax": "html",
+  "framework": "vite",
+  "cspChecked": true
+}

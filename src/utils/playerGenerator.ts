@@ -1,7 +1,7 @@
 // Engine de Geração Procedural de Jogadores
 // Baseado na especificação Football Manager Web
 
-import type { Player, HiddenAttributes, Team, PlayerAttribute, GKAttributes, TeamTacticsConfig } from '../types/game';
+import type { Player, HiddenAttributes, Team, PlayerAttribute, GKAttributes, TeamTacticsConfig, InjuryHistory } from '../types/game';
 
 export function createDefaultTacticsConfig(): TeamTacticsConfig {
   return { playerRoles: [], playerInstructions: [] };
@@ -117,7 +117,9 @@ export function generatePlayer(options: {
   isYouth?: boolean;
 }): Player {
   const nationality = getRandomNationality(options.teamReputation);
-  const age = Math.floor(Math.random() * (options.ageRange?.[1] || 35 - (options.isYouth ? 15 : 0)) + (options.isYouth ? 15 : 18));
+  const minAge = options.ageRange?.[0] ?? (options.isYouth ? 15 : 18);
+  const maxAge = options.ageRange?.[1] ?? (options.isYouth ? 19 : 35);
+  const age = Math.floor(Math.random() * (maxAge - minAge + 1)) + minAge;
   const position = options.position || getRandomPosition();
   
   // Base de atributos baseada na reputação
@@ -238,6 +240,21 @@ export function generatePlayer(options: {
     teamMates: [],
     socialGroup: null,
     promises: [],
+    // Tratamento pelo treinador (11.4)
+    coachTreatment: {
+      type: 'bench',
+      minutesPerWeek: 0,
+      trustLevel: 50,
+      lastTrainingLoad: 50,
+    },
+    // Load management and injury prevention
+    consecutivePhysicalDays: 0,
+    cumulativeLoad: 0,
+    lastTrainingDay: 0,
+    recoveryNeeded: false,
+    injuryRisk: 0,
+    injuryHistory: [] as InjuryHistory[],
+    fatigueLog: [],
     fame: Math.min(100, overall * 0.8 + Math.random() * 20)
   };
 }
@@ -340,16 +357,26 @@ export function generateTeam(options: {
     workBallIntoBox: true,
     crossFromWide: true,
     takeMoreRisks: false,
+    afterLosingPossession: 'regroup',
+    afterGainingPossession: 'retainStructure',
+    engagementLine: 'medium',
+    defensiveLine: 'medium',
+    pressIntensity: 'medium',
+    tacklingStyle: 'contain',
+    trapOffside: false,
     highPress: false,
     counterPress: false,
     highLine: false,
     aggressiveTackling: false,
-    trapOffside: false,
     boardExpectation: reputation > 70 ? 'title' : reputation > 50 ? 'top4' : 'midtable',
     transferBudget: reputation * 3 + Math.random() * 100,
     staffLevel: Math.floor(reputation / 10),
     boardPromises: [],
     tacticsConfig: createDefaultTacticsConfig(),
+    // Performance na tabela de jogos (11.4)
+    leaguePosition: Math.floor(Math.random() * 20) + 1,
+    leagueForm: ['W', 'D', 'L', 'W', 'D'].slice(0, Math.floor(Math.random() * 3) + 1),
+    formRating: ['excellent', 'good', 'average', 'poor', 'terrible'][Math.floor(Math.random() * 5)] as Team['formRating'],
   };
 }
 

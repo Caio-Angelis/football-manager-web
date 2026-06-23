@@ -1,31 +1,35 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { useGameStore } from '../../store/gameStore';
-import { PlayerCard } from './PlayerCard';
-import type { Player } from '../../types/game';
+import { SquadTable } from './SquadTable';
+import { PlayerDetailPanel } from './PlayerDetailPanel';
 
 export const SquadView: React.FC = () => {
   const { selectedTeam, teams, currentWeek, currentSeason } = useGameStore();
   const team = teams.find(t => t.id === selectedTeam);
 
-  const groupByPosition = (players: Player[]) => {
-    return players.reduce((acc: Record<string, Player[]>, player) => {
-      const position = player.position;
-      if (!acc[position]) acc[position] = [];
-      acc[position].push(player);
-      return acc;
-    }, {});
-  };
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
 
   if (!team) {
     return <div className="fm-empty">Selecione um time para começar</div>;
   }
 
-  const grouped = groupByPosition(team.squad);
+  const handlePlayerSelect = useCallback((playerId: string) => {
+    setSelectedPlayerId(selectedPlayerId === playerId ? null : playerId);
+  }, [selectedPlayerId]);
+
+  const handleCloseDetail = useCallback(() => {
+    setSelectedPlayerId(null);
+  }, []);
+
+  const selectedPlayer = selectedPlayerId ? team.squad.find(p => p.id === selectedPlayerId) || null : null;
+
+  const pageWidth = typeof window !== 'undefined' ? window.innerWidth : 1024;
+  const isNarrow = pageWidth < 1024;
 
   return (
     <div className="fm-squad-view">
       <header className="fm-squad-view__header">
-        <h1>{team.name}</h1>
+        <h1>Elenco · {team.name}</h1>
         <div className="fm-squad-view__meta">
           <span>Formação: {team.formation}</span>
           <span>Tática: {team.tactic}</span>
@@ -43,18 +47,21 @@ export const SquadView: React.FC = () => {
         </div>
       </header>
 
-      <div className="fm-squad-view__positions">
-        {Object.entries(grouped).map(([position, players]) => (
-          <div key={position} className="fm-position-group">
-            <h2 className="fm-position-group__title">{position}</h2>
-            <div className="fm-position-group__cards">
-              {players.map((player) => (
-                <PlayerCard key={player.id} player={player} />
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
+      <SquadTable
+        players={team.squad}
+        selectedPlayerId={selectedPlayerId}
+        onPlayerSelect={handlePlayerSelect}
+      />
+
+      {selectedPlayerId && (isNarrow ? (
+        <div className="fm-player-detail-panel-overlay fm-player-detail-panel-overlay--mobile">
+          <PlayerDetailPanel player={selectedPlayer} onClose={handleCloseDetail} />
+        </div>
+      ) : (
+        <div className="fm-player-detail-panel-drawer">
+          <PlayerDetailPanel player={selectedPlayer} onClose={handleCloseDetail} />
+        </div>
+      ))}
     </div>
   );
 };

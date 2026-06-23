@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { useGameStore } from '../../store/gameStore';
-import type { PlayerRole, PlayerInstruction } from '../../types/game';
+import type { PlayerRole, PlayerInstruction, Team } from '../../types/game';
 
 // ============================================================
 // CONCEITOS DE TÁTICAS AVANÇADAS
@@ -16,7 +16,125 @@ const TEAM_MENTALITY_OPTIONS = [
   { value: 'very offensive', label: '🔥 Muito Ofensivo', description: 'Jogadores atacam' },
 ];
 
-const INSTRUCTION_PHASES = {
+const POSSESSION_OPTIONS = {
+  ATTACK_WIDTH: {
+    key: 'attackWidth',
+    label: 'Largura',
+    description: 'Defina a largura do jogo',
+    values: [
+      { value: 'narrow', label: '🔬 Estreito', description: 'Jogadores jogam mais perto uns dos outros' },
+      { value: 'balanced', label: '⚖️ Equilibrado', description: 'Sem alteração' },
+      { value: 'wide', label: '📐 Largo', description: 'Jogadores jogam mais perto das laterais' },
+    ],
+  },
+  PASSING_STYLE: {
+    key: 'passingStyle',
+    label: 'Estilo de Passe',
+    description: 'Defina o estilo de passe',
+    values: [
+      { value: 'short', label: '🔹 Curto', description: 'Jogadores passam mais' },
+      { value: 'mixed', label: '🔀 Misto', description: 'Sem alteração' },
+      { value: 'direct', label: '🎯 Direto', description: 'Jogadores passam mais para frente' },
+    ],
+  },
+  TEMPO: {
+    key: 'tempo',
+    label: 'Ritmo',
+    description: 'Defina o ritmo do jogo',
+    values: [
+      { value: 'slow', label: '🐢 Lento', description: 'Jogadores mantêm a posse' },
+      { value: 'balanced', label: '⚖️ Equilibrado', description: 'Sem alteração' },
+      { value: 'fast', label: '🚀 Rápido', description: 'Jogadores passam mais rápido' },
+    ],
+  },
+  USE_FLANK: {
+    key: 'useFlank',
+    label: 'Foco',
+    description: 'Defina onde focar o jogo',
+    values: [
+      { value: 'neither', label: '🚫 Nenhum', description: 'Sem alteração' },
+      { value: 'left', label: '⬅️ Esquerda', description: 'Jogadores jogam mais pela esquerda' },
+      { value: 'right', label: '➡️ Direita', description: 'Jogadores jogam mais pela direita' },
+    ],
+  },
+};
+
+const TRANSITION_OPTIONS = {
+  AFTER_LOSING: {
+    key: 'afterLosingPossession',
+    label: 'Após Perder a Posse',
+    description: 'Comportamento imediato ao perder a bola',
+    values: [
+      { value: 'counterPress', label: '⚡ Contra-Pressionar', description: 'Gegenpress — pressionar imediatamente após perder' },
+      { value: 'regroup', label: '🔙 Recuar / Reagrupar', description: 'Recuar e reorganizar o bloco defensivo' },
+    ],
+  },
+  AFTER_GAINING: {
+    key: 'afterGainingPossession',
+    label: 'Após Ganhar a Posse',
+    description: 'Comportamento ao recuperar a bola',
+    values: [
+      { value: 'counterAttack', label: '🚀 Contra-Atacar', description: 'Transição rápida para o ataque' },
+      { value: 'retainStructure', label: '🔒 Manter a Posse', description: 'Manter posse e estrutura ofensiva' },
+    ],
+  },
+};
+
+const NO_POSSESSION_OPTIONS = {
+  ENGAGEMENT_LINE: {
+    key: 'engagementLine',
+    label: 'Linha de Engajamento',
+    description: 'Onde o time inicia a pressão',
+    values: [
+      { value: 'high', label: '⬆️ Alta', description: 'Pressionar no terço defensivo adversário' },
+      { value: 'medium', label: '⚖️ Média', description: 'Pressão no meio-campo' },
+      { value: 'low', label: '⬇️ Baixa', description: 'Pressionar apenas próximo à área' },
+    ],
+  },
+  DEFENSIVE_LINE: {
+    key: 'defensiveLine',
+    label: 'Linha Defensiva',
+    description: 'Altura do bloco defensivo',
+    values: [
+      { value: 'high', label: '⬆️ Bloco Alto', description: 'Defesa avançada na quadra' },
+      { value: 'medium', label: '⚖️ Bloco Médio', description: 'Linha equilibrada' },
+      { value: 'low', label: '⬇️ Bloco Baixo', description: 'Defesa recuada e compacta' },
+    ],
+  },
+  PRESS_INTENSITY: {
+    key: 'pressIntensity',
+    label: 'Intensidade de Pressão',
+    description: 'Frequência de abordagens físicas',
+    values: [
+      { value: 'low', label: '🐢 Baixa', description: 'Pressão contida, preserva energia' },
+      { value: 'medium', label: '⚖️ Média', description: 'Pressão equilibrada' },
+      { value: 'high', label: '🔥 Alta', description: 'Pressão intensa e constante' },
+    ],
+  },
+  TACKLING: {
+    key: 'tacklingStyle',
+    label: 'Desarmes',
+    description: 'Abordagem ao desarmar o adversário',
+    values: [
+      { value: 'aggressive', label: '⚔️ Desarmes Agressivos', description: 'Entrar forte nos desarmes' },
+      { value: 'contain', label: '🛡️ Conter o Adversário', description: 'Fechar espaço sem arriscar falta' },
+    ],
+  },
+};
+
+type MultiValueInstruction = {
+  key: string;
+  label: string;
+  description: string;
+  values: { value: string; label: string; description: string }[];
+};
+
+const INSTRUCTION_PHASES: Record<string, {
+  label: string;
+  icon: string;
+  instructions: { key: string; label: string; description: string }[];
+  multiValueInstructions?: MultiValueInstruction[];
+}> = {
   POSSESSION: {
     label: 'Em Posse',
     icon: '⚽',
@@ -25,22 +143,33 @@ const INSTRUCTION_PHASES = {
       { key: 'crossFromWide', label: 'Centro das Laterais', description: 'Jogadores cruzam das laterais' },
       { key: 'takeMoreRisks', label: 'Mais Riscos', description: 'Jogadores assumem mais riscos' },
     ],
+    multiValueInstructions: [
+      POSSESSION_OPTIONS.ATTACK_WIDTH,
+      POSSESSION_OPTIONS.PASSING_STYLE,
+      POSSESSION_OPTIONS.TEMPO,
+      POSSESSION_OPTIONS.USE_FLANK,
+    ],
   },
   TRANSITION: {
     label: 'Em Transição',
     icon: '🔄',
-    instructions: [
-      { key: 'counterPress', label: 'Contra-Pressão', description: 'Pressionar imediatamente após perder bola' },
-      { key: 'highPress', label: 'Alta Pressão', description: 'Pressionar alto na quadra' },
+    instructions: [],
+    multiValueInstructions: [
+      TRANSITION_OPTIONS.AFTER_LOSING,
+      TRANSITION_OPTIONS.AFTER_GAINING,
     ],
   },
   NO_POSSESSION: {
     label: 'Sem Posse',
     icon: '🛡️',
     instructions: [
-      { key: 'highLine', label: 'Linha Alta', description: 'Defesa alta na quadra' },
-      { key: 'aggressiveTackling', label: 'Desarmes Aggressivos', description: 'Desarmes mais agressivos' },
-      { key: 'trapOffside', label: 'Armadula de Impasso', description: 'Tentar pegar adversários em impasso' },
+      { key: 'trapOffside', label: 'Armadilha de Impedimento', description: 'Tentar pegar adversários em impedimento' },
+    ],
+    multiValueInstructions: [
+      NO_POSSESSION_OPTIONS.ENGAGEMENT_LINE,
+      NO_POSSESSION_OPTIONS.DEFENSIVE_LINE,
+      NO_POSSESSION_OPTIONS.PRESS_INTENSITY,
+      NO_POSSESSION_OPTIONS.TACKLING,
     ],
   },
 };
@@ -278,6 +407,46 @@ const InstructionToggle: React.FC<{
 );
 
 // ============================================================
+// COMPONENTE: MultiValueInstructionSelector - Seletor de Valor Múltiplo
+// ============================================================
+
+const MultiValueInstructionSelector: React.FC<{
+  instruction: MultiValueInstruction;
+  currentValue: string;
+  onSelect: (key: string, value: string) => void;
+}> = ({ instruction, currentValue, onSelect }) => (
+  <div className="fm-multi-value-instruction">
+    <div className="fm-multi-value-instruction__header">
+      <span className="fm-multi-value-instruction__label">{instruction.label}</span>
+      <span className="fm-multi-value-instruction__description">{instruction.description}</span>
+    </div>
+    
+    <div className="fm-multi-value-instruction__selector">
+      <select
+        value={currentValue}
+        onChange={(e) => onSelect(instruction.key, e.target.value)}
+        className="fm-multi-value-instruction__dropdown"
+      >
+        {instruction.values.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </div>
+    
+    <div className="fm-multi-value-instruction__current">
+      <span className="fm-multi-value-instruction__current-value">
+        {instruction.values.find(v => v.value === currentValue)?.label || '—'}
+      </span>
+      <span className="fm-multi-value-instruction__current-description">
+        {instruction.values.find(v => v.value === currentValue)?.description || ''}
+      </span>
+    </div>
+  </div>
+);
+
+// ============================================================
 // COMPONENTE: PlayerRoleSelector - Seletor de Roles/Duties
 // ============================================================
 
@@ -393,210 +562,212 @@ const IndividualInstructions: React.FC<{
 };
 
 // ============================================================
+// HELPERS: valores de instruções coletivas (com fallback legado)
+// ============================================================
+
+function getCollectiveInstructionValue(team: Team, key: string, fallback: string): string {
+  const value = (team as unknown as Record<string, unknown>)[key];
+  if (typeof value === 'string' && value) return value;
+
+  switch (key) {
+    case 'afterLosingPossession':
+      return team.counterPress ? 'counterPress' : 'regroup';
+    case 'afterGainingPossession':
+      return 'retainStructure';
+    case 'engagementLine':
+    case 'defensiveLine':
+      return team.highLine ? 'high' : 'medium';
+    case 'pressIntensity':
+      return team.highPress ? 'high' : 'medium';
+    case 'tacklingStyle':
+      return team.aggressiveTackling ? 'aggressive' : 'contain';
+    default:
+      return fallback;
+  }
+}
+
+// ============================================================
 // COMPONENTE PRINCIPAL: TacticsView
 // ============================================================
 
 export const TacticsView: React.FC = () => {
-  const { selectedTeam, teams } = useGameStore();
+  const { selectedTeam, teams, updateTeam } = useGameStore();
   const team = teams.find(t => t.id === selectedTeam);
   const [selectedPhase, setSelectedPhase] = useState<'POSSESSION' | 'TRANSITION' | 'NO_POSSESSION'>('POSSESSION');
-  const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
 
   // Inicializar tacticsConfig se não existir
   if (team && !team.tacticsConfig) {
-    const updatedTeams = [...teams];
-    const idx = updatedTeams.findIndex(t => t.id === team.id);
-    updatedTeams[idx] = {
-      ...updatedTeams[idx],
+    updateTeam(team.id, (t) => ({
+      ...t,
       tacticsConfig: {
         playerRoles: [],
         playerInstructions: [],
       },
-    };
-    useGameStore.getState().teams = updatedTeams;
+    }));
   }
 
   const updateFormation = (formation: string) => {
     if (!team) return;
-    const newTeam = { ...team, formation };
-    const updatedTeams = [...teams];
-    const idx = updatedTeams.findIndex(t => t.id === team.id);
-    updatedTeams[idx] = newTeam;
-    useGameStore.getState().teams = updatedTeams;
+    updateTeam(team.id, (t) => ({ ...t, formation }));
   };
 
   const updateTactic = (tactic: string) => {
     if (!team) return;
-    const newTeam = { ...team, tactic };
-    const updatedTeams = [...teams];
-    const idx = updatedTeams.findIndex(t => t.id === team.id);
-    updatedTeams[idx] = newTeam;
-    useGameStore.getState().teams = updatedTeams;
+    updateTeam(team.id, (t) => ({ ...t, tactic }));
   };
 
   const updateMentality = (mentality: string) => {
     if (!team) return;
-    const newTeam = { ...team, teamMentality: mentality };
-    const updatedTeams = [...teams];
-    const idx = updatedTeams.findIndex(t => t.id === team.id);
-    updatedTeams[idx] = newTeam;
-    useGameStore.getState().teams = updatedTeams;
+    updateTeam(team.id, (t) => ({ ...t, teamMentality: mentality }));
   };
 
   const updateInstruction = (tacticKey: string) => {
     if (!team) return;
-    const newTeam = { ...team };
-    (newTeam as any)[tacticKey] = !(team as any)[tacticKey];
-    const updatedTeams = [...teams];
-    const idx = updatedTeams.findIndex(t => t.id === team.id);
-    updatedTeams[idx] = newTeam;
-    useGameStore.getState().teams = updatedTeams;
+    updateTeam(team.id, (t) => {
+      const updated = { ...t };
+      (updated as any)[tacticKey] = !(t as any)[tacticKey];
+      return updated;
+    });
+  };
+
+  // Atualizar instruções coletivas de valor múltiplo (8.5)
+  const updateCollectiveOption = (optionKey: string, value: string) => {
+    if (!team) return;
+    updateTeam(team.id, (t) => {
+      const newTeam = { ...t, [optionKey]: value };
+
+      // Sincronizar campos legados para saves antigos e motor de jogo
+      if (optionKey === 'afterLosingPossession') {
+        newTeam.counterPress = value === 'counterPress';
+      } else if (optionKey === 'pressIntensity') {
+        newTeam.highPress = value === 'high';
+      } else if (optionKey === 'engagementLine' || optionKey === 'defensiveLine') {
+        newTeam.highLine = newTeam.engagementLine === 'high' || newTeam.defensiveLine === 'high';
+      } else if (optionKey === 'tacklingStyle') {
+        newTeam.aggressiveTackling = value === 'aggressive';
+      }
+
+      return newTeam;
+    });
   };
 
   // Atualizar posição do jogador no campo (drag-and-drop)
   const updatePlayerPosition = (playerId: string, slotIndex: number) => {
     if (!team || !team.tacticsConfig) return;
     
-    const updatedTeams = [...teams];
-    const idx = updatedTeams.findIndex(t => t.id === team.id);
-    const teamData = { ...updatedTeams[idx] };
-    
-    // Verificar se já existe um PlayerRole para este jogador
-    const existingRoleIndex = teamData.tacticsConfig.playerRoles.findIndex(r => {
-      const player = teamData.squad.find(p => p.id === playerId);
-      return player && teamData.tacticsConfig.playerRoles.find(pr => pr.slotIndex === slotIndex && pr.role === player.id);
-    });
-    
-    // Buscar jogador
     const player = team.squad.find(p => p.id === playerId);
-    const playerRoleIndex = teamData.tacticsConfig.playerRoles.findIndex(r => {
-      const p = teamData.squad.find(sp => sp.id === playerId);
-      return p && teamData.tacticsConfig.playerRoles.find(pr => pr.role === r.role && pr.slotIndex === r.slotIndex);
-    });
+    if (!player) return;
+    
+    const existingRoleIndex = team.tacticsConfig.playerRoles.findIndex(r => r.position === player.position);
+    const playerRoleIndex = team.tacticsConfig.playerRoles.findIndex(r => r.position === player.position);
     
     const newRole: PlayerRole = {
-      position: player?.position || 'MID',
+      position: player.position,
       slotIndex,
-      role: teamData.tacticsConfig.playerRoles[playerRoleIndex]?.role || '',
-      duty: teamData.tacticsConfig.playerRoles[playerRoleIndex]?.duty || 'balance',
+      role: team.tacticsConfig.playerRoles[playerRoleIndex]?.role || '',
+      duty: team.tacticsConfig.playerRoles[playerRoleIndex]?.duty || 'balance',
     };
     
-    if (existingRoleIndex !== -1) {
-      teamData.tacticsConfig.playerRoles[existingRoleIndex] = newRole;
-    } else {
-      teamData.tacticsConfig.playerRoles.push(newRole);
-    }
-    
-    updatedTeams[idx] = teamData;
-    useGameStore.getState().teams = updatedTeams;
+    updateTeam(team.id, (t) => {
+      const updated = { ...t };
+      if (existingRoleIndex !== -1) {
+        updated.tacticsConfig.playerRoles[existingRoleIndex] = newRole;
+      } else {
+        updated.tacticsConfig.playerRoles.push(newRole);
+      }
+      return updated;
+    });
   };
 
   // Atualizar Role do jogador
   const updatePlayerRole = (playerId: string, role: string) => {
     if (!team || !team.tacticsConfig) return;
-    
-    const updatedTeams = [...teams];
-    const idx = updatedTeams.findIndex(t => t.id === team.id);
-    const teamData = { ...updatedTeams[idx] };
-    
-    // Encontrar o PlayerRole existente para este jogador
     const player = team.squad.find(p => p.id === playerId);
     if (!player) return;
     
-    const existingRoleIndex = teamData.tacticsConfig.playerRoles.findIndex(r => r.position === player.position);
+    const existingRoleIndex = team.tacticsConfig.playerRoles.findIndex(r => r.position === player.position);
     
-    if (existingRoleIndex !== -1) {
-      // Atualizar role existente
-      teamData.tacticsConfig.playerRoles[existingRoleIndex] = {
-        ...teamData.tacticsConfig.playerRoles[existingRoleIndex],
-        role,
-      };
-    } else {
-      // Criar novo role
-      const newRole: PlayerRole = {
-        position: player.position,
-        slotIndex: 0,
-        role,
-        duty: 'balance',
-      };
-      teamData.tacticsConfig.playerRoles.push(newRole);
-    }
-    
-    updatedTeams[idx] = teamData;
-    useGameStore.getState().teams = updatedTeams;
+    updateTeam(team.id, (t) => {
+      const updated = { ...t };
+      if (existingRoleIndex !== -1) {
+        updated.tacticsConfig.playerRoles[existingRoleIndex] = {
+          ...updated.tacticsConfig.playerRoles[existingRoleIndex],
+          role,
+        };
+      } else {
+        const newRole: PlayerRole = {
+          position: player.position,
+          slotIndex: 0,
+          role,
+          duty: 'balance',
+        };
+        updated.tacticsConfig.playerRoles.push(newRole);
+      }
+      return updated;
+    });
   };
 
   // Atualizar Duty do jogador
   const updatePlayerDuty = (playerId: string, duty: string) => {
     if (!team || !team.tacticsConfig) return;
-    
-    const updatedTeams = [...teams];
-    const idx = updatedTeams.findIndex(t => t.id === team.id);
-    const teamData = { ...updatedTeams[idx] };
-    
-    // Encontrar o PlayerRole existente para este jogador
     const player = team.squad.find(p => p.id === playerId);
     if (!player) return;
     
-    const existingRoleIndex = teamData.tacticsConfig.playerRoles.findIndex(r => r.position === player.position);
+    const existingRoleIndex = team.tacticsConfig.playerRoles.findIndex(r => r.position === player.position);
     
-    if (existingRoleIndex !== -1) {
-      teamData.tacticsConfig.playerRoles[existingRoleIndex] = {
-        ...teamData.tacticsConfig.playerRoles[existingRoleIndex],
-        duty,
-      };
-    }
-    
-    updatedTeams[idx] = teamData;
-    useGameStore.getState().teams = updatedTeams;
+    updateTeam(team.id, (t) => {
+      const updated = { ...t };
+      if (existingRoleIndex !== -1) {
+        updated.tacticsConfig.playerRoles[existingRoleIndex] = {
+          ...updated.tacticsConfig.playerRoles[existingRoleIndex],
+          duty,
+        };
+      }
+      return updated;
+    });
   };
 
   // Atualizar instrução individual do jogador
   const updatePlayerInstruction = (playerId: string, instructionKey: string, value: boolean) => {
     if (!team || !team.tacticsConfig) return;
     
-    const updatedTeams = [...teams];
-    const idx = updatedTeams.findIndex(t => t.id === team.id);
-    const teamData = { ...updatedTeams[idx] };
-    
-    const existingInstructionIndex = teamData.tacticsConfig.playerInstructions.findIndex(i => i.playerId === playerId);
-    
-    if (existingInstructionIndex !== -1) {
-      // Atualizar instrução existente - preservar todas as propriedades
-      const existingInstruction = { ...teamData.tacticsConfig.playerInstructions[existingInstructionIndex] };
-      (existingInstruction as any)[instructionKey] = value;
-      teamData.tacticsConfig.playerInstructions[existingInstructionIndex] = existingInstruction;
-    } else {
-      // Criar nova instrução - inicializar TODAS as propriedades
-      const newInstruction: PlayerInstruction = {
-        playerId,
-        passMore: false,
-        passLess: false,
-        shootMore: false,
-        shootLess: false,
-        dribbMore: false,
-        dribbLess: false,
-        goGoal: false,
-        stayBack: false,
-        crossMore: false,
-        crossLess: false,
-        cutInside: false,
-        RunThrough: false,
-        playSlower: false,
-        playFaster: false,
-        throwInMore: false,
-        takeMoreRisks: false,
-        tackleMore: false,
-        tackleLess: false,
-        beMoreAggressive: false,
-        beFairer: false,
-      };
-      (newInstruction as any)[instructionKey] = value;
-      teamData.tacticsConfig.playerInstructions.push(newInstruction);
-    }
-    
-    updatedTeams[idx] = teamData;
-    useGameStore.getState().teams = updatedTeams;
+    updateTeam(team.id, (t) => {
+      const updated = { ...t };
+      const existingInstructionIndex = updated.tacticsConfig.playerInstructions.findIndex(i => i.playerId === playerId);
+      
+      if (existingInstructionIndex !== -1) {
+        const existingInstruction = { ...updated.tacticsConfig.playerInstructions[existingInstructionIndex] };
+        (existingInstruction as any)[instructionKey] = value;
+        updated.tacticsConfig.playerInstructions[existingInstructionIndex] = existingInstruction;
+      } else {
+        const newInstruction: PlayerInstruction = {
+          playerId,
+          passMore: false,
+          passLess: false,
+          shootMore: false,
+          shootLess: false,
+          dribbMore: false,
+          dribbLess: false,
+          goGoal: false,
+          stayBack: false,
+          crossMore: false,
+          crossLess: false,
+          cutInside: false,
+          RunThrough: false,
+          playSlower: false,
+          playFaster: false,
+          throwInMore: false,
+          takeMoreRisks: false,
+          tackleMore: false,
+          tackleLess: false,
+          beMoreAggressive: false,
+          beFairer: false,
+        };
+        (newInstruction as any)[instructionKey] = value;
+        updated.tacticsConfig.playerInstructions.push(newInstruction);
+      }
+      return updated;
+    });
   };
 
   // Obter instruções atuais do jogador
@@ -613,9 +784,6 @@ export const TacticsView: React.FC = () => {
     const playerRole = team.tacticsConfig.playerRoles.find(r => r.position === player.position);
     return playerRole ? { role: playerRole.role, duty: playerRole.duty } : null;
   };
-
-  // Obter jogador selecionado
-  const selectedPlayerData = selectedPlayer ? team?.squad.find(p => p.id === selectedPlayer) : null;
 
   // Mapear jogadores para seus slots atuais
   const getPlayerPositionMap = (): Record<string, number> => {
@@ -685,12 +853,30 @@ export const TacticsView: React.FC = () => {
             {INSTRUCTION_PHASES[selectedPhase].instructions.map((instruction) => (
               <InstructionToggle
                 key={instruction.key}
+                instructionKey={instruction.key}
                 label={instruction.label}
                 description={instruction.description}
-                selected={(team as any)[instruction.key] as boolean}
+                selected={Boolean((team as unknown as Record<string, boolean>)[instruction.key])}
                 onSelect={() => updateInstruction(instruction.key)}
               />
             ))}
+
+            {INSTRUCTION_PHASES[selectedPhase].multiValueInstructions && (
+              <div className="fm-tactics-view__multi-value-instructions">
+                {INSTRUCTION_PHASES[selectedPhase].multiValueInstructions!.map((instruction) => (
+                  <MultiValueInstructionSelector
+                    key={instruction.key}
+                    instruction={instruction}
+                    currentValue={getCollectiveInstructionValue(
+                      team,
+                      instruction.key,
+                      instruction.values[Math.floor(instruction.values.length / 2)].value,
+                    )}
+                    onSelect={(_key, value) => updateCollectiveOption(instruction.key, value)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

@@ -7,6 +7,9 @@ const TRAINING_TYPES = [
   { id: 'physical', label: 'Físico', desc: 'Velocidade e resistência (+risco de lesão)', icon: '🏃' },
   { id: 'technical', label: 'Técnico', desc: 'Passe, técnica e finalização', icon: '⚽' },
   { id: 'cohesion', label: 'Coesão', desc: 'Moral e espírito de equipa', icon: '🤝' },
+  { id: 'medical', label: 'Médico', desc: 'Recuperação de lesões', icon: '🏥' },
+  { id: 'recovery', label: 'Recuperação', desc: 'Restauração física', icon: '💆' },
+  { id: 'light', label: 'Leve', desc: 'Aquecimento e mobilidade', icon: '🧘' },
 ];
 
 const DAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
@@ -23,9 +26,12 @@ function createEmptySession(day: number): TrainingSession {
 }
 
 export const TrainingView: React.FC = () => {
-  const { selectedTeam, teams, currentWeek, trainingPlan, setTrainingPlan, applyWeeklyTraining } = useGameStore();
+  const { selectedTeam, teams, currentWeek, trainingPlan, setTrainingPlan, applyWeeklyTraining, calculateInjuryRisk, schedulePreventionSession, getInjuryRiskSummary, applyPreventionSession, captureWeeklyAttributeSnapshot } = useGameStore();
   const team = teams.find(t => t.id === selectedTeam);
   const [teamFocus, setTeamFocus] = useState(trainingPlan?.teamFocus ?? 'technical');
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [showInjuryRisk, setShowInjuryRisk] = useState(false);
+  const [showProgression, setShowProgression] = useState(true);
 
   if (!team) {
     return <div className="fm-empty">Selecione um time para configurar treinos</div>;
@@ -50,6 +56,22 @@ export const TrainingView: React.FC = () => {
     };
     setTrainingPlan(plan);
   };
+
+  const getRiskColor = (risk: number) => {
+    if (risk >= 80) return '#F44336'; // critical - red
+    if (risk >= 60) return '#FF9800'; // high - orange
+    if (risk >= 30) return '#FFC107'; // moderate - yellow
+    return '#4CAF50'; // low - green
+  };
+
+  const getRiskLabel = (risk: number) => {
+    if (risk >= 80) return 'Crítico';
+    if (risk >= 60) return 'Alto';
+    if (risk >= 30) return 'Moderado';
+    return 'Baixo';
+  };
+
+  const riskSummary = showInjuryRisk ? getInjuryRiskSummary() : null;
 
   return (
     <div className="fm-training-view">
@@ -76,8 +98,61 @@ export const TrainingView: React.FC = () => {
         <div className="fm-training-view__actions">
           <Button onClick={savePlan}>Salvar Plano</Button>
           <Button variant="success" onClick={applyWeeklyTraining}>Aplicar Treino Agora</Button>
+          <Button variant="secondary" onClick={() => setShowInjuryRisk(!showInjuryRisk)}>
+            {showInjuryRisk ? 'Ocultar' : 'Mostrar'} Risco de Lesões
+          </Button>
         </div>
       </section>
+
+      {showInjuryRisk && riskSummary && (
+        <section className="fm-training-view__section fm-injury-risk-section">
+          <h2>🚨 Resumo de Risco de Lesões</h2>
+          <div className="fm-injury-risk-grid">
+            <div className="fm-injury-risk-category fm-injury-risk--critical">
+              <h3>⚠️ Crítico ({riskSummary.critical.length})</h3>
+              <ul>
+                {riskSummary.critical.map(p => (
+                  <li key={p.id} className="fm-injury-risk-item">
+                    {p.name} — Risco: {calculateInjuryRisk(p.id)}%
+                    <br />
+                    <small>Carregamento: {p.cumulativeLoad} | Dias consecutivos: {p.consecutivePhysicalDays}</small>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="fm-injury-risk-category fm-injury-risk--high">
+              <h3>🟠 Alto ({riskSummary.high.length})</h3>
+              <ul>
+                {riskSummary.high.map(p => (
+                  <li key={p.id}>
+                    {p.name} — Risco: {calculateInjuryRisk(p.id)}%
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="fm-injury-risk-category fm-injury-risk--moderate">
+              <h3>🟡 Moderado ({riskSummary.moderate.length})</h3>
+              <ul>
+                {riskSummary.moderate.map(p => (
+                  <li key={p.id}>
+                    {p.name} — Risco: {calculateInjuryRisk(p.id)}%
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="fm-injury-risk-category fm-injury-risk--low">
+              <h3>🟢 Baixo ({riskSummary.low.length})</h3>
+              <ul>
+                {riskSummary.low.map(p => (
+                  <li key={p.id}>
+                    {p.name} — Risco: {calculateInjuryRisk(p.id)}%
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="fm-training-view__section">
         <h2>Calendário Semanal</h2>
@@ -106,26 +181,311 @@ export const TrainingView: React.FC = () => {
       </section>
 
       <section className="fm-training-view__section">
-        <h2>Monitor de Fadiga</h2>
+        <h2>Monitor de Fadiga e Risco</h2>
         <div className="fm-fatigue-grid">
-          {team.squad.map((player) => (
-            <div key={player.id} className="fm-fatigue-card">
-              <span className="fm-fatigue-card__name">{player.name}</span>
-              <div className="fm-fatigue-card__bar">
-                <div
-                  className="fm-fatigue-card__fill"
-                  style={{
-                    width: `${player.fitness}%`,
-                    backgroundColor: player.fitness >= 70 ? '#4CAF50' : player.fitness >= 40 ? '#FFC107' : '#F44336',
-                  }}
-                />
+          {team.squad.map((player) => {
+            const risk = calculateInjuryRisk(player.id);
+            return (
+              <div key={player.id} className="fm-fatigue-card">
+                <span className="fm-fatigue-card__name">{player.name}</span>
+                <div className="fm-fatigue-card__bar">
+                  <div
+                    className="fm-fatigue-card__fill"
+                    style={{
+                      width: `${player.fitness}%`,
+                      backgroundColor: player.fitness >= 70 ? '#4CAF50' : player.fitness >= 40 ? '#FFC107' : '#F44336',
+                    }}
+                  />
+                </div>
+                <span className="fm-fatigue-card__value">{player.fitness}%</span>
+                {player.injury?.active && (
+                  <span className="fm-fatigue-card__injury">🏥 {player.injury.days}d</span>
+                )}
+                <div className="fm-fatigue-card__risk">
+                  <span style={{ color: getRiskColor(risk) }}>
+                    ⚠️ Risco: {risk}% ({getRiskLabel(risk)})
+                  </span>
+                </div>
+                <div className="fm-fatigue-card__actions">
+                  {player.injury?.active && (
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setSelectedPlayerId(player.id === selectedPlayerId ? null : player.id);
+                      }}
+                    >
+                      {selectedPlayerId === player.id ? 'Cancelar' : 'Recuperar'}
+                    </Button>
+                  )}
+                </div>
               </div>
-              <span className="fm-fatigue-card__value">{player.fitness}%</span>
-              {player.injury?.active && (
-                <span className="fm-fatigue-card__injury">🏥 {player.injury.days}d</span>
-              )}
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="fm-training-view__section">
+        <div className="fm-training-view__section-header">
+          <h2>Progressão de Atributos</h2>
+          <button
+            className="fm-training-view__toggle-btn"
+            onClick={() => {
+              setShowProgression(!showProgression);
+              captureWeeklyAttributeSnapshot();
+            }}
+          >
+            {showProgression ? 'Ocultar' : 'Mostrar'}
+          </button>
+        </div>
+        {!showProgression && (
+          <div className="fm-attribute-progression">
+            <p className="fm-attribute-progression__hint">
+              Monitore o desenvolvimento dos jogadores ao longo das semanas.
+              Treinos consistentes melhoram atributos técnicos e físicos.
+            </p>
+            <div className="fm-attribute-progression-grid">
+              {team?.squad.slice(0, 15).map((player) => (
+                <div key={player.id} className="fm-attribute-progression-card">
+                  <div className="fm-attribute-progression-card__header">
+                    <span className="fm-attribute-progression-card__name">{player.name}</span>
+                    <span className="fm-attribute-progression-card__position">{player.position}</span>
+                  </div>
+                  <div className="fm-attribute-progression-card__body">
+                    <div className="fm-attribute-progression-bar-row">
+                      <span className="fm-attribute-progression-bar-label">Técnica</span>
+                      <div className="fm-attribute-progression-bar">
+                        <div
+                          className="fm-attribute-progression-bar-fill fm-attribute-progression-bar-fill--technical"
+                          style={{ width: `${((player.technical?.technique || 8) / 20) * 100}%` }}
+                        />
+                      </div>
+                      <span className="fm-attribute-progression-bar-value">{player.technical?.technique || 8}</span>
+                    </div>
+                    <div className="fm-attribute-progression-bar-row">
+                      <span className="fm-attribute-progression-bar-label">Passe</span>
+                      <div className="fm-attribute-progression-bar">
+                        <div
+                          className="fm-attribute-progression-bar-fill fm-attribute-progression-bar-fill--technical"
+                          style={{ width: `${((player.technical?.passing || 8) / 20) * 100}%` }}
+                        />
+                      </div>
+                      <span className="fm-attribute-progression-bar-value">{player.technical?.passing || 8}</span>
+                    </div>
+                    <div className="fm-attribute-progression-bar-row">
+                      <span className="fm-attribute-progression-bar-label">Finalização</span>
+                      <div className="fm-attribute-progression-bar">
+                        <div
+                          className="fm-attribute-progression-bar-fill fm-attribute-progression-bar-fill--technical"
+                          style={{ width: `${((player.technical?.finishing || 8) / 20) * 100}%` }}
+                        />
+                      </div>
+                      <span className="fm-attribute-progression-bar-value">{player.technical?.finishing || 8}</span>
+                    </div>
+                    <div className="fm-attribute-progression-bar-row">
+                      <span className="fm-attribute-progression-bar-label">Resistência</span>
+                      <div className="fm-attribute-progression-bar">
+                        <div
+                          className="fm-attribute-progression-bar-fill fm-attribute-progression-bar-fill--physical"
+                          style={{ width: `${((player.physical?.stamina || 8) / 20) * 100}%` }}
+                        />
+                      </div>
+                      <span className="fm-attribute-progression-bar-value">{player.physical?.stamina || 8}</span>
+                    </div>
+                    <div className="fm-attribute-progression-bar-row">
+                      <span className="fm-attribute-progression-bar-label">Velocidade</span>
+                      <div className="fm-attribute-progression-bar">
+                        <div
+                          className="fm-attribute-progression-bar-fill fm-attribute-progression-bar-fill--physical"
+                          style={{ width: `${((player.physical?.speed || 8) / 20) * 100}%` }}
+                        />
+                      </div>
+                      <span className="fm-attribute-progression-bar-value">{player.physical?.speed || 8}</span>
+                    </div>
+                    <div className="fm-attribute-progression-stats">
+                      <span className="fm-attribute-progression-stats__item">
+                        CA: <strong>{player.currentAbility}</strong>
+                      </span>
+                      <span className="fm-attribute-progression-stats__item">
+                        PA: <strong>{player.potentialAbility}</strong>
+                      </span>
+                      <span className="fm-attribute-progression-stats__item">
+                        Fitness: <strong>{player.fitness}%</strong>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
+        )}
+        {showProgression && (
+          <div className="fm-attribute-progression">
+            <div className="fm-attribute-progression__toolbar">
+              <button
+                className="fm-attribute-progression__capture-btn"
+                onClick={() => captureWeeklyAttributeSnapshot()}
+              >
+                📷 Capturar Snapshot Semanal
+              </button>
+              <p className="fm-attribute-progression__hint">
+                Visualize as mudanças nos atributos dos jogadores ao longo das semanas.
+              </p>
+            </div>
+            <div className="fm-attribute-progression-grid">
+              {team?.squad.slice(0, 15).map((player) => {
+                const latestSnapshot = player.attributeHistory?.[player.attributeHistory.length - 1];
+                const prevSnapshot = player.attributeHistory?.[player.attributeHistory.length - 2];
+                const historyLength = player.attributeHistory?.length ?? 0;
+                const hasHistory = historyLength >= 2;
+
+                return (
+                  <div key={player.id} className="fm-attribute-progression-card">
+                    <div className="fm-attribute-progression-card__header">
+                      <span className="fm-attribute-progression-card__name">{player.name}</span>
+                      <span className="fm-attribute-progression-card__position">{player.position}</span>
+                      {hasHistory && (
+                        <span className="fm-attribute-progression-card__weeks">
+                          {historyLength - 1} semanas
+                        </span>
+                      )}
+                    </div>
+                    <div className="fm-attribute-progression-card__body">
+                      {hasHistory && latestSnapshot && prevSnapshot ? (
+                        <div className="fm-attribute-progression-deltas">
+                          <div className="fm-attribute-progression-delta-row">
+                            <span className="fm-attribute-progression-delta-label">Técnica</span>
+                            <div className="fm-attribute-progression-delta-values">
+                              <span className="fm-attribute-progression-delta-old">
+                                {latestSnapshot.technical.technique || 8}
+                              </span>
+                              <span className="fm-attribute-progression-delta-arrow">→</span>
+                              <span className="fm-attribute-progression-delta-new">
+                                {prevSnapshot.technical.technique || 8}
+                              </span>
+                              <span className={`fm-attribute-progression-delta-change ${((prevSnapshot.technical.technique || 8) - (latestSnapshot.technical.technique || 8)) >= 0 ? 'positive' : 'negative'}`}>
+                                {((prevSnapshot.technical.technique || 8) - (latestSnapshot.technical.technique || 8)) >= 0 ? '+' : ''}
+                                {((prevSnapshot.technical.technique || 8) - (latestSnapshot.technical.technique || 8))}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="fm-attribute-progression-delta-row">
+                            <span className="fm-attribute-progression-delta-label">Passe</span>
+                            <div className="fm-attribute-progression-delta-values">
+                              <span className="fm-attribute-progression-delta-old">
+                                {latestSnapshot.technical.passing || 8}
+                              </span>
+                              <span className="fm-attribute-progression-delta-arrow">→</span>
+                              <span className="fm-attribute-progression-delta-new">
+                                {prevSnapshot.technical.passing || 8}
+                              </span>
+                              <span className={`fm-attribute-progression-delta-change ${((prevSnapshot.technical.passing || 8) - (latestSnapshot.technical.passing || 8)) >= 0 ? 'positive' : 'negative'}`}>
+                                {((prevSnapshot.technical.passing || 8) - (latestSnapshot.technical.passing || 8)) >= 0 ? '+' : ''}
+                                {((prevSnapshot.technical.passing || 8) - (latestSnapshot.technical.passing || 8))}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="fm-attribute-progression-delta-row">
+                            <span className="fm-attribute-progression-delta-label">CA</span>
+                            <div className="fm-attribute-progression-delta-values">
+                              <span className="fm-attribute-progression-delta-old">
+                                {latestSnapshot.currentAbility}
+                              </span>
+                              <span className="fm-attribute-progression-delta-arrow">→</span>
+                              <span className="fm-attribute-progression-delta-new">
+                                {prevSnapshot.currentAbility}
+                              </span>
+                              <span className={`fm-attribute-progression-delta-change ${(prevSnapshot.currentAbility - latestSnapshot.currentAbility) >= 0 ? 'positive' : 'negative'}`}>
+                                {(prevSnapshot.currentAbility - latestSnapshot.currentAbility) >= 0 ? '+' : ''}
+                                {(prevSnapshot.currentAbility - latestSnapshot.currentAbility)}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="fm-attribute-progression-delta-row">
+                            <span className="fm-attribute-progression-delta-label">Fitness</span>
+                            <div className="fm-attribute-progression-delta-values">
+                              <span className="fm-attribute-progression-delta-old">
+                                {latestSnapshot.fitness}%
+                              </span>
+                              <span className="fm-attribute-progression-delta-arrow">→</span>
+                              <span className="fm-attribute-progression-delta-new">
+                                {prevSnapshot.fitness}%
+                              </span>
+                              <span className={`fm-attribute-progression-delta-change ${(prevSnapshot.fitness - latestSnapshot.fitness) >= 0 ? 'positive' : 'negative'}`}>
+                                {(prevSnapshot.fitness - latestSnapshot.fitness) >= 0 ? '+' : ''}
+                                {Math.round(prevSnapshot.fitness - latestSnapshot.fitness)}%
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="fm-attribute-progression-no-history">
+                          <p>
+                            {!hasHistory
+                              ? 'Nenhum snapshot capturado ainda. Capture um snapshot para começar a monitorar a progressão.'
+                              : 'Apenas um snapshot disponível. Capture mais para comparar.'}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="fm-training-view__section">
+        <h2>Sessões de Prevenção</h2>
+        <div className="fm-prevention-section">
+          <p>Agendar sessão para reduzir risco de lesões:</p>
+          <div className="fm-prevention-buttons">
+            <Button
+              variant="secondary"
+              onClick={() => {
+              const session = {
+                type: 'medical' as const,
+                targetPlayerIds: team.squad.filter(p => calculateInjuryRisk(p.id) >= 60).map(p => p.id),
+                effectiveness: 50,
+                day: 0,
+              };
+              schedulePreventionSession(session);
+              applyPreventionSession();
+            }}
+            >
+              🏥 Sessão Médica (Jogadores Críticos)
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+              const session = {
+                type: 'recovery' as const,
+                targetPlayerIds: team.squad.filter(p => p.fitness < 50 || p.recoveryNeeded).map(p => p.id),
+                effectiveness: 70,
+                day: 0,
+              };
+              schedulePreventionSession(session);
+              applyPreventionSession();
+            }}
+            >
+              💆 Sessão de Recuperação (Fitness Baixo)
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+              const session = {
+                type: 'light' as const,
+                targetPlayerIds: team.squad.filter(p => p.consecutivePhysicalDays >= 3).map(p => p.id),
+                effectiveness: 40,
+                day: 0,
+              };
+              schedulePreventionSession(session);
+              applyPreventionSession();
+            }}
+            >
+              🧘 Treino Leve (Carga Alta)
+            </Button>
+          </div>
         </div>
       </section>
     </div>

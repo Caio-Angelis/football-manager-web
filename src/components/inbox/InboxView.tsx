@@ -1,7 +1,19 @@
 import React from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { Button } from '../ui/Button';
-import type { InboxMessage } from '../../types/game';
+import type { InboxMessage, InjuryReport, BoardReply, FinancialReport } from '../../types/game';
+
+// ============================================================
+// CATEGORIAS DE RESPOSTA DA DIRETORIA (Item 9.8.3)
+// ============================================================
+
+export const BOARD_REPLY_CATEGORIES: { id: BoardReply['category']; label: string }[] = [
+  { id: 'general', label: 'Geral' },
+  { id: 'budget', label: 'Orçamento' },
+  { id: 'transfer', label: 'Transferências' },
+  { id: 'expectation', label: 'Expectativas' },
+  { id: 'performance', label: 'Desempenho' },
+];
 
 // ============================================================
 // TIPOS DE MENSAGENS E BOTÕES DE AÇÃO
@@ -255,15 +267,310 @@ export const MessageDetailModal: React.FC<MessageDetailModalProps> = ({
 };
 
 // ============================================================
+// COMPONENTE: MODAL DE RELATÓRIO DE LESÃO (Item 9.8.2)
+// ============================================================
+
+interface InjuryReportModalProps {
+  report: InjuryReport | null;
+  onClose: () => void;
+}
+
+const SEVERITY_LABELS: Record<string, string> = {
+  minor: 'Leve',
+  moderate: 'Moderada',
+  severe: 'Grave',
+};
+
+const SEVERITY_COLORS: Record<string, string> = {
+  minor: '#4caf50',
+  moderate: '#ff9800',
+  severe: '#d93025',
+};
+
+const INJURY_TYPE_LABELS: Record<string, string> = {
+  muscle: 'Lesão Muscular',
+  ligament: 'Lesão Ligamentar',
+  joint: 'Lesão Articular',
+  ankle: 'Entorse do Tornozelo',
+  knee: 'Lesão do Joelho',
+  groin: 'Lesão de Adutores (Virilha)',
+};
+
+export const InjuryReportModal: React.FC<InjuryReportModalProps> = ({ report, onClose }) => {
+  if (!report) return null;
+
+  return (
+    <div className="fm-modal-overlay" onClick={onClose}>
+      <div className="fm-modal fm-modal--large" onClick={(e) => e.stopPropagation()}>
+        <div className="fm-modal__header">
+          <div className="fm-modal__title-area">
+            <span className="fm-modal__icon">🏥</span>
+            <h2 className="fm-modal__title">Relatório Médico - Lesão</h2>
+          </div>
+          <button className="fm-modal__close" onClick={onClose}>×</button>
+        </div>
+
+        <div className="fm-modal__meta">
+          <span className="fm-modal__player-name">
+            <strong>Jogador:</strong> {report.playerName}
+          </span>
+          <span className="fm-modal__position">
+            <strong>Posição:</strong> {report.position}
+          </span>
+          <span className="fm-modal__severity">
+            <strong>Gravidade:</strong>{' '}
+            <span style={{ color: SEVERITY_COLORS[report.severity] }}>
+              {SEVERITY_LABELS[report.severity]}
+            </span>
+          </span>
+        </div>
+
+        <div className="fm-modal__body">
+          <div className="fm-injury-report">
+            <div className="fm-injury-report__section">
+              <h3 className="fm-injury-report__section-title">Detalhes da Lesão</h3>
+              <div className="fm-injury-report__grid">
+                <div className="fm-injury-report__field">
+                  <span className="fm-injury-report__label">Tipo:</span>
+                  <span className="fm-injury-report__value">
+                    {INJURY_TYPE_LABELS[report.injuryType] || report.injuryType}
+                  </span>
+                </div>
+                <div className="fm-injury-report__field">
+                  <span className="fm-injury-report__label">Afastamento:</span>
+                  <span className="fm-injury-report__value">{report.daysOut} dias</span>
+                </div>
+                <div className="fm-injury-report__field">
+                  <span className="fm-injury-report__label">Recuperação:</span>
+                  <span className="fm-injury-report__value">{report.recoveryProgress}%</span>
+                </div>
+                <div className="fm-injury-report__field">
+                  <span className="fm-injury-report__label">Propensão:</span>
+                  <span className="fm-injury-report__value">{report.injuryProneness}/10</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="fm-injury-report__section">
+              <h3 className="fm-injury-report__section-title">Tratamento Recomendado</h3>
+              <p className="fm-injury-report__text">{report.treatment}</p>
+            </div>
+
+            <div className="fm-injury-report__section">
+              <h3 className="fm-injury-report__section-title">Prognóstico</h3>
+              <p className="fm-injury-report__text">{report.prognosis}</p>
+            </div>
+
+            <div className="fm-injury-report__progress-bar">
+              <div className="fm-injury-report__progress-track">
+                <div
+                  className="fm-injury-report__progress-fill"
+                  style={{ width: `${report.recoveryProgress}%` }}
+                />
+              </div>
+              <span className="fm-injury-report__progress-label">
+                Progresso da Recuperação: {report.recoveryProgress}%
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="fm-modal__footer">
+          <button className="fm-modal__close-btn" onClick={onClose}>
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// COMPONENTE: MODAL DE RELATÓRIO FINANCEIRO (Item 9.8.4)
+// ============================================================
+
+interface FinancialReportModalProps {
+  report: FinancialReport | null;
+  onClose: () => void;
+}
+
+const PROFIT_COLORS: Record<string, string> = {
+  positive: '#4caf50',
+  negative: '#d93025',
+  neutral: '#ff9800',
+};
+
+export const FinancialReportModal: React.FC<FinancialReportModalProps> = ({ report, onClose }) => {
+  if (!report) return null;
+
+  const profitStatus = report.profit > 0 ? 'positive' : report.profit < 0 ? 'negative' : 'neutral';
+
+  const formatCurrency = (value: number) => {
+    const isMillions = Math.abs(value) >= 1;
+    const displayValue = isMillions ? value : value * 1000;
+    return `R$ ${displayValue.toFixed(2)}M`;
+  };
+
+  return (
+    <div className="fm-modal-overlay" onClick={onClose}>
+      <div className="fm-modal fm-modal--large" onClick={(e) => e.stopPropagation()}>
+        <div className="fm-modal__header">
+          <div className="fm-modal__title-area">
+            <span className="fm-modal__icon">📊</span>
+            <h2 className="fm-modal__title">Relatório Financeiro</h2>
+          </div>
+          <button className="fm-modal__close" onClick={onClose}>×</button>
+        </div>
+
+        <div className="fm-modal__meta">
+          <span className="fm-modal__team-name">
+            <strong>Clube:</strong> {report.teamName}
+          </span>
+          <span className="fm-modal__season-week">
+            <strong>Temporada:</strong> {report.season} | <strong>Semana:</strong> {report.week}
+          </span>
+          <span className="fm-modal__currency">
+            Moeda: {report.currency}
+          </span>
+        </div>
+
+        <div className="fm-modal__body">
+          <div className="fm-financial-report">
+            {/* Resumo Financeiro */}
+            <div className="fm-financial-report__section">
+              <h3 className="fm-financial-report__section-title">Resumo Financeiro</h3>
+              <div className="fm-financial-report__grid">
+                <div className="fm-financial-report__field">
+                  <span className="fm-financial-report__label">Orçamento:</span>
+                  <span className="fm-financial-report__value">{formatCurrency(report.budget)}</span>
+                </div>
+                <div className="fm-financial-report__field">
+                  <span className="fm-financial-report__label">Folha Salarial:</span>
+                  <span className="fm-financial-report__value">{formatCurrency(report.wageBill)}</span>
+                </div>
+                <div className="fm-financial-report__field">
+                  <span className="fm-financial-report__label">Lucro:</span>
+                  <span className="fm-financial-report__value" style={{ color: PROFIT_COLORS[profitStatus] }}>
+                    {profitStatus === 'positive' ? '+' : ''}{formatCurrency(report.profit)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Receitas */}
+            <div className="fm-financial-report__section">
+              <h3 className="fm-financial-report__section-title">Receitas</h3>
+              <div className="fm-financial-report__grid">
+                <div className="fm-financial-report__field">
+                  <span className="fm-financial-report__label">Bilheteria:</span>
+                  <span className="fm-financial-report__value">{formatCurrency(report.ticketRevenue)}</span>
+                </div>
+                <div className="fm-financial-report__field">
+                  <span className="fm-financial-report__label">Patrocínio:</span>
+                  <span className="fm-financial-report__value">{formatCurrency(report.sponsorshipRevenue)}</span>
+                </div>
+                <div className="fm-financial-report__field fm-financial-report__field--total">
+                  <span className="fm-financial-report__label"><strong>Total:</strong></span>
+                  <span className="fm-financial-report__value"><strong>{formatCurrency(report.totalIncome)}</strong></span>
+                </div>
+              </div>
+            </div>
+
+            {/* Despesas */}
+            <div className="fm-financial-report__section">
+              <h3 className="fm-financial-report__section-title">Despesas</h3>
+              <div className="fm-financial-report__grid">
+                <div className="fm-financial-report__field">
+                  <span className="fm-financial-report__label">Salários:</span>
+                  <span className="fm-financial-report__value">{formatCurrency(report.wageBill)}</span>
+                </div>
+                <div className="fm-financial-report__field">
+                  <span className="fm-financial-report__label">Outras:</span>
+                  <span className="fm-financial-report__value">
+                    {formatCurrency(report.totalExpenses - report.wageBill * 0.01)}
+                  </span>
+                </div>
+                <div className="fm-financial-report__field fm-financial-report__field--total">
+                  <span className="fm-financial-report__label"><strong>Total:</strong></span>
+                  <span className="fm-financial-report__value"><strong>{formatCurrency(report.totalExpenses)}</strong></span>
+                </div>
+              </div>
+            </div>
+
+            {/* Transferências */}
+            <div className="fm-financial-report__section">
+              <h3 className="fm-financial-report__section-title">Transferências</h3>
+              <div className="fm-financial-report__grid">
+                <div className="fm-financial-report__field">
+                  <span className="fm-financial-report__label">Gastos:</span>
+                  <span className="fm-financial-report__value">{formatCurrency(report.transferSpending)}</span>
+                </div>
+                <div className="fm-financial-report__field">
+                  <span className="fm-financial-report__label">Recebidos:</span>
+                  <span className="fm-financial-report__value">{formatCurrency(report.transferIncome)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Prazo */}
+            <div className="fm-financial-report__section">
+              <h3 className="fm-financial-report__section-title">Informações do Período</h3>
+              <div className="fm-financial-report__grid">
+                <div className="fm-financial-report__field">
+                  <span className="fm-financial-report__label">Dias até Deadline:</span>
+                  <span className="fm-financial-report__value">{report.daysUntilDeadline} dias</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Barra de status do lucro */}
+            <div className="fm-financial-report__profit-bar">
+              <div className="fm-financial-report__profit-track">
+                <div
+                  className="fm-financial-report__profit-fill"
+                  style={{
+                    width: `${Math.min(100, Math.max(0, 50 + report.profit * 200))}%`,
+                    backgroundColor: PROFIT_COLORS[profitStatus],
+                  }}
+                />
+              </div>
+              <span className="fm-financial-report__profit-label">
+                Status Financeiro: {profitStatus === 'positive' ? 'Lucrativo' : profitStatus === 'negative' ? 'Prejuízo' : 'Equilibrado'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="fm-modal__footer">
+          <button className="fm-modal__close-btn" onClick={onClose}>
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
 // COMPONENTE: INBOX VIEW PRINCIPAL
 // ============================================================
 
 export const InboxView: React.FC = () => {
-  const { inbox, selectedTeam, teams, handleInboxAction } = useGameStore();
+  const { inbox, selectedTeam, teams, handleInboxAction, getInjuryReport, handleBoardReply, boardSatisfaction, getFinancialReport } = useGameStore();
   const [activeFilter, setActiveFilter] = React.useState<string>('all');
   const [activePriority, setActivePriority] = React.useState<string>('all');
   const [selectedMessage, setSelectedMessage] = React.useState<InboxMessage | null>(null);
   const [actionFeedback, setActionFeedback] = React.useState<string | null>(null);
+  const [injuryReport, setInjuryReport] = React.useState<InjuryReport | null>(null);
+  const [showInjuryReport, setShowInjuryReport] = React.useState(false);
+  // Item 9.8.3 - Diretoria: Responder
+  const [showBoardReply, setShowBoardReply] = React.useState(false);
+  const [boardReplyMessage, setBoardReplyMessage] = React.useState<InboxMessage | null>(null);
+  const [replyText, setReplyText] = React.useState('');
+  const [replyCategory, setReplyCategory] = React.useState<BoardReply['category']>('general');
+  // Item 9.8.4 - Financeiro: Ver Relatório
+  const [showFinancialReport, setShowFinancialReport] = React.useState(false);
+  const [financialReport, setFinancialReport] = React.useState<FinancialReport | null>(null);
 
   const userTeam = teams.find(t => t.id === selectedTeam);
 
@@ -287,12 +594,50 @@ export const InboxView: React.FC = () => {
     setSelectedMessage(null);
   };
 
-  // Lidar com ação do botão - implementa ações reais
+  // Lidar com ação do botão - delega para o store
   const handleActionClick = (action: ActionButton, message?: InboxMessage) => {
     if (!message) return;
+
+    // Item 9.8.2 - Lesão: Ver Relatório - abre modal de relatório
+    if (action.label === 'Ver Relatório' && message.type === 'injury' && message.relatedPlayerId) {
+      const report = getInjuryReport(message.relatedPlayerId);
+      if (report) {
+        setInjuryReport(report);
+        setShowInjuryReport(true);
+      }
+    }
+
+    // Item 9.8.3 - Diretoria: Responder - abre modal de resposta
+    if (action.label === 'Responder' && message.type === 'board') {
+      setBoardReplyMessage(message);
+      setShowBoardReply(true);
+      setReplyText('');
+      return;
+    }
+
+    // Item 9.8.4 - Financeiro: Ver Relatório - abre modal de relatório financeiro
+    if (action.label === 'Ver Relatório' && message.type === 'financial') {
+      const report = getFinancialReport();
+      if (report) {
+        setFinancialReport(report);
+        setShowFinancialReport(true);
+      }
+    }
+
     handleInboxAction(message.id, action.label);
     setActionFeedback(`Ação: ${action.label} executada!`);
     setTimeout(() => setActionFeedback(null), 3000);
+  };
+
+  // Item 9.8.3 - Enviar resposta da diretoria
+  const handleBoardReplySubmit = () => {
+    if (!boardReplyMessage || !replyText.trim()) return;
+    handleBoardReply(boardReplyMessage.id, replyText.trim(), replyCategory);
+    setActionFeedback(`Resposta à diretoria enviada (categoria: ${BOARD_REPLY_CATEGORIES.find(c => c.id === replyCategory)?.label})`);
+    setTimeout(() => setActionFeedback(null), 4000);
+    setShowBoardReply(false);
+    setBoardReplyMessage(null);
+    setReplyText('');
   };
 
   return (
@@ -399,6 +744,122 @@ export const InboxView: React.FC = () => {
         onClose={handleCloseDetail}
         onActionClick={handleActionClick}
       />
+
+      {/* Modal de relatório de lesão (Item 9.8.2) */}
+      {showInjuryReport && injuryReport && (
+        <InjuryReportModal
+          report={injuryReport}
+          onClose={() => {
+            setShowInjuryReport(false);
+            setInjuryReport(null);
+          }}
+        />
+      )}
+
+      {/* Modal de relatório financeiro (Item 9.8.4) */}
+      {showFinancialReport && financialReport && (
+        <FinancialReportModal
+          report={financialReport}
+          onClose={() => {
+            setShowFinancialReport(false);
+            setFinancialReport(null);
+          }}
+        />
+      )}
+
+      {/* Modal de resposta à diretoria (Item 9.8.3) */}
+      {showBoardReply && boardReplyMessage && (
+        <div className="fm-modal-overlay" onClick={() => setShowBoardReply(false)}>
+          <div className="fm-modal fm-modal--large" onClick={(e) => e.stopPropagation()}>
+            <div className="fm-modal__header">
+              <div className="fm-modal__title-area">
+                <span className="fm-modal__icon">👔</span>
+                <h2 className="fm-modal__title">Responder à Diretoria</h2>
+              </div>
+              <button className="fm-modal__close" onClick={() => setShowBoardReply(false)}>×</button>
+            </div>
+
+            <div className="fm-modal__meta">
+              <span className="fm-modal__subject-line">
+                <strong>Assunto original:</strong> {boardReplyMessage.subject}
+              </span>
+              <span className="fm-modal__priority">
+                Prioridade: {boardReplyMessage.priority === 'high' ? 'ALTA' : boardReplyMessage.priority === 'medium' ? 'MÉDIA' : 'BAIXA'}
+              </span>
+            </div>
+
+            <div className="fm-modal__body">
+              <div className="fm-board-reply">
+                <div className="fm-board-reply__original">
+                  <h3 className="fm-board-reply__section-title">Mensagem da Diretoria</h3>
+                  <p className="fm-board-reply__text">{boardReplyMessage.body}</p>
+                </div>
+
+                <div className="fm-board-reply__reply-section">
+                  <h3 className="fm-board-reply__section-title">Sua Resposta</h3>
+
+                  <label className="fm-board-reply__label">
+                    <strong>Categoria da resposta:</strong>
+                    <select
+                      className="fm-board-reply__select"
+                      value={replyCategory}
+                      onChange={(e) => setReplyCategory(e.target.value as BoardReply['category'])}
+                    >
+                      {BOARD_REPLY_CATEGORIES.map((cat) => (
+                        <option key={cat.id} value={cat.id}>{cat.label}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <textarea
+                    className="fm-board-reply__textarea"
+                    placeholder="Escreva sua resposta aqui..."
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    rows={8}
+                    maxLength={500}
+                  />
+                  <div className="fm-board-reply__char-count">
+                    {replyText.length}/500 caracteres
+                  </div>
+                </div>
+
+                <div className="fm-board-reply__satisfaction-preview">
+                  <h3 className="fm-board-reply__section-title">Satisfação Atual da Diretoria</h3>
+                  <div className="fm-board-reply__satisfaction-bar">
+                    <div
+                      className="fm-board-reply__satisfaction-fill"
+                      style={{
+                        width: `${Math.max(0, Math.min(100, boardSatisfaction + 100))}%`,
+                        backgroundColor: boardSatisfaction >= 50 ? '#4caf50' : boardSatisfaction >= 0 ? '#ff9800' : '#d93025',
+                      }}
+                    />
+                  </div>
+                  <span className="fm-board-reply__satisfaction-value">
+                    {boardSatisfaction >= 50 ? 'Positivo' : boardSatisfaction >= 0 ? 'Neutro' : 'Negativo'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="fm-modal__footer">
+              <button
+                className="fm-modal__close-btn"
+                onClick={() => setShowBoardReply(false)}
+              >
+                Cancelar
+              </button>
+              <Button
+                variant="primary"
+                onClick={handleBoardReplySubmit}
+                disabled={!replyText.trim()}
+              >
+                Enviar Resposta
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
