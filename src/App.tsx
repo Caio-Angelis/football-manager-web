@@ -1,21 +1,26 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useGameStore } from './store/gameStore';
 import { TeamSelection } from './components/TeamSelection';
 import { SquadView } from './components/squad/SquadView';
 import { MatchCenter } from './components/match/MatchCenter';
-import { TransferMarket } from './components/transfer/TransferMarket';
 import { TacticsView } from './components/tactics/TacticsView';
 import { InboxView } from './components/inbox/InboxView';
 import { TrainingView } from './components/training/TrainingView';
 import { DynamicsView } from './components/dynamics/DynamicsView';
 import { FinanceView } from './components/finance/FinanceView';
+import { LeagueTable } from './components/league/LeagueTable';
 import { Button } from './components/ui/Button';
 import { SaveSlot } from './components/saves/SaveSlot';
+import { ToastContainer } from './components/ui/Toast';
+import { ThemeToggle } from './components/ui/ThemeToggle';
+import type { ToastData } from './components/ui/Toast';
+import { TransferMarket as TransferMarketComponent } from './components/transfer/TransferMarket';
 import type { SaveSlotMetadata } from './types/game';
 
 const NAV_ITEMS = [
   { id: 'squad', label: 'Elenco', icon: '👥' },
   { id: 'match', label: 'Partidas', icon: '⚽' },
+  { id: 'league', label: 'Classificação', icon: '📊' },
   { id: 'transfer', label: 'Transferências', icon: '🔄' },
   { id: 'tactics', label: 'Táticas', icon: '📋' },
   { id: 'training', label: 'Treino', icon: '🏋️' },
@@ -29,30 +34,52 @@ export const App: React.FC = () => {
   const { selectedTeam, inbox, teams, currentWeek, currentSeason, advanceWeek } = useGameStore();
   const [activeScreen, setActiveScreen] = React.useState('squad');
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
+  const [toasts, setToasts] = React.useState<ToastData[]>([]);
 
   const unreadCount = inbox.filter(m => !m.read).length;
   const team = teams.find(t => t.id === selectedTeam);
 
-  const handleSaveSlotSelect = (_slot: SaveSlotMetadata) => {
-    // Placeholder for future save slot selection feature
+  const addToast = useCallback((message: string, type: ToastData['type'] = 'info') => {
+    const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    setToasts(prev => [...prev, { id, message, type, timestamp: Date.now() }]);
+  }, []);
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
+
+  const handleSaveSlotSelect = (metadata: SaveSlotMetadata) => {
+    // Salvo carregado com sucesso — o store já foi atualizado pelo handleLoad do SaveSlot
+    addToast(`Save ${metadata.slotNumber} carregado — ${metadata.teamName}`, 'success');
   };
 
   if (!selectedTeam) {
     return (
       <>
-        <div className="fm-team-selection">
-          <div className="fm-team-selection__content">
-            <h1>Football Manager Web</h1>
-            <p>Selecione um time ou carregue um save</p>
-            <TeamSelection />
+        <div className="fm-landing">
+          <div className="fm-landing__topbar">
+            <ThemeToggle compact />
+          </div>
+          <div className="fm-landing__layout">
+            <main className="fm-landing__main">
+              <header className="fm-landing__brand">
+                <span className="fm-landing__mark" aria-hidden="true">FM</span>
+                <div className="fm-landing__brand-text">
+                  <h1 className="fm-landing__title">Football Manager Web</h1>
+                  <p className="fm-landing__tagline">Gestão de futebol no navegador</p>
+                </div>
+              </header>
+              <TeamSelection />
+            </main>
+            <aside className="fm-landing__aside" aria-label="Saves">
+              <h2 className="fm-landing__aside-title">Continuar carreira</h2>
+              <p className="fm-landing__aside-desc">Carregue um save salvo ou comece uma nova partida.</p>
+              <SaveSlot slotNumber={1} onSaveSlot={handleSaveSlotSelect} />
+              <SaveSlot slotNumber={2} onSaveSlot={handleSaveSlotSelect} />
+            </aside>
           </div>
         </div>
-        <div className="fm-save-slots-panel">
-          <h2>Saves</h2>
-          <p>Escolha um slot para carregar</p>
-          <SaveSlot slotNumber={1} onSaveSlot={handleSaveSlotSelect} />
-          <SaveSlot slotNumber={2} onSaveSlot={handleSaveSlotSelect} />
-        </div>
+        <ToastContainer toasts={toasts} onDismiss={dismissToast} />
       </>
     );
   }
@@ -60,7 +87,11 @@ export const App: React.FC = () => {
   const screens: Record<string, React.FC> = {
     squad: SquadView,
     match: MatchCenter,
-    transfer: TransferMarket,
+    league: () => {
+      const { leagueTable } = useGameStore();
+      return <LeagueTable standings={leagueTable} />;
+    },
+    transfer: () => <TransferMarketComponent addToast={addToast} />,
     tactics: TacticsView,
     training: TrainingView,
     dynamics: DynamicsView,
@@ -122,6 +153,7 @@ export const App: React.FC = () => {
           ))}
         </div>
         <div className="fm-sidebar__footer">
+          <ThemeToggle compact className="fm-sidebar__theme" />
           <Button
             className="fm-button--back"
             onClick={() => useGameStore.getState().deselectTeam()}
@@ -137,10 +169,16 @@ export const App: React.FC = () => {
           <Button className="fm-button--continue" onClick={advanceWeek}>
             Continuar ▶
           </Button>
-          <Button className="fm-button--save" onClick={() => useGameStore.getState().saveGame(1)}>
+          <Button className="fm-button--save" onClick={() => {
+            useGameStore.getState().saveGame(1);
+            addToast('💾 Save 1 salvo!', 'success');
+          }}>
             💾 Save 1
           </Button>
-          <Button className="fm-button--save" onClick={() => useGameStore.getState().saveGame(2)}>
+          <Button className="fm-button--save" onClick={() => {
+            useGameStore.getState().saveGame(2);
+            addToast('💾 Save 2 salvo!', 'success');
+          }}>
             💾 Save 2
           </Button>
         </div>
@@ -148,6 +186,7 @@ export const App: React.FC = () => {
       <main className="fm-main">
         <ScreenComponent />
       </main>
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 };

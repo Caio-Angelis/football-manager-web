@@ -61,6 +61,9 @@ export const SaveSlot: React.FC<SaveSlotProps> = ({ slotNumber, onSaveSlot }) =>
   const handleLoad = () => {
     if (saveSlot) {
       store.loadGame(slotNumber);
+      setTimeout(() => {
+        onSaveSlot?.(saveSlot);
+      }, 300);
     }
   };
 

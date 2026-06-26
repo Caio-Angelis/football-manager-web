@@ -4,6 +4,7 @@ import { App } from './App';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import './styles.css';
 import './styles-supplement.css';
+import './styles-mobile.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

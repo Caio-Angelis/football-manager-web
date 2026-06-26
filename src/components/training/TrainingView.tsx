@@ -164,6 +164,8 @@ export const TrainingView: React.FC = () => {
                 <div key={block} className="fm-training-block">
                   <span className="fm-training-block__label">{BLOCK_LABELS[block]}</span>
                   <select
+                    id={`training-session-${dayIdx}-${block}`}
+                    name={`training-session-${dayIdx}-${block}`}
                     className="fm-training-block__select"
                     value={sessions[dayIdx]?.[block]?.type ?? 'rest'}
                     onChange={(e) => updateSession(dayIdx, block, e.target.value)}

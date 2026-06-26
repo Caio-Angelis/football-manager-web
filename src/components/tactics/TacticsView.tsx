@@ -238,30 +238,32 @@ const DraggableFormationVisual: React.FC<{
   const fieldRef = useRef<HTMLDivElement>(null);
   const currentSlotRef = useRef<number>(0);
 
+  // ponytail: Coords rotacionadas 90° horário — goleiro à esquerda, atacantes à direita.
+  // Transformação: newX = 1 - oldY, newY = oldX
   const formationPositions: Record<string, number[][]> = {
     '4-4-2': [
-      [0.5, 0.95],
-      [0.1, 0.75], [0.35, 0.75], [0.65, 0.75], [0.9, 0.75],
-      [0.1, 0.55], [0.35, 0.55], [0.65, 0.55], [0.9, 0.55],
-      [0.35, 0.25], [0.65, 0.25],
+      [0.05, 0.5],
+      [0.25, 0.1], [0.25, 0.35], [0.25, 0.65], [0.25, 0.9],
+      [0.45, 0.1], [0.45, 0.35], [0.45, 0.65], [0.45, 0.9],
+      [0.75, 0.35], [0.75, 0.65],
     ],
     '4-3-3': [
-      [0.5, 0.95],
-      [0.1, 0.75], [0.35, 0.75], [0.65, 0.75], [0.9, 0.75],
-      [0.15, 0.55], [0.5, 0.55], [0.85, 0.55],
-      [0.15, 0.25], [0.5, 0.25], [0.85, 0.25],
+      [0.05, 0.5],
+      [0.25, 0.1], [0.25, 0.35], [0.25, 0.65], [0.25, 0.9],
+      [0.45, 0.15], [0.45, 0.5], [0.45, 0.85],
+      [0.75, 0.15], [0.75, 0.5], [0.75, 0.85],
     ],
     '3-5-2': [
-      [0.5, 0.95],
-      [0.15, 0.75], [0.5, 0.75], [0.85, 0.75],
-      [0.1, 0.55], [0.35, 0.55], [0.5, 0.55], [0.65, 0.55], [0.9, 0.55],
-      [0.35, 0.25], [0.65, 0.25],
+      [0.05, 0.5],
+      [0.25, 0.15], [0.25, 0.5], [0.25, 0.85],
+      [0.45, 0.1], [0.45, 0.35], [0.45, 0.5], [0.45, 0.65], [0.45, 0.9],
+      [0.75, 0.35], [0.75, 0.65],
     ],
     '5-2-2': [
-      [0.5, 0.95],
-      [0.1, 0.75], [0.3, 0.75], [0.5, 0.75], [0.7, 0.75], [0.9, 0.75],
-      [0.15, 0.55], [0.85, 0.55],
-      [0.35, 0.25], [0.65, 0.25],
+      [0.05, 0.5],
+      [0.25, 0.1], [0.25, 0.3], [0.25, 0.5], [0.25, 0.7], [0.25, 0.9],
+      [0.45, 0.15], [0.45, 0.85],
+      [0.75, 0.35], [0.75, 0.65],
     ],
   };
 
@@ -423,6 +425,8 @@ const MultiValueInstructionSelector: React.FC<{
     
     <div className="fm-multi-value-instruction__selector">
       <select
+        id={`mv-instruction-${instruction.key}`}
+        name={`mv-instruction-${instruction.key}`}
         value={currentValue}
         onChange={(e) => onSelect(instruction.key, e.target.value)}
         className="fm-multi-value-instruction__dropdown"
@@ -468,6 +472,8 @@ const PlayerRoleSelector: React.FC<{
       
       <div className="fm-player-role-selector__selection">
         <select
+          id={`player-role-${player.id}`}
+          name={`player-role-${player.id}`}
           value={currentRole || ''}
           onChange={(e) => onRoleChange(player.id, e.target.value)}
           className="fm-player-role-selector__dropdown"
@@ -483,6 +489,8 @@ const PlayerRoleSelector: React.FC<{
       
       <div className="fm-player-role-selector__duty">
         <select
+          id={`player-duty-${player.id}`}
+          name={`player-duty-${player.id}`}
           value={currentDuty || 'balance'}
           onChange={(e) => onDutyChange(player.id, e.target.value)}
           className="fm-player-role-selector__dropdown"
@@ -545,8 +553,10 @@ const IndividualInstructions: React.FC<{
           <h4 className="fm-tactics-view__instruction-group-title">{groupName}</h4>
           <div className="fm-tactics-view__instruction-row">
             {groupInstructions.map((inst) => (
-              <label key={inst.key} className="fm-instruction-checkbox">
+              <label htmlFor={`player-instruction-${player.id}-${inst.key}`} className="fm-instruction-checkbox">
                 <input
+                  id={`player-instruction-${player.id}-${inst.key}`}
+                  name={`player-instruction-${player.id}-${inst.key}`}
                   type="checkbox"
                   checked={instructions[inst.key as keyof PlayerInstruction] === true}
                   onChange={(e) => onInstructionChange(player.id, inst.key, e.target.checked)}

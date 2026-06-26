@@ -274,6 +274,27 @@ export interface MatchStats {
   awayPassAccuracy: number;
 }
 
+// ============================================================
+// RATING DE JOGADORES POR PARTIDA (Tarefa 2.2)
+// ============================================================
+
+export interface PlayerMatchRating {
+  playerId: string;
+  playerName: string;
+  position: string;
+  rating: number; // 1-10
+  goals: number;
+  assists: number;
+  shots: number;
+  shotsOnTarget: number;
+  passes: number;
+  passAccuracy: number;
+  tackles: number;
+  interceptions: number;
+  minutesPlayed: number;
+  isStarted: boolean;
+}
+
 export interface Match {
   homeTeam: string;
   awayTeam: string;
@@ -292,6 +313,9 @@ export interface Match {
   // Previous events (from completed matches)
   events?: MatchEvent[];
   stats?: MatchStats;
+  // Player ratings (Tarefa 2.2)
+  playerRatings?: PlayerMatchRating[];
+  bestPlayer?: string; // playerId of best rated player
 }
 
 // ============================================================
@@ -398,6 +422,43 @@ export interface CounterOffer {
   paymentMethod?: 'cash' | 'installments';
   installmentClause?: InstallmentClause;
   bonuses?: PlayerBonus[];
+}
+
+export interface DeferredTransfer {
+  playerId: string;
+  offerPrice: number;
+  fromTeam: string;
+  contractProposal: {
+    salary: number;
+    duration: number; // em semanas
+    clause: number;
+  };
+  paymentMethod?: 'cash' | 'installments';
+  installmentClause?: InstallmentClause;
+  bonuses?: PlayerBonus[];
+  deferredAt: number; // timestamp quando foi adiado
+  deferredWeek: number; // semana em que foi adiado
+}
+
+// ============================================================
+// HISTÓRICO DE TRANSFERÊNCIAS REALIZADAS (Item 12 - Checklist)
+// ============================================================
+
+export interface CompletedTransfer {
+  id: string; // ID único da transferência
+  playerId: string;
+  playerName: string;
+  position: string;
+  age: number;
+  nationality: string;
+  fromTeamId: string;
+  fromTeamName: string;
+  transferFee: number; // valor da transferência em milhões
+  paymentMethod: 'cash' | 'installments';
+  contractWeeks: number; // duração do contrato em semanas
+  weeklySalary: number; // em milhares
+  transferDate: number; // timestamp da data da transferência
+  transferWeek: number; // semana em que foi realizada
 }
 
 export interface ScoutReport {
@@ -657,6 +718,73 @@ export interface SaveSlot {
 }
 
 // ============================================================
+// TIPOS DA TABELA DE CLASSIFICAÇÃO
+// ============================================================
+
+export type FormResult = 'W' | 'D' | 'L';
+
+export interface LeagueStandings {
+  teamId: string;
+  teamName: string;
+  position: number;
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDifference: number;
+  points: number;
+  form: FormResult[];
+  zone?: 'title' | 'europe' | 'safe' | 'relegation';
+  isRelegated?: boolean; // Item 1.2 — marca time rebaixado
+}
+
+// ============================================================
+// ACADEMIA DE JOVENS (P6.1)
+// ============================================================
+
+export interface YouthPlayer {
+  id: string;
+  name: string;
+  surname: string;
+  position: string;
+  age: number;
+  nationality: string;
+  technical: Partial<PlayerAttribute>;
+  mental: Partial<PlayerAttribute>;
+  physical: Partial<PlayerAttribute>;
+  currentAbility: number;
+  potentialAbility: number;
+  academyLevel: number; // 1-5 (progressão na academia)
+  weeksInAcademy: number;
+  trainingGrowth: number; // taxa de crescimento semanal
+  morale: number;
+  readyForPromotion: boolean; // quando PA >= CA e academyLevel >= 4
+}
+
+export interface YouthAcademy {
+  players: YouthPlayer[];
+  level: number; // 1-10 (qualidade das instalações)
+  weeklySlots: number; // vagas de treino na semana
+  currentTraining: string; // 'technical', 'physical', 'tactical', 'mental'
+  graduationRate: number; // 0-100 (probabilidade de promoção)
+}
+
+// ============================================================
+// EQUIPE RESERVA (P6.2)
+// ============================================================
+
+export interface ReserveTeamPlayer {
+  playerId: string;
+  player: Player;
+  isStarter: boolean;
+  reserveRank: number; // 1-15 (posição no reserva)
+  weeksOnReserve: number;
+  readiness: number; // 0-100 (preparação para promoção)
+}
+
+// ============================================================
 // ESTADO DO JOGO
 // ============================================================
 
@@ -669,6 +797,7 @@ export interface GameState {
   transfers: TransferOffer[];
   incomingTransfers: IncomingTransfer[];
   counterOffers: CounterOffer[];
+  deferredTransfers: DeferredTransfer[]; // transferências adiadas
   inbox: InboxMessage[];
   trainingPlan: WeeklyTrainingPlan | null;
   youthIntakeCompleted: boolean;
@@ -691,8 +820,16 @@ export interface GameState {
   degradedConditions: DegradedCondition[]; // condições degradadas pós-lesão
   // Item 11.5 - Árvore Social
   socialTree: SocialTree | null;
+  // Tabela de Classificação (P1.1)
+  leagueTable: LeagueStandings[];
   // Saves (Item 12)
-  saveSlots: SaveSlot[]; // máximo 2 saves
+  saveSlots?: SaveSlot[]; // máximo 2 saves (não persistido via middleware, gerenciado externamente)
+  // P6.1 — Academia de Jovens
+  youthAcademy: YouthAcademy;
+  // P6.2 — Equipe Reserva
+  reserveTeam: ReserveTeamPlayer[];
+  // Item 12 - Checklist: Histórico de transferências realizadas
+  completedTransfers: CompletedTransfer[];
 }
 
 export interface GameActions {
@@ -709,7 +846,10 @@ export interface GameActions {
   buyPlayer: (playerId: string, sellerTeamId: string) => boolean;
   acceptIncomingTransfer: (playerId: string) => void;
   rejectIncomingTransfer: (playerId: string) => void;
-  assignScout: () => void;
+  deferTransfer: (playerId: string) => void;
+  reinstateDeferredTransfer: (playerId: string) => void;
+  rejectDeferredTransfer: (playerId: string) => void;
+  assignScout: (playerId?: string) => boolean;
   setTrainingPlan: (plan: WeeklyTrainingPlan) => void;
   applyWeeklyTraining: () => void;
   handleInboxAction: (messageId: string, actionLabel: string) => void;
@@ -745,6 +885,8 @@ export interface GameActions {
   applyTrainingCooldown: (playerId: string, trainingType: string, day: number) => void;
   updateDegradedConditions: () => void;
   generateLiveMatchMinute: (matchIndex: number) => void;
+  // Finalizar partida ao vivo
+  finishMatch: (matchIndex: number) => void;
   // Progressão de atributos (10.5)
   captureWeeklyAttributeSnapshot: () => void;
   getAttributeDelta: (playerId: string, attributeName: string, weekA: number, weekB: number) => number;
@@ -763,6 +905,18 @@ export interface GameActions {
   loadGame: (slotNumber: 1 | 2) => void;
   deleteSave: (slotNumber: 1 | 2) => void;
   getSaveSlots: () => SaveSlotMetadata[];
+  // P6.1 — Academia de Jovens
+  generateYouthPlayers: () => void;
+  promoteYouthPlayer: (playerId: string) => void;
+  setAcademyTraining: (type: string) => void;
+  getYouthPlayers: () => YouthPlayer[];
+  // P6.2 — Equipe Reserva
+  addPlayerToReserve: (playerId: string) => void;
+  promoteFromReserve: (playerId: string) => void;
+  getReserveTeam: () => ReserveTeamPlayer[];
+  setReserveTraining: (type: string) => void;
+  // Item 12 - Checklist: Histórico de transferências realizadas
+  getCompletedTransfers: () => CompletedTransfer[];
 }
 
 export type GameStore = GameState & GameActions;

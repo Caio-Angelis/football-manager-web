@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { PlayerCard } from '../squad/PlayerCard';
 import { Button } from '../ui/Button';
@@ -213,22 +213,68 @@ const TransferOfferCard: React.FC<{
   </div>
 );
 
-export const TransferMarket: React.FC = () => {
+export const TransferMarket: React.FC<{
+  addToast?: (message: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
+}> = ({ addToast }) => {
   const {
-    selectedTeam, teams, incomingTransfers, scoutReports,
-    buyPlayer, assignScout, acceptIncomingTransfer, rejectIncomingTransfer, updateTeam,
+    selectedTeam, teams, incomingTransfers, scoutReports, deferredTransfers,
+    buyPlayer, assignScout, acceptIncomingTransfer, rejectIncomingTransfer, deferTransfer, reinstateDeferredTransfer, rejectDeferredTransfer, updateTeam,
     negotiateCounterOffer, pendingInstallments, incomingBonuses, payInstallment, checkBonuses, claimBonus,
-    transferAgreements, terminateTransferAgreement,
+    transferAgreements, terminateTransferAgreement, completedTransfers, getCompletedTransfers,
   } = useGameStore();
 
   const [filter, setFilter] = useState('');
-  const [activeTab, setActiveTab] = useState<'market' | 'scouting' | 'offers' | 'installments' | 'bonuses' | 'agreements'>('market');
+  const [debouncedFilter, setDebouncedFilter] = useState('');
+  // Item 9: Persistência da aba selecionada no localStorage
+  const [activeTab, setActiveTab] = useState<'market' | 'scouting' | 'offers' | 'deferred' | 'installments' | 'bonuses' | 'agreements' | 'completed'>(() => {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('fm_activeTab') : null;
+    const validTabs: Record<string, boolean> = { market: true, scouting: true, offers: true, deferred: true, installments: true, bonuses: true, agreements: true, completed: true };
+    return (saved && validTabs[saved]) ? saved : 'market';
+  });
   const [selectedStatus, setSelectedStatus] = useState('Rotation');
+  const [positionFilter, setPositionFilter] = useState('');
+  const [sortBy, setSortBy] = useState<'marketValue' | 'position' | 'name'>('marketValue');
+  const [sortDesc, setSortDesc] = useState(true);
+  const [showAll, setShowAll] = useState(false);
   const [buyFeedback, setBuyFeedback] = useState<string | null>(null);
   const [negotiateFeedback, setNegotiateFeedback] = useState<string | null>(null);
   const [installmentFeedback, setInstallmentFeedback] = useState<string | null>(null);
   const [bonusFeedback, setBonusFeedback] = useState<string | null>(null);
   const [terminateFeedback, setTerminateFeedback] = useState<string | null>(null);
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [scoutFeedback, setScoutFeedback] = useState<string | null>(null);
+  const [marketPage, setMarketPage] = useState(1);
+  const MARKET_ITEMS_PER_PAGE = 24;
+
+  // Item 8: Debounce de 300ms na busca de jogadores
+  const filterRef = useRef(debouncedFilter);
+  useEffect(() => {
+    filterRef.current = debouncedFilter;
+  }, [debouncedFilter]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedFilter(filterRef.current);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [filter]);
+
+  // Item 7: Ordenação para listas de transferências/parcelas/bónus
+  const sortByDateDesc = <T extends { deferredAt?: number; agreementDate?: string }>(a: T, b: T) =>
+    ((b as any).deferredAt ?? b.agreementDate ?? '') < ((a as any).deferredAt ?? a.agreementDate ?? '')
+      ? 1 : -1;
+
+  const sortByActivationDesc = (a: PlayerBonus, b: PlayerBonus) =>
+    (a.triggered ? 0 : 1) - (b.triggered ? 0 : 1);
+
+  const sortByNextPaymentAsc = (a: InstallmentClause, b: InstallmentClause) => {
+    const nextA = a.payments.find(p => !p.paid);
+    const nextB = b.payments.find(p => !p.paid);
+    if (!nextA && !nextB) return 0;
+    if (!nextA) return 1;
+    if (!nextB) return -1;
+    return nextA.dueWeek - nextB.dueWeek;
+  };
 
   const team = teams.find(t => t.id === selectedTeam);
 
@@ -236,18 +282,33 @@ export const TransferMarket: React.FC = () => {
     .filter(t => t.id !== selectedTeam)
     .flatMap(t => t.squad.map(player => ({ player, teamId: t.id, teamName: t.name })));
 
-  const filteredPlayers = filter
-    ? marketPlayers.filter(({ player }) =>
-        `${player.name} ${player.surname}`.toLowerCase().includes(filter.toLowerCase()),
-      )
-    : marketPlayers;
+  const positionOrder: Record<string, number> = { GK: 1, DEF: 2, MID: 3, FWD: 4 };
+
+  const sortedPlayers = marketPlayers
+    .filter(({ player }) => {
+      // Position filter
+      if (positionFilter && player.position !== positionFilter) return false;
+      // Name filter
+      if (debouncedFilter) {
+        return `${player.name} ${player.surname}`.toLowerCase().includes(debouncedFilter.toLowerCase());
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      const diff = sortBy === 'marketValue' ? a.player.marketValue - b.player.marketValue
+        : sortBy === 'position' ? positionOrder[a.player.position] - positionOrder[b.player.position]
+        : a.player.name.localeCompare(b.player.name);
+      return sortDesc ? -diff : diff;
+    });
+
+  const filteredPlayers = sortedPlayers;
 
   const getPlayerName = (playerId: string) => {
     for (const t of teams) {
       const p = t.squad.find(pl => pl.id === playerId);
       if (p) return `${p.name} ${p.surname}`;
     }
-    return playerId;
+    return `Jogador Vendido (${playerId.slice(0, 8)})`;
   };
 
   const handleBuy = (playerId: string, sellerTeamId: string) => {
@@ -261,8 +322,10 @@ export const TransferMarket: React.FC = () => {
         ),
       }));
       setBuyFeedback('Jogador contratado com sucesso!');
+      addToast?.('Jogador contratado com sucesso!', 'success');
     } else {
       setBuyFeedback('Orçamento insuficiente para esta contratação.');
+      addToast?.('Orçamento insuficiente para esta contratação.', 'warning');
     }
     setTimeout(() => setBuyFeedback(null), 3000);
   };
@@ -275,6 +338,26 @@ export const TransferMarket: React.FC = () => {
       setNegotiateFeedback('Não foi possível enviar contra-oferta.');
     }
     setTimeout(() => setNegotiateFeedback(null), 3000);
+  };
+
+  const handleAssignScout = (playerId?: string) => {
+    const success = assignScout(playerId);
+    if (success) {
+      setScoutFeedback(playerId ? 'Relatório de scouting atribuído!' : 'Relatórios gerados para 3 jogadores.');
+    } else {
+      setScoutFeedback('Não foi possível gerar relatório — jogador já tem relatório ou não existe.');
+    }
+    setTimeout(() => setScoutFeedback(null), 3000);
+  };
+
+  const handleAcceptTransfer = (playerId: string) => {
+    acceptIncomingTransfer(playerId);
+    addToast?.('Transferência aceita com sucesso!', 'success');
+  };
+
+  const handleRejectTransfer = (playerId: string) => {
+    rejectIncomingTransfer(playerId);
+    addToast?.('Transferência recusada.', 'warning');
   };
 
   return (
@@ -291,15 +374,22 @@ export const TransferMarket: React.FC = () => {
 
       {buyFeedback && <div className="fm-transfer-market__feedback">{buyFeedback}</div>}
       {negotiateFeedback && <div className="fm-transfer-market__feedback">{negotiateFeedback}</div>}
+      {scoutFeedback && <div className="fm-transfer-market__feedback">{scoutFeedback}</div>}
 
       <div className="fm-transfer-market__tabs">
-        {(['market', 'scouting', 'offers', 'installments', 'bonuses', 'agreements'] as const).map((tab) => (
+        <button onClick={() => setShowAll(v => !v)} className="fm-transfer-market__tab fm-transfer-market__tab--toggle">
+          {showAll ? 'Mostrar Pendentes' : 'Mostrar Todos'}
+        </button>
+        {([...('market' as const), 'scouting', 'offers', 'deferred', 'installments', 'bonuses', 'agreements', 'completed'] as const).map((tab) => (
           <button
             key={tab}
             className={`fm-transfer-market__tab ${activeTab === tab ? 'fm-transfer-market__tab--active' : ''}`}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => {
+              setActiveTab(tab);
+              if (typeof window !== 'undefined') localStorage.setItem('fm_activeTab', tab);
+            }}
           >
-            {tab === 'market' ? 'Mercado' : tab === 'scouting' ? 'Scouting' : tab === 'offers' ? `Ofertas (${incomingTransfers.length})` : tab === 'installments' ? `Parcelas (${pendingInstallments.filter(i => i.status === 'active').length})` : tab === 'bonuses' ? `Bónus (${incomingBonuses.filter(b => !b.triggered).length})` : `Acordos (${transferAgreements.filter(a => a.status === 'active').length})`}
+            {tab === 'market' ? 'Mercado' : tab === 'scouting' ? 'Scouting' : tab === 'offers' ? `Ofertas (${showAll ? incomingTransfers.length : incomingTransfers.filter(o => !deferredTransfers.find(d => d.playerId === o.playerId)).length})` : tab === 'deferred' ? `Adiados (${showAll ? deferredTransfers.length : deferredTransfers.length})` : tab === 'installments' ? `Parcelas (${showAll ? pendingInstallments.length : pendingInstallments.filter(i => i.status === 'active').length})` : tab === 'bonuses' ? `Bónus (${showAll ? incomingBonuses.length : incomingBonuses.filter(b => !b.triggered).length})` : tab === 'agreements' ? `Acordos (${transferAgreements.filter(a => a.status === 'active').length})` : `Realizados (${completedTransfers.length})`}
           </button>
         ))}
       </div>
@@ -308,13 +398,30 @@ export const TransferMarket: React.FC = () => {
         <>
           <div className="fm-transfer-market__filters">
             <input
+              id="transfer-search"
+              name="transfer-search"
               type="text"
               placeholder="Buscar jogador..."
               value={filter}
-              onChange={(e) => setFilter(e.target.value)}
+              onChange={(e) => { setFilter(e.target.value); setMarketPage(1); setPositionFilter(''); }}
               className="fm-transfer-market__search"
             />
             <select
+              id="transfer-position-filter"
+              name="transfer-position-filter"
+              className="fm-transfer-market__position-select"
+              value={positionFilter}
+              onChange={(e) => { setPositionFilter(e.target.value); setMarketPage(1); }}
+            >
+              <option value="">Todas as Posições</option>
+              <option value="GK">Guarda-Redes (GK)</option>
+              <option value="DEF">Defesa (DEF)</option>
+              <option value="MID">Médio (MID)</option>
+              <option value="FWD">Avançado (FWD)</option>
+            </select>
+            <select
+              id="transfer-status-filter"
+              name="transfer-status-filter"
               className="fm-transfer-market__status-select"
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
@@ -323,13 +430,43 @@ export const TransferMarket: React.FC = () => {
                 <option key={s} value={s}>Estatuto: {s}</option>
               ))}
             </select>
+            <select
+              id="transfer-sort-select"
+              name="transfer-sort-select"
+              className="fm-transfer-market__sort-select"
+              value={sortBy}
+              onChange={(e) => { setSortBy(e.target.value as typeof sortBy); setMarketPage(1); }}
+            >
+              <option value="marketValue">Ordenar: Valor de Mercado</option>
+              <option value="position">Ordenar: Posição</option>
+              <option value="name">Ordenar: Nome</option>
+            </select>
+            <button
+              id="transfer-sort-toggle"
+              className="fm-transfer-market__sort-toggle"
+              onClick={() => { setSortDesc(v => !v); setMarketPage(1); }}
+              title={sortDesc ? 'Crescente' : 'Decrescente'}
+            >
+              {sortDesc ? '↓' : '↑'}
+            </button>
           </div>
+          {selectedPlayerId && (
+            <div className="fm-transfer-market__selection-bar">
+              <span>
+                Jogador selecionado:{' '}
+                {marketPlayers.find(m => m.player.id === selectedPlayerId)?.player.name}{' '}
+                {(marketPlayers.find(m => m.player.id === selectedPlayerId)?.player.surname)}
+              </span>
+              <Button onClick={() => handleAssignScout(selectedPlayerId)}>Confirmar</Button>
+              <Button variant="secondary" onClick={() => setSelectedPlayerId(null)}>Cancelar</Button>
+            </div>
+          )}
           <div className="fm-transfer-market__players">
             {filteredPlayers.length === 0 ? (
               <div className="fm-empty">Nenhum jogador disponível no mercado.</div>
             ) : (
               <div className="fm-player-grid">
-                {filteredPlayers.slice(0, 24).map(({ player, teamId, teamName }) => {
+                {filteredPlayers.slice(0, marketPage * MARKET_ITEMS_PER_PAGE).map(({ player, teamId, teamName }) => {
                   const report = scoutReports.find(r => r.playerId === player.id);
                   const scouted = !!report;
                   return (
@@ -348,7 +485,15 @@ export const TransferMarket: React.FC = () => {
                           <h3>??? Jogador</h3>
                           <p>{player.position} — {teamName}</p>
                           <p>Idade: {player.age} | {player.nationality}</p>
-                          <Button onClick={assignScout}>Atribuir Olheiro</Button>
+                          <Button onClick={() => {
+                            if (selectedPlayerId === player.id) {
+                              setSelectedPlayerId(null);
+                            } else {
+                              setSelectedPlayerId(player.id);
+                            }
+                          }}>
+                            {selectedPlayerId === player.id ? 'Deselecionar' : 'Atribuir Olheiro'}
+                          </Button>
                         </div>
                       )}
                     </div>
@@ -357,6 +502,19 @@ export const TransferMarket: React.FC = () => {
               </div>
             )}
           </div>
+          {filteredPlayers.length > MARKET_ITEMS_PER_PAGE && (
+            <div className="fm-transfer-market__load-more">
+              <span>
+                Mostrando {Math.min(marketPage * MARKET_ITEMS_PER_PAGE, filteredPlayers.length)} de {filteredPlayers.length} jogadores
+              </span>
+              <Button
+                variant="secondary"
+                onClick={() => setMarketPage(p => p + 1)}
+              >
+                Carregar Mais
+              </Button>
+            </div>
+          )}
         </>
       )}
 
@@ -364,14 +522,18 @@ export const TransferMarket: React.FC = () => {
         <div className="fm-scouting-section">
           <div className="fm-scouting-section__header">
             <h2>Relatórios de Scouting</h2>
-            <Button onClick={assignScout}>Atribuir Olheiro</Button>
+            {selectedPlayerId ? (
+              <Button onClick={() => handleAssignScout(selectedPlayerId)}>Confirmar Seleção</Button>
+            ) : (
+              <Button onClick={() => handleAssignScout()}>Gerar Relatórios (3)</Button>
+            )}
           </div>
           <div className="fm-scouting-section__reports">
             {scoutReports.length === 0 ? (
               <div className="fm-empty">Nenhum relatório. Atribua olheiros para começar.</div>
             ) : (
               <div className="fm-scout-reports-grid">
-                {scoutReports.map((report) => {
+                {scoutReports.slice().sort((a, b) => a.playerId.localeCompare(b.playerId)).map((report) => {
                   const seller = marketPlayers.find(m => m.player.id === report.playerId);
                   return (
                     <ScoutReportCard
@@ -394,14 +556,38 @@ export const TransferMarket: React.FC = () => {
             <div className="fm-empty">Nenhuma oferta recebida. Avance semanas para receber propostas.</div>
           ) : (
             <div className="fm-offers-list">
-              {incomingTransfers.map((offer) => (
+              {incomingTransfers.slice().sort((a, b) => a.playerId.localeCompare(b.playerId)).map((offer) => (
                 <TransferOfferCard
                   key={offer.playerId}
                   offer={offer}
                   playerName={getPlayerName(offer.playerId)}
                   fromTeamName={teams.find(t => t.id === offer.fromTeam)?.name ?? offer.fromTeam}
-                  onAccept={() => acceptIncomingTransfer(offer.playerId)}
-                  onReject={() => rejectIncomingTransfer(offer.playerId)}
+                  onAccept={() => handleAcceptTransfer(offer.playerId)}
+                  onReject={() => handleRejectTransfer(offer.playerId)}
+                  onDefer={() => deferTransfer(offer.playerId)}
+                  onNegotiate={() => handleNegotiate(offer.playerId)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'deferred' && (
+        <div className="fm-deferred-section">
+          <h2>Transferências Adiadas</h2>
+          {deferredTransfers.length === 0 ? (
+            <div className="fm-empty">Nenhuma transferência adiada. Adie ofertas para revisitar depois.</div>
+          ) : (
+            <div className="fm-deferred-list">
+              {deferredTransfers.slice().sort(sortByDateDesc).map((offer) => (
+                <TransferOfferCard
+                  key={offer.playerId}
+                  offer={offer}
+                  playerName={getPlayerName(offer.playerId)}
+                  fromTeamName={teams.find(t => t.id === offer.fromTeam)?.name ?? offer.fromTeam}
+                  onAccept={() => reinstateDeferredTransfer(offer.playerId)}
+                  onReject={() => rejectDeferredTransfer(offer.playerId)}
                   onDefer={() => {}}
                   onNegotiate={() => handleNegotiate(offer.playerId)}
                 />
@@ -424,7 +610,7 @@ export const TransferMarket: React.FC = () => {
             <div className="fm-empty">Nenhum pagamento parcelado pendente.</div>
           ) : (
             <div className="fm-installments-list">
-              {pendingInstallments.map((clause) => {
+              {pendingInstallments.slice().sort(sortByNextPaymentAsc).map((clause) => {
                 const unpaidPayments = clause.payments.filter(p => !p.paid);
                 const totalUnpaid = unpaidPayments.reduce((sum, p) => sum + p.amount, 0);
                 const nextDue = unpaidPayments.sort((a, b) => a.dueWeek - b.dueWeek)[0];
@@ -495,7 +681,7 @@ export const TransferMarket: React.FC = () => {
             <div className="fm-empty">Nenhum bónus pendente.</div>
           ) : (
             <div className="fm-bonuses-list">
-              {incomingBonuses.map((bonus, index) => {
+              {incomingBonuses.slice().sort(sortByActivationDesc).map((bonus, index) => {
                 const typeLabels: Record<PlayerBonus['type'], string> = {
                   goals: 'Golos',
                   appearances: 'Aparições',
@@ -561,6 +747,69 @@ export const TransferMarket: React.FC = () => {
                     setTimeout(() => setTerminateFeedback(null), 3000);
                   } : undefined}
                 />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'completed' && (
+        <div className="fm-completed-section">
+          <div className="fm-completed-section__header">
+            <h2>Transferências Realizadas</h2>
+            <span className="fm-completed-section__count">
+              {completedTransfers.length} transferência{completedTransfers.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+          {completedTransfers.length === 0 ? (
+            <div className="fm-empty">Nenhuma transferência realizada ainda. Compre jogadores no Mercado para ver o histórico.</div>
+          ) : (
+            <div className="fm-completed-list">
+              {completedTransfers.slice().sort((a, b) => b.transferDate - a.transferDate).map((transfer) => (
+                <div key={transfer.id} className="fm-completed-transfer-card">
+                  <div className="fm-completed-transfer-card__header">
+                    <h3 className="fm-completed-transfer-card__player-name">{transfer.playerName}</h3>
+                    <span className={`fm-completed-transfer-card__status fm-completed-transfer-card__status--${transfer.paymentMethod}`}>
+                      {transfer.paymentMethod === 'cash' ? 'À vista' : 'Parcelado'}
+                    </span>
+                  </div>
+                  <div className="fm-completed-transfer-card__details">
+                    <div className="fm-completed-transfer-card__detail">
+                      <span className="fm-completed-transfer-card__detail-label">Posição:</span>
+                      <span className="fm-completed-transfer-card__detail-value">{transfer.position}</span>
+                    </div>
+                    <div className="fm-completed-transfer-card__detail">
+                      <span className="fm-completed-transfer-card__detail-label">Idade:</span>
+                      <span className="fm-completed-transfer-card__detail-value">{transfer.age} anos</span>
+                    </div>
+                    <div className="fm-completed-transfer-card__detail">
+                      <span className="fm-completed-transfer-card__detail-label">Nacionalidade:</span>
+                      <span className="fm-completed-transfer-card__detail-value">{transfer.nationality}</span>
+                    </div>
+                    <div className="fm-completed-transfer-card__detail">
+                      <span className="fm-completed-transfer-card__detail-label">De:</span>
+                      <span className="fm-completed-transfer-card__detail-value">{transfer.fromTeamName}</span>
+                    </div>
+                    <div className="fm-completed-transfer-card__detail">
+                      <span className="fm-completed-transfer-card__detail-label">Valor:</span>
+                      <span className="fm-completed-transfer-card__detail-value">R$ {transfer.transferFee}M</span>
+                    </div>
+                    <div className="fm-completed-transfer-card__detail">
+                      <span className="fm-completed-transfer-card__detail-label">Contrato:</span>
+                      <span className="fm-completed-transfer-card__detail-value">{Math.floor(transfer.contractWeeks / 52)} ano{Math.floor(transfer.contractWeeks / 52) > 1 ? 's' : ''}</span>
+                    </div>
+                    <div className="fm-completed-transfer-card__detail">
+                      <span className="fm-completed-transfer-card__detail-label">Salário:</span>
+                      <span className="fm-completed-transfer-card__detail-value">R$ {transfer.weeklySalary}K/semana</span>
+                    </div>
+                  </div>
+                  <div className="fm-completed-transfer-card__meta">
+                    <span className="fm-completed-transfer-card__meta-label">Data:</span>
+                    <span className="fm-completed-transfer-card__meta-value">
+                      Semana {transfer.transferWeek}
+                    </span>
+                  </div>
+                </div>
               ))}
             </div>
           )}

@@ -7,7 +7,7 @@ import type {
   InjuryReport, BoardReply, FinancialReport,
   PreventionSession, FatigueLogEntry, Recommendation,
   SocialTree, SocialNode, Promise as PlayerPromise,
-  SaveSlot, SaveSlotMetadata,
+  SaveSlot, LeagueStandings, PlayerMatchRating, DeferredTransfer, CompletedTransfer,
 } from '../types/game';
 import { generateTeam, generateYouthIntake } from '../utils/playerGenerator';
 
@@ -207,6 +207,74 @@ function simulateMatchResult(homeTeam: Team, awayTeam: Team, homeBoost = 0, away
   return { homeGoals, awayGoals, events, stats };
 }
 
+// ============================================================
+// CÁLCULO DE RATING DE JOGADORES (Tarefa 2.2)
+// ============================================================
+
+function calculatePlayerMatchRatings(homeTeam: Team, awayTeam: Team, result: ReturnType<typeof simulateMatchResult>): ReturnType<typeof simulateMatchResult> & { playerRatings: PlayerMatchRating[]; bestPlayer?: string } {
+  const ratings: PlayerMatchRating[] = [];
+  const allPlayers = [...homeTeam.squad.slice(0, 11), ...awayTeam.squad.slice(0, 11)];
+
+  allPlayers.forEach(player => {
+    // Count player-specific events
+    const playerGoals = result.events.filter(e => e.type === 'goal' && e.player === player.name).length;
+    const playerShots = playerGoals + Math.floor(Math.random() * 4);
+    const playerShotsOnTarget = playerGoals;
+    const playerPasses = Math.floor(Math.random() * 60) + 30;
+    const playerPassAccuracy = 60 + Math.random() * 30;
+    const playerTackles = Math.floor(Math.random() * 5) + 1;
+    const playerInterceptions = Math.floor(Math.random() * 4) + 1;
+
+    // Calculate rating based on performance
+    let baseRating = 6.0; // Average rating
+
+    // Goals add significant rating
+    baseRating += playerGoals * 1.2;
+
+    // Shots on target with accuracy bonus
+    if (playerShots > 0) {
+      baseRating += (playerShotsOnTarget / Math.max(playerShots, 1)) * 0.5;
+    }
+
+    // Pass accuracy bonus
+    baseRating += (playerPassAccuracy - 70) * 0.01;
+
+    // Tackle/interception bonus (defensive players)
+    if (player.position === 'DEF') {
+      baseRating += (playerTackles * 0.3) + (playerInterceptions * 0.2);
+    }
+
+    // CA influences ceiling
+    const caCeiling = Math.min(10, 5 + (player.currentAbility / 20));
+    if (baseRating > caCeiling) baseRating = caCeiling;
+
+    // Clamp rating between 1 and 10
+    const rating = Math.max(1, Math.min(10, Math.round(baseRating * 10) / 10));
+
+    ratings.push({
+      playerId: player.id,
+      playerName: player.name,
+      position: player.position,
+      rating,
+      goals: playerGoals,
+      assists: playerGoals > 0 ? Math.floor(Math.random() * 2) : 0,
+      shots: playerShots,
+      shotsOnTarget: playerShotsOnTarget,
+      passes: playerPasses,
+      passAccuracy: Math.round(playerPassAccuracy),
+      tackles: playerTackles,
+      interceptions: playerInterceptions,
+      minutesPlayed: 90,
+      isStarted: player.squadStatus !== 'Young Talent',
+    });
+  });
+
+  // Find best player
+  const bestPlayer = ratings.reduce((best, r) => (r.rating > best.rating ? r : best), ratings[0]);
+
+  return { ...result, playerRatings: ratings, bestPlayer: bestPlayer?.playerId };
+}
+
 function generateWeekMatches(teams: Team[], week: number): Match[] {
   const matches: Match[] = [];
   const shuffled = [...teams].sort(() => Math.random() - 0.5);
@@ -247,6 +315,87 @@ function generateWeekMatches(teams: Team[], week: number): Match[] {
   }
 
   return matches;
+}
+
+// ============================================================
+// CÁLCULO DE TABELA DE CLASSIFICAÇÃO (P1.1)
+// ============================================================
+
+export function calculateLeagueStandings(teams: Team[], matches: Match[]): LeagueStandings[] {
+  const standingsMap: Record<string, LeagueStandings> = {};
+  
+  teams.forEach(team => {
+    standingsMap[team.id] = {
+      teamId: team.id,
+      teamName: team.name,
+      position: 0,
+      played: 0,
+      wins: 0,
+      draws: 0,
+      losses: 0,
+      goalsFor: 0,
+      goalsAgainst: 0,
+      goalDifference: 0,
+      points: 0,
+      form: [],
+      zone: 'safe'
+    };
+  });
+  
+  matches.forEach(match => {
+    if (!match.completed) return;
+    
+    const home = standingsMap[match.homeTeam];
+    const away = standingsMap[match.awayTeam];
+    
+    if (!home || !away) return;
+    
+    home.played += 1;
+    away.played += 1;
+    
+    home.goalsFor += match.homeGoals;
+    home.goalsAgainst += match.awayGoals;
+    away.goalsFor += match.awayGoals;
+    away.goalsAgainst += match.homeGoals;
+    
+    home.goalDifference = home.goalsFor - home.goalsAgainst;
+    away.goalDifference = away.goalsFor - away.goalsAgainst;
+    
+    if (match.homeGoals > match.awayGoals) {
+      home.wins += 1;
+      home.points += 3;
+      away.losses += 1;
+    } else if (match.homeGoals < match.awayGoals) {
+      away.wins += 1;
+      away.points += 3;
+      home.losses += 1;
+    } else {
+      home.draws += 1;
+      away.draws += 1;
+      home.points += 1;
+      away.points += 1;
+    }
+  });
+  
+  let standings = Object.values(standingsMap);
+  
+  standings.sort((a, b) => {
+    if (b.points !== a.points) return b.points - a.points;
+    if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference;
+    return b.goalsFor - a.goalsFor;
+  });
+  
+  standings.forEach((s, i) => {
+    s.position = i + 1;
+    if (i < 4) s.zone = 'title';
+    else if (i < 8) s.zone = 'europe';
+    else if (i >= standings.length - 3) s.zone = 'relegation';
+    else s.zone = 'safe';
+    // Item 1.2 — marcar times rebaixados no final da temporada
+    s.isRelegated = i >= standings.length - 3;
+  });
+  
+  return standings;
 }
 
 function generateInboxMessage(week: number): InboxMessage {
@@ -569,6 +718,7 @@ export const useGameStore = create<GameStore>()(
       transfers: [],
       incomingTransfers: [],
       counterOffers: [],
+      deferredTransfers: [],
       inbox: [],
       trainingPlan: null,
       youthIntakeCompleted: false,
@@ -589,6 +739,14 @@ export const useGameStore = create<GameStore>()(
       recommendations: [],
       degradedConditions: [],
       socialTree: null,
+      // Tabela de Classificação (P1.1)
+      leagueTable: [],
+
+      // Saves (Item 12) - não persistidos via middleware (separado)
+      saveSlots: [],
+
+      // Item 12 - Checklist: Histórico de transferências realizadas
+      completedTransfers: [],
 
       deselectTeam: () => {
         // Limpar localStorage para evitar estado corrompido ao recarregar
@@ -624,6 +782,7 @@ export const useGameStore = create<GameStore>()(
           inbox: [],
           incomingTransfers: [],
           scoutReports: [],
+          deferredTransfers: [],
           youthIntakeCompleted: false,
           trainingPlan: null,
           transferAgreements: [],
@@ -632,6 +791,7 @@ export const useGameStore = create<GameStore>()(
           financialReports: [],
           injuryHistory: [],
           preventionSessions: [],
+          saveSlots: [],
         });
       },
 
@@ -647,28 +807,100 @@ export const useGameStore = create<GameStore>()(
         let newWeek = state.currentWeek + 1;
         let newSeason = state.currentSeason;
         let youthReset = state.youthIntakeCompleted;
+        const championshipEnded = newWeek > 38;
 
-        if (newWeek > 38) {
-          newWeek = 1;
-          newSeason += 1;
-          youthReset = false;
+        if (championshipEnded) {
+          // Campeonato encerrado após 38 rodadas - não gerar novas partidas
+          const inboxMessage = generateInboxMessage(0);
+          let updatedTeams = [...state.teams];
+
+          // Manter partidas existentes sem gerar novas
+          const updatedMatches = [...state.matches];
+
+          // Atualizar orçamento das equipes
+          if (state.selectedTeam) {
+            const teamIdx = updatedTeams.findIndex(t => t.id === state.selectedTeam);
+            if (teamIdx !== -1) {
+              const team = updatedTeams[teamIdx];
+              const ticketRevenue = (team.reputation / 100) * 0.5;
+              const sponsorship = (team.reputation / 100) * 0.3;
+              updatedTeams[teamIdx] = {
+                ...team,
+                budget: Math.max(0, team.budget + ticketRevenue + sponsorship - team.wageBill * 0.01),
+              };
+            }
+          }
+
+          // Processamento de fadiga (sem gerar novas partidas)
+          if (state.selectedTeam) {
+            const teamIdx = updatedTeams.findIndex(t => t.id === state.selectedTeam);
+            if (teamIdx !== -1) {
+              const team = updatedTeams[teamIdx];
+              team.squad = team.squad.map(player => {
+                const updated = { ...player };
+                const fatigueDecayRate = 0.15;
+                const decay = Math.max(0, (updated.cumulativeLoad || 0) - 10) * fatigueDecayRate;
+                updated.fitness = Math.max(0, updated.fitness - decay * 0.3);
+                updated.cumulativeLoad = Math.max(0, (updated.cumulativeLoad || 0) - 5);
+                updated.consecutivePhysicalDays = Math.max(0, (updated.consecutivePhysicalDays || 0) - 1);
+                return updated;
+              });
+              updatedTeams[teamIdx] = team;
+            }
+          }
+
+          set({
+            currentWeek: 38,
+            currentSeason: newSeason,
+            matches: updatedMatches,
+            teams: updatedTeams,
+            youthIntakeCompleted: false,
+            inbox: [...(state.inbox || []), inboxMessage],
+          });
+          return;
         }
 
+        // Comportamento normal - campeonato em andamento
         const newMatches = generateWeekMatches(state.teams, newWeek);
         let updatedTeams = [...state.teams];
 
         const updatedMatches = newMatches.map(m => {
           const match = { ...m };
-          if (m.homeTeam !== state.selectedTeam && m.awayTeam !== state.selectedTeam) {
-            const result = simulateMatchResult(
+          const isUserMatch = m.homeTeam === state.selectedTeam || m.awayTeam === state.selectedTeam;
+          if (!isUserMatch) {
+            const result = calculatePlayerMatchRatings(
               updatedTeams.find(t => t.id === m.homeTeam)!,
               updatedTeams.find(t => t.id === m.awayTeam)!,
+              simulateMatchResult(
+                updatedTeams.find(t => t.id === m.homeTeam)!,
+                updatedTeams.find(t => t.id === m.awayTeam)!,
+              ),
             );
             match.homeGoals = result.homeGoals;
             match.awayGoals = result.awayGoals;
             match.completed = true;
             match.events = result.events;
             match.stats = result.stats;
+            match.playerRatings = result.playerRatings;
+            match.bestPlayer = result.bestPlayer;
+            updatedTeams = applyMatchResultToTeams(updatedTeams, m.homeTeam, m.awayTeam, result);
+          } else {
+            // User match: simulate automatically if they haven't played it manually yet
+            const result = calculatePlayerMatchRatings(
+              updatedTeams.find(t => t.id === m.homeTeam)!,
+              updatedTeams.find(t => t.id === m.awayTeam)!,
+              simulateMatchResult(
+                updatedTeams.find(t => t.id === m.homeTeam)!,
+                updatedTeams.find(t => t.id === m.awayTeam)!,
+              ),
+            );
+            match.homeGoals = result.homeGoals;
+            match.awayGoals = result.awayGoals;
+            match.completed = true;
+            match.events = result.events;
+            match.stats = result.stats;
+            match.playerRatings = result.playerRatings;
+            match.bestPlayer = result.bestPlayer;
             updatedTeams = applyMatchResultToTeams(updatedTeams, m.homeTeam, m.awayTeam, result);
           }
           return match;
@@ -806,6 +1038,11 @@ export const useGameStore = create<GameStore>()(
           }
         }
 
+        // ============================================================
+        // ATUALIZAR TABELA DE CLASSIFICAÇÃO (P1.1)
+        // ============================================================
+        const leagueStandings = calculateLeagueStandings(updatedTeams, updatedMatches);
+
         set({
           currentWeek: newWeek,
           currentSeason: newSeason,
@@ -816,6 +1053,7 @@ export const useGameStore = create<GameStore>()(
           incomingTransfers: newIncoming
             ? [...state.incomingTransfers, newIncoming]
             : state.incomingTransfers,
+          leagueTable: leagueStandings,
         });
 
         get().updatePromiseCountdown();
@@ -861,7 +1099,8 @@ export const useGameStore = create<GameStore>()(
           if (match && !match.completed && match.isLive) {
             const homeTeam = state.teams.find(t => t.id === match.homeTeam)!;
             const awayTeam = state.teams.find(t => t.id === match.awayTeam)!;
-            const result = simulateMatchResult(homeTeam, awayTeam);
+            const baseResult = simulateMatchResult(homeTeam, awayTeam);
+            const result = calculatePlayerMatchRatings(homeTeam, awayTeam, baseResult);
 
             const updatedMatches = [...state.matches];
             updatedMatches[matchIndex] = {
@@ -872,6 +1111,8 @@ export const useGameStore = create<GameStore>()(
               isLive: false,
               events: [...(match.events || []), ...match.liveEvents, ...result.events],
               stats: result.stats,
+              playerRatings: result.playerRatings,
+              bestPlayer: result.bestPlayer,
             };
             const updatedTeams = applyMatchResultToTeams(state.teams, match.homeTeam, match.awayTeam, result);
             set({ matches: updatedMatches, teams: updatedTeams });
@@ -994,11 +1235,16 @@ export const useGameStore = create<GameStore>()(
 
           const homeTeam = state.teams.find(t => t.id === match.homeTeam)!;
           const awayTeam = state.teams.find(t => t.id === match.awayTeam)!;
-          const result = simulateMatchResult(
+          const baseResult = simulateMatchResult(
             homeTeam,
             awayTeam,
             isHome ? boost : 0,
             isHome ? 0 : boost,
+          );
+          const result = calculatePlayerMatchRatings(
+            homeTeam,
+            awayTeam,
+            baseResult,
           );
 
           const updatedMatches = [...state.matches];
@@ -1017,6 +1263,8 @@ export const useGameStore = create<GameStore>()(
               },
             ],
             stats: result.stats,
+            playerRatings: result.playerRatings,
+            bestPlayer: result.bestPlayer,
           };
 
           const updatedTeams = applyMatchResultToTeams(state.teams, match.homeTeam, match.awayTeam, result);
@@ -1089,6 +1337,37 @@ export const useGameStore = create<GameStore>()(
         }
 
         set({ matches: updatedMatches });
+      },
+
+      finishMatch: (matchIndex: number) => {
+        const state = get();
+        const match = state.matches[matchIndex];
+        if (!match || !match.isLive || match.completed) return;
+
+        // Simula o resultado final da partida
+        const homeTeam = state.teams.find(t => t.id === match.homeTeam)!;
+        const awayTeam = state.teams.find(t => t.id === match.awayTeam)!;
+        const baseResult = simulateMatchResult(homeTeam, awayTeam);
+        const result = calculatePlayerMatchRatings(homeTeam, awayTeam, baseResult);
+
+        // Atualiza a partida para marcada como concluída
+        const updatedMatches = [...state.matches];
+        updatedMatches[matchIndex] = {
+          ...match,
+          isLive: false,
+          liveMinute: 90,
+          completed: true,
+          homeGoals: result.homeGoals,
+          awayGoals: result.awayGoals,
+          events: result.events,
+          stats: result.stats,
+          playerRatings: result.playerRatings,
+          bestPlayer: result.bestPlayer,
+        };
+        
+        // Atualiza as equipes com os resultados
+        const updatedTeams = applyMatchResultToTeams(state.teams, match.homeTeam, match.awayTeam, result);
+        set({ matches: updatedMatches, teams: updatedTeams });
       },
 
       updatePlayerAttributes: (playerId: string, trainingType: string) => {
@@ -1172,20 +1451,42 @@ export const useGameStore = create<GameStore>()(
         });
       },
 
-      assignScout: () => {
+      assignScout: (playerId?: string) => {
         const state = get();
-        if (!state.selectedTeam) return;
+        if (!state.selectedTeam) return false;
 
+        // Se um playerId foi fornecido, gera relatório apenas para esse jogador
+        if (playerId) {
+          const alreadyReported = state.scoutReports.some(r => r.playerId === playerId);
+          if (alreadyReported) return false;
+
+          // Encontra o jogador em qualquer equipe
+          let player: Player | undefined;
+          for (const t of state.teams) {
+            if (t.id !== state.selectedTeam) {
+              player = t.squad.find(p => p.id === playerId);
+              if (player) break;
+            }
+          }
+          if (!player) return false;
+
+          const report = generateScoutReport(player);
+          set({ scoutReports: [...state.scoutReports, report] });
+          return true;
+        }
+
+        // Sem playerId: comportamento original — seleciona 3 jogadores aleatórios
         const candidates = state.teams
           .filter(t => t.id !== state.selectedTeam)
           .flatMap(t => t.squad)
           .filter(p => !state.scoutReports.some(r => r.playerId === p.id))
           .slice(0, 3);
 
-        if (candidates.length === 0) return;
+        if (candidates.length === 0) return false;
 
         const newReports = candidates.map(generateScoutReport);
         set({ scoutReports: [...state.scoutReports, ...newReports] });
+        return true;
       },
 
       // ============================================================
@@ -1294,6 +1595,24 @@ export const useGameStore = create<GameStore>()(
         updatedTeams[buyerIdx] = buyer;
         updatedTeams[sellerIdx] = seller;
 
+        // Item 12 - Checklist: Registrar transferência realizada no histórico
+        const completedTransfer: CompletedTransfer = {
+          id: `ct_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          playerId,
+          playerName: `${player.name} ${player.surname}`,
+          position: player.position,
+          age: player.age,
+          nationality: player.nationality,
+          fromTeamId: sellerTeamId,
+          fromTeamName: seller.name,
+          transferFee: fee,
+          paymentMethod: useInstallments ? 'installments' : 'cash',
+          contractWeeks,
+          weeklySalary,
+          transferDate: Date.now(),
+          transferWeek: state.currentWeek,
+        };
+
         set({
           teams: updatedTeams,
           scoutReports: state.scoutReports.filter(r => r.playerId !== playerId),
@@ -1301,6 +1620,7 @@ export const useGameStore = create<GameStore>()(
             ? [...state.pendingInstallments, installmentClause]
             : state.pendingInstallments,
           transferAgreements: [...state.transferAgreements, transferAgreement],
+          completedTransfers: [...state.completedTransfers, completedTransfer],
         });
         return true;
       },
@@ -1367,6 +1687,41 @@ export const useGameStore = create<GameStore>()(
 
       rejectIncomingTransfer: (playerId: string) => {
         set({ incomingTransfers: get().incomingTransfers.filter(o => o.playerId !== playerId) });
+      },
+
+      deferTransfer: (playerId: string) => {
+        const state = get();
+        const offer = state.incomingTransfers.find(o => o.playerId === playerId);
+        if (!offer) return;
+
+        const deferred: DeferredTransfer = {
+          ...offer,
+          deferredAt: Date.now(),
+          deferredWeek: state.currentWeek,
+        };
+
+        set({
+          incomingTransfers: state.incomingTransfers.filter(o => o.playerId !== playerId),
+          deferredTransfers: [...state.deferredTransfers, deferred],
+        });
+      },
+
+      reinstateDeferredTransfer: (playerId: string) => {
+        const state = get();
+        const offer = state.deferredTransfers.find(o => o.playerId === playerId);
+        if (!offer) return;
+
+        set({
+          incomingTransfers: [...state.incomingTransfers, offer],
+          deferredTransfers: state.deferredTransfers.filter(o => o.playerId !== playerId),
+        });
+      },
+
+      rejectDeferredTransfer: (playerId: string) => {
+        const state = get();
+        set({
+          deferredTransfers: state.deferredTransfers.filter(o => o.playerId !== playerId),
+        });
       },
 
       negotiateCounterOffer: (playerId: string) => {
@@ -2619,7 +2974,6 @@ export const useGameStore = create<GameStore>()(
         const team = state.teams.find(t => t.id === state.selectedTeam);
         if (!team) return;
 
-        const existingSlot = state.saveSlots?.find(s => s.metadata.slotNumber === slotNumber);
         const timestamp = new Date().toISOString();
 
         const saveSlot: SaveSlot = {
@@ -2655,6 +3009,7 @@ export const useGameStore = create<GameStore>()(
             recommendations: state.recommendations,
             degradedConditions: state.degradedConditions,
             socialTree: state.socialTree,
+            leagueTable: state.leagueTable,
             saveSlots: state.saveSlots,
           },
         };
@@ -2698,6 +3053,7 @@ export const useGameStore = create<GameStore>()(
           recommendations: gameState.recommendations,
           degradedConditions: gameState.degradedConditions,
           socialTree: gameState.socialTree,
+          deferredTransfers: gameState.deferredTransfers ?? [],
           // IMPORTANTE: Não restaurar saveSlots - manter os saves atuais
           saveSlots: state.saveSlots,
         });
@@ -2713,13 +3069,18 @@ export const useGameStore = create<GameStore>()(
         const state = get();
         return (state.saveSlots ?? []).map(s => s.metadata);
       },
+
+      // Item 12 - Checklist: Obter histórico de transferências realizadas
+      getCompletedTransfers: () => {
+        const state = get();
+        return state.completedTransfers;
+      },
     }),
     {
       name: 'fm-game-storage-v3',
       storage: createJSONStorage(() => {
         // STORAGE CUSTOMIZADO - Remove saveSlots para evitar overflow
         const mainKey = 'fm-game-storage-v3';
-        const saveSlotsKey = 'fm-save-slots-v3';
 
         return {
           getItem(key: string) {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { Button } from '../ui/Button';
-import type { MatchEvent, MatchStats } from '../../types/game';
+import type { MatchEvent, MatchStats, PlayerMatchRating } from '../../types/game';
 
 const EVENT_ICONS: Record<string, string> = {
   goal: '⚽', shot: '👟', save: '🧤', corner: '🚩', foul: '🛑',
@@ -84,8 +84,77 @@ const LiveDataHub: React.FC<{ stats?: MatchStats; events: MatchEvent[]; isLive: 
   );
 };
 
+// ============================================================
+// PLAYER RATING BADGE (Tarefa 2.2)
+// ============================================================
+
+const RATING_COLORS: Record<string, string> = {
+  excellent: '#22c55e', // green - 9+
+  good: '#84cc10',      // lime - 7-8
+  average: '#eab308',   // yellow - 5-6
+  poor: '#f9731b',      // orange - 3-4
+  bad: '#ef4444',       // red - 1-2
+};
+
+const RATING_LABELS: Record<string, string> = {
+  excellent: 'Excelente',
+  good: 'Bom',
+  average: 'Médio',
+  poor: 'Fraco',
+  bad: 'Mau',
+};
+
+const PlayerRatingBadge: React.FC<{ rating: PlayerMatchRating }> = ({ rating }) => {
+  let colorClass = 'poor';
+  if (rating.rating >= 9) colorClass = 'excellent';
+  else if (rating.rating >= 7) colorClass = 'good';
+  else if (rating.rating >= 5) colorClass = 'average';
+  else if (rating.rating >= 3) colorClass = 'poor';
+
+  return (
+    <div className="fm-player-rating">
+      <div className="fm-player-rating__badge" style={{ borderColor: RATING_COLORS[colorClass] }}>
+        <span className="fm-player-rating__score" style={{ color: RATING_COLORS[colorClass] }}>
+          {rating.rating.toFixed(1)}
+        </span>
+      </div>
+      <div className="fm-player-rating__info">
+        <span className="fm-player-rating__name">{rating.playerName}</span>
+        <span className="fm-player-rating__position">{rating.position}</span>
+        <span className="fm-player-rating__label">{RATING_LABELS[colorClass]}</span>
+      </div>
+      {rating.goals > 0 && (
+        <span className="fm-player-rating__goal">⚽{rating.goals}</span>
+      )}
+    </div>
+  );
+};
+
+const PlayerRatingsDisplay: React.FC<{ ratings: PlayerMatchRating[]; bestPlayerId?: string }> = ({
+  ratings, bestPlayerId,
+}) => {
+  const sortedRatings = [...ratings].sort((a, b) => b.rating - a.rating);
+  const bestPlayer = bestPlayerId ? sortedRatings.find(r => r.playerId === bestPlayerId) : null;
+
+  return (
+    <div className="fm-player-ratings">
+      <h3>Classificação dos Jogadores</h3>
+      {bestPlayer && (
+        <div className="fm-player-ratings__best-player">
+          <span>⭐ Jogador da Partida: {bestPlayer.playerName} ({bestPlayer.rating.toFixed(1)})</span>
+        </div>
+      )}
+      <div className="fm-player-ratings__list">
+        {sortedRatings.map((r) => (
+          <PlayerRatingBadge key={r.playerId} rating={r} />
+        ))}
+      </div>
+    </div>
+  );
+};
+
 export const MatchCenter: React.FC = () => {
-  const { matches, teams, selectedTeam, currentWeek, currentSeason, simulateMatch, advanceWeek, applyMatchIntervention, generateLiveMatchMinute } = useGameStore();
+  const { matches, teams, selectedTeam, currentWeek, currentSeason, simulateMatch, advanceWeek, applyMatchIntervention, generateLiveMatchMinute, finishMatch } = useGameStore();
   const [selectedMatchIndex, setSelectedMatchIndex] = useState<number | null>(null);
   const [liveMatchWatching, setLiveMatchWatching] = useState<number | null>(null);
   const [liveMatchTimer, setLiveMatchTimer] = useState<ReturnType<typeof setInterval> | null>(null);
@@ -195,12 +264,14 @@ export const MatchCenter: React.FC = () => {
                   {isMatchLive && (
                     <div className="fm-match__action">
                       <Button onClick={() => {
-                        generateLiveMatchMinute(index);
+                        // Iniciar: avança automaticamente com efeito de "lento" nos melhores momentos
+                        setLiveMatchWatching(index);
                       }}>
-                        Avançar Minuto
+                        Iniciar
                       </Button>
                       <Button onClick={() => {
-                        generateLiveMatchMinute(index);
+                        // Finalizar: pula direto para o fim sem simular minuto a minuto
+                        finishMatch(index);
                         setLiveMatchWatching(null);
                       }} className="fm-match-finish-btn">
                         Finalizar
@@ -290,23 +361,36 @@ export const MatchCenter: React.FC = () => {
               events={matches[selectedMatchIndex].events ?? []}
               isLive={false}
             />
+            {/* Player Ratings (Tarefa 2.2) */}
+            {matches[selectedMatchIndex].playerRatings && matches[selectedMatchIndex].playerRatings.length > 0 && (
+              <PlayerRatingsDisplay
+                ratings={matches[selectedMatchIndex].playerRatings!}
+                bestPlayerId={matches[selectedMatchIndex].bestPlayer}
+              />
+            )}
           </div>
         </div>
       )}
 
-      {userPendingMatch !== -1 && !matches[userPendingMatch]?.isLive && (
-        <div className="fm-match-center__intervention">
-          <h3>Intervenção</h3>
-          <div className="fm-match-center__intervention-buttons">
-            <Button onClick={() => applyMatchIntervention(userPendingMatch, 'substitution')}>
-              Substituição
-            </Button>
-            <Button onClick={() => applyMatchIntervention(userPendingMatch, 'shout')}>
-              Gritos à Equipa
-            </Button>
-          </div>
+      <div className="fm-match-center__intervention">
+        <h3>Intervenção</h3>
+        <div className="fm-match-center__intervention-buttons">
+          <Button
+            onClick={() => applyMatchIntervention(userPendingMatch, 'substitution')}
+            disabled={userPendingMatch === -1 || (userPendingMatch !== -1 && matches[userPendingMatch]?.isLive)}
+            title={userPendingMatch === -1 ? 'Disponível durante partida ao vivo' : 'Partida ao vivo — substituição finalizada'}
+          >
+            Substituição
+          </Button>
+          <Button
+            onClick={() => applyMatchIntervention(userPendingMatch, 'shout')}
+            disabled={userPendingMatch === -1 || (userPendingMatch !== -1 && matches[userPendingMatch]?.isLive)}
+            title={userPendingMatch === -1 ? 'Disponível durante partida ao vivo' : 'Partida ao vivo — gritos finalizados'}
+          >
+            Gritos à Equipa
+          </Button>
         </div>
-      )}
+      </div>
 
       <div className="fm-match-center__controls">
         <Button onClick={advanceWeek}>Avançar Semana</Button>

@@ -2,18 +2,7 @@ import React from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { Button } from '../ui/Button';
 import type { InboxMessage, InjuryReport, BoardReply, FinancialReport } from '../../types/game';
-
-// ============================================================
-// CATEGORIAS DE RESPOSTA DA DIRETORIA (Item 9.8.3)
-// ============================================================
-
-export const BOARD_REPLY_CATEGORIES: { id: BoardReply['category']; label: string }[] = [
-  { id: 'general', label: 'Geral' },
-  { id: 'budget', label: 'Orçamento' },
-  { id: 'transfer', label: 'Transferências' },
-  { id: 'expectation', label: 'Expectativas' },
-  { id: 'performance', label: 'Desempenho' },
-];
+import { BOARD_REPLY_CATEGORIES } from './constants';
 
 // ============================================================
 // TIPOS DE MENSAGENS E BOTÕES DE AÇÃO
@@ -206,8 +195,54 @@ export const MessageDetailModal: React.FC<MessageDetailModalProps> = ({
   onClose,
   onActionClick,
 }) => {
-  if (!message) return null;
+  const noMessage = !message;
 
+  // Estado vazio — sem mensagem selecionada
+  if (noMessage) {
+    return (
+      <div className="fm-modal-overlay" onClick={onClose}>
+        <div className="fm-modal fm-modal--large" onClick={(e) => e.stopPropagation()}>
+          <div className="fm-modal__header">
+            <div className="fm-modal__title-area">
+              <span className="fm-modal__icon">📬</span>
+              <h2 className="fm-modal__title">Detalhes da Mensagem</h2>
+            </div>
+            <button className="fm-modal__close" onClick={onClose}>×</button>
+          </div>
+
+          <div className="fm-modal__body fm-modal__body--empty">
+            <div className="fm-empty-message">
+              <span className="fm-empty-message__icon">📭</span>
+              <p className="fm-empty-message__text">
+                Selecione uma mensagem para ver detalhes e ações.
+              </p>
+              <p className="fm-empty-message__hint">
+                Clique em qualquer mensagem na lista ao lado.
+              </p>
+            </div>
+          </div>
+
+          <div className="fm-modal__footer">
+            <div className="fm-modal__actions">
+              {/* Botões visíveis mas desabilitados */}
+              {['Ver Detalhes', 'Arquivar', 'Marcar como Lido'].map((label) => (
+                <Button
+                  key={label}
+                  variant="secondary"
+                  disabled={true}
+                  onClick={() => {}}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Com mensagem — renderização normal
   const actions = ACTION_MAP[message.type] || {
     type: message.type,
     description: 'Mensagem do sistema',
@@ -801,6 +836,8 @@ export const InboxView: React.FC = () => {
                   <label className="fm-board-reply__label">
                     <strong>Categoria da resposta:</strong>
                     <select
+                      id="board-reply-category"
+                      name="board-reply-category"
                       className="fm-board-reply__select"
                       value={replyCategory}
                       onChange={(e) => setReplyCategory(e.target.value as BoardReply['category'])}
@@ -812,6 +849,8 @@ export const InboxView: React.FC = () => {
                   </label>
 
                   <textarea
+                    id="board-reply-text"
+                    name="board-reply-text"
                     className="fm-board-reply__textarea"
                     placeholder="Escreva sua resposta aqui..."
                     value={replyText}

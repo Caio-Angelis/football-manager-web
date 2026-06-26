@@ -1,7 +1,7 @@
 // Engine de Geração Procedural de Jogadores
 // Baseado na especificação Football Manager Web
 
-import type { Player, HiddenAttributes, Team, PlayerAttribute, GKAttributes, TeamTacticsConfig, InjuryHistory } from '../types/game';
+import type { Player, HiddenAttributes, Team, PlayerAttribute, GKAttributes, TeamTacticsConfig, InjuryHistory, YouthPlayer, YouthAcademy, ReserveTeamPlayer } from '../types/game';
 
 export function createDefaultTacticsConfig(): TeamTacticsConfig {
   return { playerRoles: [], playerInstructions: [] };

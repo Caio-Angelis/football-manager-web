@@ -107,6 +107,7 @@ const TeamDossier: React.FC<{
 }> = ({ team, index, onSelect }) => {
   const tier = getTeamTier(team.reputation);
   const playstyle = getPlaystyleTag(team.tactic);
+  const strengthLabel = getStrengthLabel(team.reputation);
 
   const handleSelect = useCallback(() => {
     onSelect(team.id);
@@ -118,7 +119,7 @@ const TeamDossier: React.FC<{
       style={{ '--card-index': index } as React.CSSProperties}
       tabIndex={0}
       role="button"
-      aria-label={`${team.name} — ${getStrengthLabel(team.reputation)} — ${team.formation}`}
+      aria-label={`${team.name} — ${strengthLabel} — ${team.formation}`}
       onClick={handleSelect}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -127,25 +128,37 @@ const TeamDossier: React.FC<{
         }
       }}
     >
+      <div className="fm-team-card__top">
+        <span className={`fm-team-card__tier fm-team-card__tier--${tier}`}>{strengthLabel}</span>
+        <span className="fm-team-card__playstyle">{playstyle}</span>
+      </div>
+
       <div className="fm-team-card__identity">
         <TeamCrest name={team.name} tier={tier} />
         <div className="fm-team-card__identity-text">
           <h2 className="fm-team-card__name">{team.name}</h2>
-          <div className="fm-team-card__meta">
-            <span className="fm-team-card__division">{team.division}</span>
-            <span className="fm-team-card__playstyle">{playstyle}</span>
-          </div>
+          <span className="fm-team-card__division">{team.division}</span>
+        </div>
+      </div>
+
+      <div className="fm-team-card__reputation">
+        <div className="fm-team-card__rep-header">
+          <span className="fm-team-card__rep-label">Reputação</span>
+          <span className="fm-team-card__rep-value">{team.reputation}</span>
+        </div>
+        <div
+          className="fm-team-card__rep-track"
+          role="progressbar"
+          aria-valuenow={team.reputation}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={`Reputação ${team.reputation} de 100`}
+        >
+          <div className="fm-team-card__rep-fill" style={{ width: `${team.reputation}%` }} />
         </div>
       </div>
 
       <dl className="fm-team-card__stats">
-        <div className="fm-team-card__stat">
-          <dt>Reputação</dt>
-          <dd>
-            <span className="fm-team-card__stat-value">{team.reputation}</span>
-            <span className="fm-team-card__stat-tag">{getStrengthLabel(team.reputation)}</span>
-          </dd>
-        </div>
         <div className="fm-team-card__stat">
           <dt>Formação</dt>
           <dd className="fm-team-card__stat-value">{team.formation}</dd>
@@ -166,7 +179,7 @@ const TeamDossier: React.FC<{
         </div>
       </dl>
 
-      <div className="fm-team-card__action">
+      <div className="fm-team-card__action" onClick={(e) => e.stopPropagation()}>
         <Button onClick={handleSelect} className="fm-team-card__button">
           Assumir comando
         </Button>
@@ -202,9 +215,6 @@ export const TeamSelection: React.FC = () => {
             <span>{teams.length} clubes</span>
             {eliteCount > 0 && <span>{eliteCount} elite</span>}
           </div>
-        )}
-        {teams.length > 0 && (
-          <div className="fm-team-selection__divider" aria-hidden="true" />
         )}
       </header>
 
