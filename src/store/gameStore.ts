@@ -1628,14 +1628,14 @@ export const useGameStore = create<GameStore>()(
       acceptIncomingTransfer: (playerId: string) => {
         const state = get();
         const offer = state.incomingTransfers.find(o => o.playerId === playerId);
-        if (!offer || !state.selectedTeam) return;
+        if (!offer || !state.selectedTeam) return false;
 
         const teamIdx = state.teams.findIndex(t => t.id === state.selectedTeam);
-        if (teamIdx === -1) return;
+        if (teamIdx === -1) return false;
 
         const team = { ...state.teams[teamIdx] };
         const playerIdx = team.squad.findIndex(p => p.id === playerId);
-        if (playerIdx === -1) return;
+        if (playerIdx === -1) return false;
 
         const player = team.squad[playerIdx];
         team.budget += offer.offerPrice;
@@ -1683,6 +1683,7 @@ export const useGameStore = create<GameStore>()(
           teams: updatedTeams,
           incomingTransfers: state.incomingTransfers.filter(o => o.playerId !== playerId),
         });
+        return true;
       },
 
       rejectIncomingTransfer: (playerId: string) => {
@@ -2946,7 +2947,7 @@ export const useGameStore = create<GameStore>()(
 
       adjustPlayerSalary: (playerId: string, newSalary: number) => {
         const state = get();
-        if (!state.selectedTeam) return;
+        if (!state.selectedTeam) return false;
 
         const salary = Math.max(10, Math.min(500, Math.round(newSalary)));
         get().updateTeam(state.selectedTeam, (team) => ({
@@ -2961,6 +2962,7 @@ export const useGameStore = create<GameStore>()(
             ),
           }),
         }));
+        return true;
       },
 
       // ============================================================
@@ -2969,10 +2971,10 @@ export const useGameStore = create<GameStore>()(
 
       saveGame: (slotNumber: 1 | 2) => {
         const state = get();
-        if (!state.selectedTeam) return;
+        if (!state.selectedTeam) return false;
 
         const team = state.teams.find(t => t.id === state.selectedTeam);
-        if (!team) return;
+        if (!team) return false;
 
         const timestamp = new Date().toISOString();
 
@@ -3019,13 +3021,14 @@ export const useGameStore = create<GameStore>()(
         const newSlots = [...filteredSlots, saveSlot];
 
         set({ saveSlots: newSlots });
+        return true;
       },
 
       loadGame: (slotNumber: 1 | 2) => {
         const state = get();
         const saveSlot = state.saveSlots?.find(s => s.metadata.slotNumber === slotNumber);
 
-        if (!saveSlot) return;
+        if (!saveSlot) return false;
 
         const gameState = saveSlot.gameState;
         set({
@@ -3057,12 +3060,14 @@ export const useGameStore = create<GameStore>()(
           // IMPORTANTE: Não restaurar saveSlots - manter os saves atuais
           saveSlots: state.saveSlots,
         });
+        return true;
       },
 
       deleteSave: (slotNumber: 1 | 2) => {
         const state = get();
         const filteredSlots = (state.saveSlots ?? []).filter(s => s.metadata.slotNumber !== slotNumber);
         set({ saveSlots: filteredSlots });
+        return true;
       },
 
       getSaveSlots: () => {
@@ -3087,10 +3092,16 @@ export const useGameStore = create<GameStore>()(
             if (key === mainKey) {
               const data = localStorage.getItem(mainKey);
               if (data) {
-                const parsed = JSON.parse(data);
-                // Remove saveSlots do estado carregado - eles são gerenciados separadamente
-                const { saveSlots: _, ...rest } = parsed;
-                return JSON.stringify(rest);
+                try {
+                  const parsed = JSON.parse(data);
+                  // Remove saveSlots do estado carregado - eles são gerenciados separadamente
+                  const { saveSlots: _, ...rest } = parsed;
+                  return JSON.stringify(rest);
+                } catch (parseError) {
+                  console.error('Estado corrompido no localStorage — removendo dados inválidos:', parseError);
+                  localStorage.removeItem(mainKey);
+                  return null;
+                }
               }
               return null;
             }
@@ -3121,6 +3132,9 @@ export const useGameStore = create<GameStore>()(
                   localStorage.setItem(mainKey, JSON.stringify(rest));
                 } catch (retryError) {
                   console.error('Falha ao salvar mesmo após limpeza:', retryError);
+                  window.dispatchEvent(new CustomEvent('fm-storage-error', {
+                    detail: { error: retryError, operation: 'setItem' },
+                  }));
                 }
               }
             }
@@ -3176,6 +3190,9 @@ if (typeof window !== 'undefined') {
       }
     } catch (e) {
       console.error('Erro ao carregar saves:', e);
+      window.dispatchEvent(new CustomEvent('fm-storage-error', {
+        detail: { error: e, operation: 'loadSaves' },
+      }));
     }
   }
 }
@@ -3187,9 +3204,16 @@ useGameStore.subscribe((state) => {
   } catch (e) {
     console.error('Erro ao salvar saves:', e);
     if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+      window.dispatchEvent(new CustomEvent('fm-storage-error', {
+        detail: { error: e, operation: 'quotaExceeded' },
+      }));
       localStorage.removeItem(MAIN_STORAGE_KEY);
       localStorage.removeItem(SAVE_SLOTS_KEY);
       window.location.reload();
+    } else {
+      window.dispatchEvent(new CustomEvent('fm-storage-error', {
+        detail: { error: e, operation: 'saveSlotsSync' },
+      }));
     }
   }
 });

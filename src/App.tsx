@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { useGameStore } from './store/gameStore';
 import { TeamSelection } from './components/TeamSelection';
 import { SquadView } from './components/squad/SquadView';
@@ -47,6 +47,14 @@ export const App: React.FC = () => {
   const dismissToast = useCallback((id: string) => {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
+
+  useEffect(() => {
+    const handler = () => {
+      addToast('Erro ao salvar dados — o armazenamento local pode estar cheio.', 'warning');
+    };
+    window.addEventListener('fm-storage-error', handler);
+    return () => window.removeEventListener('fm-storage-error', handler);
+  }, [addToast]);
 
   const handleSaveSlotSelect = (metadata: SaveSlotMetadata) => {
     // Salvo carregado com sucesso — o store já foi atualizado pelo handleLoad do SaveSlot
@@ -170,14 +178,14 @@ export const App: React.FC = () => {
             Continuar ▶
           </Button>
           <Button className="fm-button--save" onClick={() => {
-            useGameStore.getState().saveGame(1);
-            addToast('💾 Save 1 salvo!', 'success');
+            const ok = useGameStore.getState().saveGame(1);
+            addToast(ok ? '💾 Save 1 salvo!' : '❌ Falha ao salvar — selecione um time primeiro.', ok ? 'success' : 'warning');
           }}>
             💾 Save 1
           </Button>
           <Button className="fm-button--save" onClick={() => {
-            useGameStore.getState().saveGame(2);
-            addToast('💾 Save 2 salvo!', 'success');
+            const ok = useGameStore.getState().saveGame(2);
+            addToast(ok ? '💾 Save 2 salvo!' : '❌ Falha ao salvar — selecione um time primeiro.', ok ? 'success' : 'warning');
           }}>
             💾 Save 2
           </Button>

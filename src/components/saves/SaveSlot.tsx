@@ -36,34 +36,31 @@ export const SaveSlot: React.FC<SaveSlotProps> = ({ slotNumber, onSaveSlot }) =>
     }
 
     setSaving(true);
-    store.saveGame(slotNumber);
-    
-    // Aguarda um pouco para garantir que o save foi processado
-    setTimeout(() => {
-      setSaving(false);
+    const success = store.saveGame(slotNumber);
+    setSaving(false);
+
+    if (success) {
       const newSlots = store.getSaveSlots();
       const savedSlot = newSlots.find(s => s.slotNumber === slotNumber);
-      
-      if (savedSlot) {
-        setMessage('✅ Save ' + slotNumber + ' salvo com sucesso!');
-        if (onSaveSlot) {
-          onSaveSlot(savedSlot);
-        }
-      } else {
-        setMessage('❌ Erro ao salvar. Verifique o console.');
-        console.error('Save falhou - slot não encontrado após save');
+      setMessage('✅ Save ' + slotNumber + ' salvo com sucesso!');
+      if (savedSlot && onSaveSlot) {
+        onSaveSlot(savedSlot);
       }
-      // Mantém a mensagem visível por 5 segundos
-      setTimeout(() => setMessage(null), 5000);
-    }, 200);
+    } else {
+      setMessage('❌ Erro ao salvar — selecione um time primeiro.');
+    }
+    setTimeout(() => setMessage(null), 5000);
   };
 
   const handleLoad = () => {
     if (saveSlot) {
-      store.loadGame(slotNumber);
-      setTimeout(() => {
+      const success = store.loadGame(slotNumber);
+      if (success) {
         onSaveSlot?.(saveSlot);
-      }, 300);
+      } else {
+        setMessage('❌ Erro ao carregar save — dados não encontrados.');
+        setTimeout(() => setMessage(null), 5000);
+      }
     }
   };
 

@@ -844,7 +844,7 @@ export interface GameActions {
   completeYouthIntake: () => void;
   updateTeam: (teamId: string, updater: (team: Team) => Team) => void;
   buyPlayer: (playerId: string, sellerTeamId: string) => boolean;
-  acceptIncomingTransfer: (playerId: string) => void;
+  acceptIncomingTransfer: (playerId: string) => boolean;
   rejectIncomingTransfer: (playerId: string) => void;
   deferTransfer: (playerId: string) => void;
   reinstateDeferredTransfer: (playerId: string) => void;
@@ -899,11 +899,11 @@ export interface GameActions {
   updatePromiseCountdown: () => void;
   getActivePromises: () => { player: Player; promise: Promise; weeksLeft: number }[];
   checkPromiseDeadlines: () => { fulfilled: Promise[]; expired: Promise[] };
-  adjustPlayerSalary: (playerId: string, newSalary: number) => void;
+  adjustPlayerSalary: (playerId: string, newSalary: number) => boolean;
   // Sistema de Saves
-  saveGame: (slotNumber: 1 | 2) => void;
-  loadGame: (slotNumber: 1 | 2) => void;
-  deleteSave: (slotNumber: 1 | 2) => void;
+  saveGame: (slotNumber: 1 | 2) => boolean;
+  loadGame: (slotNumber: 1 | 2) => boolean;
+  deleteSave: (slotNumber: 1 | 2) => boolean;
   getSaveSlots: () => SaveSlotMetadata[];
   // P6.1 — Academia de Jovens
   generateYouthPlayers: () => void;
