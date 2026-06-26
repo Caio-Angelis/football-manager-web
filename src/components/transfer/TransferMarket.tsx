@@ -4,8 +4,9 @@ import { PlayerCard } from '../squad/PlayerCard';
 import { Button } from '../ui/Button';
 import { ScoutReportCard } from './ScoutReportCard';
 import type { IncomingTransfer, Player, InstallmentClause, PlayerBonus, TransferAgreement } from '../../types/game';
+import { BONUS_TYPE_LABELS, SQUAD_STATUS_OPTIONS } from '../../utils/playerDisplay';
 
-const SquadStatusOptions = ['Key Player', 'Regular Starter', 'Rotation', 'Young Talent', 'Excess'];
+
 
 // Componente para exibir cláusula de pagamento parcelado
 const InstallmentClauseDisplay: React.FC<{ clause: InstallmentClause }> = ({ clause }) => {
@@ -40,17 +41,9 @@ const InstallmentClauseDisplay: React.FC<{ clause: InstallmentClause }> = ({ cla
 
 // Componente para exibir bónus
 const PlayerBonusDisplay: React.FC<{ bonus: PlayerBonus }> = ({ bonus }) => {
-  const typeLabels: Record<PlayerBonus['type'], string> = {
-    goals: 'Golos',
-    appearances: 'Aparições',
-    assists: 'Assistências',
-    titles: 'Títulos',
-    performance: 'Performance',
-  };
-
   return (
     <div className={`fm-bonus-display ${bonus.triggered ? 'fm-bonus-display--triggered' : ''}`}>
-      <span className="fm-bonus-display__type">{typeLabels[bonus.type]}</span>
+      <span className="fm-bonus-display__type">{BONUS_TYPE_LABELS[bonus.type]}</span>
       <span className="fm-bonus-display__threshold">{bonus.threshold}x</span>
       <span className="fm-bonus-display__amount">R$ {bonus.bonusAmount}K</span>
       {bonus.triggered && (
@@ -106,16 +99,9 @@ const TransferAgreementDisplay: React.FC<{
             <span className="fm-transfer-agreement__detail-label">Bónus de Performance:</span>
             <div className="fm-transfer-agreement__bonuses-list">
               {agreement.contract.performanceBonuses.map((bonus, index) => {
-                const typeLabels: Record<PlayerBonus['type'], string> = {
-                  goals: 'Golos',
-                  appearances: 'Aparições',
-                  assists: 'Assistências',
-                  titles: 'Títulos',
-                  performance: 'Performance',
-                };
                 return (
                   <span key={index} className="fm-transfer-agreement__bonus-tag">
-                    {typeLabels[bonus.type]}: {bonus.threshold}x → R$ {bonus.bonusAmount}K
+                    {BONUS_TYPE_LABELS[bonus.type]}: {bonus.threshold}x → R$ {bonus.bonusAmount}K
                   </span>
                 );
               })}
@@ -426,7 +412,7 @@ export const TransferMarket: React.FC<{
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
             >
-              {SquadStatusOptions.map((s) => (
+              {SQUAD_STATUS_OPTIONS.map((s) => (
                 <option key={s} value={s}>Estatuto: {s}</option>
               ))}
             </select>
@@ -682,17 +668,10 @@ export const TransferMarket: React.FC<{
           ) : (
             <div className="fm-bonuses-list">
               {incomingBonuses.slice().sort(sortByActivationDesc).map((bonus, index) => {
-                const typeLabels: Record<PlayerBonus['type'], string> = {
-                  goals: 'Golos',
-                  appearances: 'Aparições',
-                  assists: 'Assistências',
-                  titles: 'Títulos',
-                  performance: 'Performance',
-                };
                 return (
                   <div key={index} className={`fm-bonus-card ${bonus.triggered ? 'fm-bonus-card--triggered' : ''}`}>
                     <div className="fm-bonus-card__header">
-                      <span className="fm-bonus-card__type">{typeLabels[bonus.type]}</span>
+                      <span className="fm-bonus-card__type">{BONUS_TYPE_LABELS[bonus.type]}</span>
                       <span className="fm-bonus-card__status">
                         {bonus.triggered ? '✓ Ativo' : 'Pendente'}
                       </span>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { Button } from '../ui/Button';
 import type { TrainingSession, WeeklyTrainingPlan } from '../../types/game';
+import { getRiskColor, getRiskLabel } from '../../utils/playerDisplay';
 
 const TRAINING_TYPES = [
   { id: 'physical', label: 'Físico', desc: 'Velocidade e resistência (+risco de lesão)', icon: '🏃' },
@@ -55,20 +56,6 @@ export const TrainingView: React.FC = () => {
       sessions: sessions.length ? sessions : DAYS.map((_, i) => createEmptySession(i)),
     };
     setTrainingPlan(plan);
-  };
-
-  const getRiskColor = (risk: number) => {
-    if (risk >= 80) return '#F44336'; // critical - red
-    if (risk >= 60) return '#FF9800'; // high - orange
-    if (risk >= 30) return '#FFC107'; // moderate - yellow
-    return '#4CAF50'; // low - green
-  };
-
-  const getRiskLabel = (risk: number) => {
-    if (risk >= 80) return 'Crítico';
-    if (risk >= 60) return 'Alto';
-    if (risk >= 30) return 'Moderado';
-    return 'Baixo';
   };
 
   const riskSummary = showInjuryRisk ? getInjuryRiskSummary() : null;

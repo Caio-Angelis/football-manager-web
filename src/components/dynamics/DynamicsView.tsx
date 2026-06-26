@@ -1,6 +1,7 @@
 import React from 'react';
 import { useGameStore } from '../../store/gameStore';
 import type { Player } from '../../types/game';
+import { getFormRatingColor, getInfluenceColor } from '../../utils/playerDisplay';
 
 const HIERARCHY_LEVELS = [
   { key: 'Key Player', label: 'Líderes de Equipa', minLeadership: 15 },
@@ -27,25 +28,6 @@ function getCoachTreatmentLabel(type: string): string {
     rest: 'Descanso',
   };
   return labels[type] || type;
-}
-
-function getFormRatingColor(rating: string): string {
-  const colors: Record<string, string> = {
-    excellent: '#22c32a',
-    good: '#66b634',
-    average: '#eab308',
-    poor: '#f59e0b',
-    terrible: '#ef4444',
-  };
-  return colors[rating] || '#eab308';
-}
-
-function getInfluenceColor(influence: number): string {
-  if (influence >= 80) return '#22c32a';
-  if (influence >= 60) return '#66b634';
-  if (influence >= 40) return '#eab308';
-  if (influence >= 20) return '#f59e0b';
-  return '#ef4444';
 }
 
 export const DynamicsView: React.FC = () => {

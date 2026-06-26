@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import type { Player } from '../../types/game';
+import { getStatColor, getOverallRating, getPositionColor, STATUS_LABELS } from '../../utils/playerDisplay';
+import { useIsNarrow } from '../../hooks/useResponsiveLayout';
 
 interface SquadTableProps {
   players: Player[];
@@ -9,14 +11,6 @@ interface SquadTableProps {
 
 type SortKey = keyof Player;
 type SortDirection = 'asc' | 'desc';
-
-const STATUS_LABELS: Record<string, string> = {
-  'Key Player': 'Peça-chave',
-  'Regular Starter': 'Titular',
-  'Rotation': 'Rotação',
-  'Young Talent': 'Promessa',
-  'Excess': 'Outro',
-};
 
 export const SquadTable: React.FC<SquadTableProps> = ({
   players,
@@ -43,19 +37,8 @@ export const SquadTable: React.FC<SquadTableProps> = ({
     });
   }, [players, filterPos, search, sortKey, sortDir]);
 
-  const getStatColor = (val: number) => {
-    if (val >= 80) return 'var(--color-success)';
-    if (val >= 60) return '#8BC34A';
-    if (val >= 40) return '#FFC107';
-    if (val >= 20) return '#FF9800';
-    return '#F44336';
-  };
-
-  const getOverall = (ca: number) => Math.round(ca / 2);
-
   const totalPlayers = filtered.length;
-  const pageWidth = typeof window !== 'undefined' ? window.innerWidth : 1024;
-  const isNarrow = pageWidth < 1024;
+  const isNarrow = useIsNarrow();
 
   return (
     <div className="fm-squad-table">
@@ -102,7 +85,7 @@ export const SquadTable: React.FC<SquadTableProps> = ({
           </thead>
           <tbody>
             {filtered.map((player) => {
-              const overall = getOverall(player.currentAbility);
+              const overall = getOverallRating(player.currentAbility);
               return (
                 <tr
                   key={player.id}
@@ -110,7 +93,7 @@ export const SquadTable: React.FC<SquadTableProps> = ({
                   onClick={() => onPlayerSelect(player.id)}
                 >
                   <td className="fm-squad-table__pos">
-                    <span className="fm-squad-table__pos-badge" style={{ backgroundColor: player.position === 'GK' ? '#2196F3' : player.position === 'DEF' ? '#4CAF50' : player.position === 'MID' ? '#FF9800' : '#F44336' }}>
+                    <span className="fm-squad-table__pos-badge" style={{ backgroundColor: getPositionColor(player.position) }}>
                       {player.position}
                     </span>
                   </td>

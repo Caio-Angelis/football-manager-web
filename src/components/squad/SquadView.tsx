@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { SquadTable } from './SquadTable';
 import { PlayerDetailPanel } from './PlayerDetailPanel';
+import { useIsNarrow } from '../../hooks/useResponsiveLayout';
 
 export const SquadView: React.FC = () => {
   const { selectedTeam, teams, currentWeek, currentSeason } = useGameStore();
@@ -23,8 +24,7 @@ export const SquadView: React.FC = () => {
 
   const selectedPlayer = selectedPlayerId ? team.squad.find(p => p.id === selectedPlayerId) || null : null;
 
-  const pageWidth = typeof window !== 'undefined' ? window.innerWidth : 1024;
-  const isNarrow = pageWidth < 1024;
+  const isNarrow = useIsNarrow();
 
   return (
     <div className="fm-squad-view">
