@@ -351,8 +351,12 @@ export const TransferMarket: React.FC<{
   };
 
   const handleAcceptTransfer = (playerId: string) => {
-    acceptIncomingTransfer(playerId);
-    addToast?.('Transferência aceita com sucesso!', 'success');
+    const success = acceptIncomingTransfer(playerId);
+    if (success) {
+      addToast?.('Transferência aceita com sucesso!', 'success');
+    } else {
+      addToast?.('Não foi possível aceitar a transferência.', 'warning');
+    }
   };
 
   const handleRejectTransfer = (playerId: string) => {

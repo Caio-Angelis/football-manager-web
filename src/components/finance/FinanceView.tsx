@@ -32,9 +32,15 @@ export const FinanceView: React.FC = () => {
     setDraftSalary(salary);
   };
 
+  const [salaryError, setSalaryError] = useState<string | null>(null);
+
   const commitSalary = (playerId: string) => {
-    adjustPlayerSalary(playerId, draftSalary);
+    const success = adjustPlayerSalary(playerId, draftSalary);
     setEditingPlayerId(null);
+    if (!success) {
+      setSalaryError('Não foi possível ajustar o salário.');
+      setTimeout(() => setSalaryError(null), 3000);
+    }
   };
 
   return (
@@ -107,6 +113,12 @@ export const FinanceView: React.FC = () => {
           </div>
         </div>
       </section>
+
+      {salaryError && (
+        <div className="fm-finance-view__error" style={{ color: 'red', padding: '8px 16px', fontSize: '14px' }}>
+          {salaryError}
+        </div>
+      )}
 
       <section className="fm-finance-view__section">
         <h2>Folha Salarial por Jogador</h2>
