@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { Button } from '../ui/Button';
 import type { MatchEvent, MatchStats, PlayerMatchRating } from '../../types/game';
+import { MATCH_RATING_COLORS, MATCH_RATING_LABELS, getMatchRatingClass } from '../../utils/playerDisplay';
 
 const EVENT_ICONS: Record<string, string> = {
   goal: '⚽', shot: '👟', save: '🧤', corner: '🚩', foul: '🛑',
@@ -88,40 +89,20 @@ const LiveDataHub: React.FC<{ stats?: MatchStats; events: MatchEvent[]; isLive: 
 // PLAYER RATING BADGE (Tarefa 2.2)
 // ============================================================
 
-const RATING_COLORS: Record<string, string> = {
-  excellent: '#22c55e', // green - 9+
-  good: '#84cc10',      // lime - 7-8
-  average: '#eab308',   // yellow - 5-6
-  poor: '#f9731b',      // orange - 3-4
-  bad: '#ef4444',       // red - 1-2
-};
-
-const RATING_LABELS: Record<string, string> = {
-  excellent: 'Excelente',
-  good: 'Bom',
-  average: 'Médio',
-  poor: 'Fraco',
-  bad: 'Mau',
-};
-
 const PlayerRatingBadge: React.FC<{ rating: PlayerMatchRating }> = ({ rating }) => {
-  let colorClass = 'poor';
-  if (rating.rating >= 9) colorClass = 'excellent';
-  else if (rating.rating >= 7) colorClass = 'good';
-  else if (rating.rating >= 5) colorClass = 'average';
-  else if (rating.rating >= 3) colorClass = 'poor';
+  const colorClass = getMatchRatingClass(rating.rating);
 
   return (
     <div className="fm-player-rating">
-      <div className="fm-player-rating__badge" style={{ borderColor: RATING_COLORS[colorClass] }}>
-        <span className="fm-player-rating__score" style={{ color: RATING_COLORS[colorClass] }}>
+      <div className="fm-player-rating__badge" style={{ borderColor: MATCH_RATING_COLORS[colorClass] }}>
+        <span className="fm-player-rating__score" style={{ color: MATCH_RATING_COLORS[colorClass] }}>
           {rating.rating.toFixed(1)}
         </span>
       </div>
       <div className="fm-player-rating__info">
         <span className="fm-player-rating__name">{rating.playerName}</span>
         <span className="fm-player-rating__position">{rating.position}</span>
-        <span className="fm-player-rating__label">{RATING_LABELS[colorClass]}</span>
+        <span className="fm-player-rating__label">{MATCH_RATING_LABELS[colorClass]}</span>
       </div>
       {rating.goals > 0 && (
         <span className="fm-player-rating__goal">⚽{rating.goals}</span>

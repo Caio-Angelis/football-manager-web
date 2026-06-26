@@ -1,4 +1,5 @@
 import React from 'react';
+import { getStatColor } from '../../utils/playerDisplay';
 
 interface StatBarProps {
   label: string;
@@ -15,14 +16,6 @@ export const StatBar: React.FC<StatBarProps> = ({
 }) => {
   const percentage = Math.min((value / maxValue) * 100, 100);
   
-  const getColor = (val: number) => {
-    if (val >= 80) return '#4CAF50';
-    if (val >= 60) return '#8BC34A';
-    if (val >= 40) return '#FFC107';
-    if (val >= 20) return '#FF9800';
-    return '#F44336';
-  };
-
   return (
     <div className="fm-statbar">
       <div className="fm-statbar__label">
@@ -34,7 +27,7 @@ export const StatBar: React.FC<StatBarProps> = ({
           className="fm-statbar__fill"
           style={{
             width: `${percentage}%`,
-            backgroundColor: getColor(value),
+            backgroundColor: getStatColor(value),
           }}
         />
       </div>
