@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: 'happy-dom',
-    include: ['src/smoke/**/*.test.ts'],
+    include: ['src/smoke/**/*.test.ts', 'src/__tests__/**/*.test.ts'],
     setupFiles: ['src/smoke/setup.ts'],
   },
 });
