@@ -3087,10 +3087,15 @@ export const useGameStore = create<GameStore>()(
             if (key === mainKey) {
               const data = localStorage.getItem(mainKey);
               if (data) {
-                const parsed = JSON.parse(data);
-                // Remove saveSlots do estado carregado - eles são gerenciados separadamente
-                const { saveSlots: _, ...rest } = parsed;
-                return JSON.stringify(rest);
+                try {
+                  const parsed = JSON.parse(data);
+                  // Remove saveSlots do estado carregado - eles são gerenciados separadamente
+                  const { saveSlots: _, ...rest } = parsed;
+                  return JSON.stringify(rest);
+                } catch {
+                  localStorage.removeItem(mainKey);
+                  return null;
+                }
               }
               return null;
             }
@@ -3171,11 +3176,15 @@ if (typeof window !== 'undefined') {
     try {
       const data = localStorage.getItem(SAVE_SLOTS_KEY);
       if (data) {
-        const existingSlots: SaveSlot[] = JSON.parse(data);
-        useGameStore.setState({ saveSlots: existingSlots });
+        const parsed: unknown = JSON.parse(data);
+        if (Array.isArray(parsed)) {
+          useGameStore.setState({ saveSlots: parsed as SaveSlot[] });
+        } else {
+          localStorage.removeItem(SAVE_SLOTS_KEY);
+        }
       }
-    } catch (e) {
-      console.error('Erro ao carregar saves:', e);
+    } catch {
+      localStorage.removeItem(SAVE_SLOTS_KEY);
     }
   }
 }
