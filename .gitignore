@@ -71,3 +71,9 @@ mcps/
 *.key
 *.pem
 *.secret
+
+# Game saves
+saves/
+
+# Embedded git repos
+ponytail/

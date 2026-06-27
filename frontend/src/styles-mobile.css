@@ -1,0 +1,361 @@
+/* ===== Mobile Responsive Overrides ===== */
+/* Breakpoints:
+   - Tablet: 1024px
+   - Small desktop / Large tablet: 768px
+   - Mobile: 640px
+   - Small mobile: 480px
+*/
+
+/* ===== App Shell Mobile ===== */
+
+/* Tablet: sidebar stays but content adapts */
+@media (max-width: 1024px) {
+  .fm-squad-view,
+  .fm-league-view {
+    padding: 10px 12px;
+  }
+
+  .fm-match-center,
+  .fm-transfer-market,
+  .fm-inbox-view {
+    padding: 12px;
+  }
+}
+
+/* Mobile: sidebar → bottom navigation */
+@media (max-width: 768px) {
+  .fm-app {
+    flex-direction: column;
+  }
+
+  .fm-sidebar {
+    width: 100%;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    flex-direction: row;
+    padding: 0;
+    border-right: none;
+    border-top: 1px solid var(--color-border);
+    box-shadow: 0 -2px 8px var(--color-shadow);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .fm-sidebar__logo,
+  .fm-sidebar__season,
+  .fm-sidebar__footer {
+    display: none;
+  }
+
+  .fm-sidebar__nav {
+    flex-direction: row;
+    flex: none;
+    padding: 8px 16px;
+    gap: 8px;
+  }
+
+  .fm-sidebar__item {
+    flex-direction: column;
+    padding: 8px 12px;
+    gap: 4px;
+    min-width: 64px;
+  }
+
+  .fm-sidebar__item-label {
+    display: block;
+    font-size: 10px;
+  }
+
+  .fm-sidebar__badge {
+    display: none;
+  }
+
+  .fm-main {
+    padding-bottom: 120px; /* space for bottom nav */
+    overflow-y: auto;
+  }
+
+  .fm-squad-view,
+  .fm-league-view {
+    min-height: calc(100vh - 120px);
+  }
+}
+
+/* ===== Squad Table Mobile ===== */
+@media (max-width: 768px) {
+  .fm-squad-table__wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .fm-squad-table__grid {
+    min-width: 600px; /* allow horizontal scroll */
+  }
+
+  .fm-squad-table__toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .fm-squad-table__search {
+    min-width: auto;
+  }
+
+  .fm-squad-table__filters {
+    flex-wrap: wrap;
+  }
+}
+
+/* Cards mode for very small screens */
+@media (max-width: 480px) {
+  .fm-squad-table__wrapper {
+    overflow-x: hidden;
+  }
+
+  .fm-squad-table__grid {
+    display: flex;
+    flex-direction: column;
+    min-width: auto;
+  }
+
+  .fm-squad-table__row {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 8px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 12px;
+  }
+
+  .fm-squad-table__row td {
+    display: block;
+    padding: 4px 0;
+    text-align: left;
+    border-bottom: 1px solid var(--color-background);
+  }
+
+  .fm-squad-table__row td:first-child {
+    border-bottom: none;
+  }
+}
+
+/* ===== League Table Mobile ===== */
+@media (max-width: 768px) {
+  .fm-league-view {
+    padding: 0;
+  }
+
+  .fm-league-view__header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+
+  .fm-league-table__col--hide-sm {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .fm-league-table__col--hide-xs {
+    display: none;
+  }
+}
+
+/* ===== Transfer Market Mobile ===== */
+@media (max-width: 768px) {
+  .fm-transfer-market__players {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .fm-transfer-market__controls {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 640px) {
+  .fm-transfer-market__tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+
+  .fm-transfer-market__details {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===== Tactics View Mobile ===== */
+@media (max-width: 768px) {
+  .fm-tactics-view__formations {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+  }
+
+  .fm-tactics-view__roles-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fm-tactics-view__mentality {
+    margin-bottom: 16px;
+  }
+}
+
+/* ===== Training View Mobile ===== */
+@media (max-width: 768px) {
+  .fm-injury-risk-grid,
+  .fm-fatigue-grid,
+  .fm-attribute-progression-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .fm-training-view__section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+}
+
+/* ===== Finance View Mobile ===== */
+@media (max-width: 768px) {
+  .fm-finance-view__projection {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .fm-finance-view__projection {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===== Match Center Mobile ===== */
+@media (max-width: 768px) {
+  .fm-match-center__controls {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .fm-match-center__standings {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* ===== Player Detail Panel Mobile ===== */
+@media (max-width: 768px) {
+  .fm-player-detail-panel-overlay--mobile .fm-player-detail-panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    width: 100%;
+    max-height: 90vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+
+  .fm-player-detail-panel-overlay--mobile .fm-player-detail-panel-overlay {
+    align-items: flex-end;
+  }
+}
+
+/* ===== Scout Report Mobile ===== */
+@media (max-width: 768px) {
+  .fm-scout-reports-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .fm-scout-report__attr {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .fm-scout-report__attr-name {
+    width: auto;
+  }
+}
+
+/* ===== Inbox Mobile ===== */
+@media (max-width: 768px) {
+  .fm-inbox-message {
+    padding: 12px;
+  }
+
+  .fm-inbox-message__actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+/* ===== Toast Mobile ===== */
+@media (max-width: 768px) {
+  .fm-toast-container {
+    bottom: 120px; /* above bottom nav */
+    right: 12px;
+    left: 12px;
+    max-width: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .fm-toast {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .fm-toast__dismiss {
+    align-self: flex-end;
+  }
+}
+
+/* ===== Button Mobile ===== */
+@media (max-width: 768px) {
+  .fm-button {
+    padding: 10px 16px;
+    font-size: var(--font-size-base);
+  }
+
+  .fm-button--sm {
+    padding: 8px 12px;
+  }
+}
+
+/* ===== Dynamics Mobile ===== */
+@media (max-width: 768px) {
+  .fm-social-tree__node-info {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .fm-social-tree__connections {
+    flex-wrap: wrap;
+  }
+}
+
+/* ===== Empty State Mobile ===== */
+@media (max-width: 480px) {
+  .fm-empty-message {
+    padding: 24px 16px;
+  }
+
+  .fm-empty-message__icon {
+    font-size: 36px;
+  }
+
+  .fm-empty-message__text {
+    font-size: 16px;
+  }
+}

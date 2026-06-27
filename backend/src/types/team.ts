@@ -1,0 +1,123 @@
+// Tipos de Time e Táticas
+
+import type { Player } from './player';
+
+// ============================================================
+// TÁTICAS E TÁTICAS INDIVIDUAIS
+// ============================================================
+
+export interface PlayerRole {
+  position: string; // 'GK', 'DEF', 'MID', 'FWD'
+  slotIndex: number; // índice na formação (0-10 para 4-4-2, 0-14 para 4-3-3, etc.)
+  role: string; // valor do role (ex: 'sweeperKeeper', 'wingBack', 'centralMidfielder')
+  duty: string; // 'attack', 'defend', 'balance'
+}
+
+export interface PlayerInstruction {
+  playerId: string;
+  // Instruções de posse
+  passMore: boolean;
+  passLess: boolean;
+  shootMore: boolean;
+  shootLess: boolean;
+  dribbMore: boolean;
+  dribbLess: boolean;
+  goGoal: boolean;
+  stayBack: boolean;
+  // Instruções de cruzamento
+  crossMore: boolean;
+  crossLess: boolean;
+  // Instruções de movimento
+  cutInside: boolean;
+  RunThrough: boolean;
+  // Instruções de jogo
+  playSlower: boolean;
+  playFaster: boolean;
+  throwInMore: boolean;
+  takeMoreRisks: boolean;
+  // Instruções de defesa
+  tackleMore: boolean;
+  tackleLess: boolean;
+  beMoreAggressive: boolean;
+  beFairer: boolean;
+}
+
+export interface TeamTacticsConfig {
+  playerRoles: PlayerRole[];
+  playerInstructions: PlayerInstruction[];
+}
+
+// ============================================================
+// TIME
+// ============================================================
+
+export interface Team {
+  id: string;
+  name: string;
+  division: string;
+  league: string;
+  reputation: number;       // 1-100 (reputação do clube)
+  budget: number;           // orçamento em milhões
+  wageBill: number;         // folha salarial
+  facilitiesLevel: number;  // nível das instalações (1-10)
+  youthFacilitiesLevel: number; // nível das camadas jovens
+  scoutingLevel: number;    // nível do scouting
+  
+  // Estatísticas
+  points: number;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  
+  // Elenco
+  squad: Player[];
+  formation: string; // '4-4-2', '4-3-3', '3-5-2', '5-2-2'
+  tactic: string; // 'attacking', 'defensive', 'balanced'
+  
+  // Performance na tabela de jogos (11.4)
+  leaguePosition: number; // 1-20
+  leagueForm: string[]; // últimos 5 jogos: 'W', 'D', 'L'
+  formRating: 'excellent' | 'good' | 'average' | 'poor' | 'terrible'; // forma recente
+  
+  // Táticas avançadas
+  teamMentality: string; // 'very defensive', 'defensive', 'cautious', 'balanced', 'positive', 'offensive', 'very offensive'
+  attackWidth: string; // 'narrow', 'balanced', 'wide'
+  passingStyle: string; // 'short', 'mixed', 'direct'
+  tempo: string; // 'slow', 'balanced', 'fast'
+  playOutOfWidth: boolean;
+  useFlank: string; // 'neither', 'left', 'right'
+  workBallIntoBox: boolean;
+  crossFromWide: boolean;
+  takeMoreRisks: boolean;
+  // Em Transição (8.5.2)
+  afterLosingPossession: 'counterPress' | 'regroup';
+  afterGainingPossession: 'counterAttack' | 'retainStructure';
+  // Sem Posse (8.5.3)
+  engagementLine: 'high' | 'medium' | 'low';
+  defensiveLine: 'high' | 'medium' | 'low';
+  pressIntensity: 'low' | 'medium' | 'high';
+  tacklingStyle: 'aggressive' | 'contain';
+  trapOffside: boolean;
+  /** @deprecated use afterLosingPossession */
+  highPress: boolean;
+  /** @deprecated use afterLosingPossession */
+  counterPress: boolean;
+  /** @deprecated use engagementLine / defensiveLine */
+  highLine: boolean;
+  /** @deprecated use tacklingStyle */
+  aggressiveTackling: boolean;
+  
+  // Diretoria
+  boardExpectation: string; // 'relegation', 'midtable', 'top4', 'title'
+  transferBudget: number;
+  staffLevel: number;
+  
+  // Promessas da diretoria
+  boardPromises: { goal: string; deadline: number; fulfilled: boolean }[];
+  
+  // Configuração tática avançada
+  tacticsConfig: TeamTacticsConfig;
+}

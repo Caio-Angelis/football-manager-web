@@ -1,0 +1,933 @@
+// Tipos base do jogo - Especificação Football Manager Web (Evoluído)
+
+// ============================================================
+// ATRIBUTOS DE JOGADOR (Escala 1-20)
+// ============================================================
+
+export interface PlayerAttribute {
+  // Técnicos
+  heading: number;        // Cabeceamento
+  crossing: number;       // Cruzamentos
+  tackling: number;       // Desarme
+  technique: number;      // Técnica
+  finishing: number;      // Finalização
+  passing: number;        // Passe
+  firstTouch: number;     // Primeiro Toque
+  dribbling: number;      // Fintas
+  marking: number;        // Marcação
+  freeKicks: number;      // Livres
+  longShots: number;      // Grandes Penalidades
+  throwIns: number;       // Lançamentos Linha Lateral
+  
+  // Mentais
+  aggression: number;     // Agressividade
+  anticipation: number;   // Antecipação
+  bravery: number;        // Bravura
+  composure: number;      // Compostura
+  concentration: number;  // Concentração
+  decisions: number;      // Decisões
+  determination: number;  // Determinação
+  improvise: number;      // Imprevisto
+  positioning: number;    // Posicionamento
+  leadership: number;     // Liderança
+  teamWork: number;       // Trabalho de Equipe
+  vision: number;         // Visão de Jogo
+  offBall: number;        // Sem Bola
+  workRate: number;       // Índice de Trabalho
+  
+  // Físicos
+  acceleration: number;   // Aceleração
+  speed: number;          // Velocidade
+  strength: number;       // Força
+  stamina: number;        // Resistência
+  agility: number;        // Agilidade
+  naturalFitness: number; // Aptidão Física Natural
+  jumping: number;        // Impulsão
+  balance: number;        // Equilíbrio
+}
+
+// GK exclusivos
+export interface GKAttributes {
+  aerialReach: number;
+  commandOfArea: number;
+  communication: number;
+  eccentricity: number;
+  handballing: number;
+  punching: number;
+  throwing: number;
+  reflexes: number;
+  rushing: number;
+  tendencyToCome: number;
+  oneOnOne: number;
+}
+
+// Métricas ocultas de personalidade
+export interface HiddenAttributes {
+  consistency: number;      // 1-5
+  injuryProneness: number;  // 1-10
+  bigGameImportance: number;// 1-5
+  dirtiness: number;        // 1-5
+  adaptability: number;     // 1-5
+  ambition: number;         // 1-5
+  loyalty: number;          // 1-5
+  pressure: number;         // 1-5
+  professionalism: number;  // 1-5
+  sportsmanship: number;    // 1-5
+  temperament: number;      // 1-5
+}
+
+// Promessas ao jogador
+export interface PlayerPromise {
+  goal: string;
+  deadline: number; // em semanas
+  fulfilled: boolean;
+}
+
+// ============================================================
+// JOGADOR
+// ============================================================
+
+export interface Player {
+  id: string;
+  name: string;
+  surname: string;
+  position: string; // 'GK', 'DEF', 'MID', 'FWD'
+  secondaryPositions: string[]; // Posições secundárias
+  positionProficiency: Record<string, number>; // 1-20 por posição
+  
+  age: number;
+  nationality: string;
+  country: string; // Para geração de nomes
+  
+  // Atributos 1-20
+  technical: PlayerAttribute;
+  mental: Partial<PlayerAttribute>; // Alguns mentais são comuns
+  physical: Partial<PlayerAttribute>; // Alguns físicos são comuns
+  
+  // GK exclusivos
+  goalkeeping?: GKAttributes;
+  
+  // Métricas ocultas
+  hidden: HiddenAttributes;
+  
+  // CA e PA (1-200)
+  currentAbility: number;
+  potentialAbility: number; // Estático, nunca muda
+  
+  // Valor e contrato
+  marketValue: number;      // em milhões
+  salary: number;           // em milhares
+  contractEnd: number;      // em semanas
+  contractClause: number;   // cláusula de rescisão
+  
+  // Status
+  morale: number;           // 0-100
+  form: number;             // 0-100
+  fitness: number;          // 0-100
+  injury: { active: boolean; days: number } | null;
+  
+  // Hierarquia no plantel
+  squadStatus: string;      // 'Key Player', 'Regular Starter', 'Rotation', 'Young Talent', 'Excess'
+  
+  // Dinâmica
+  teamMates: string[];      // IDs de jogadores que se dão bem
+  socialGroup: string | null; // ID do grupo social
+  
+  // Promessas ativas
+  promises: PlayerPromise[];
+  
+  // Tratamento pelo treinador (11.4)
+  coachTreatment: {
+    type: 'starter' | 'substitute' | 'bench' | 'training' | 'rest';
+    minutesPerWeek: number; // minutos semanais alocados
+    trustLevel: number; // 1-100
+    lastTrainingLoad: number; // 0-100
+  };
+  
+  // Gestão de carga e prevenção de lesões
+  consecutivePhysicalDays: number;
+  cumulativeLoad: number;
+  lastTrainingDay: number;
+  recoveryNeeded: boolean;
+  injuryRisk: number; // 0-100
+  injuryHistory: InjuryHistory[];
+  fatigueLog: FatigueLogEntry[]; // histórico de fadiga
+  lastInjuryWeek?: number; // semana da última lesão (para tracking pós-lesão)
+  degradedCondition?: 'minimal' | 'low' | 'moderate' | 'good' | 'excellent'; // condição pós-lesão
+  
+  // Progressão de atributos — histórico semanal (10.5)
+  attributeHistory?: {
+    week: number;
+    technical: Partial<PlayerAttribute>;
+    mental: Partial<PlayerAttribute>;
+    physical: Partial<PlayerAttribute>;
+    currentAbility: number;
+    potentialAbility: number;
+    morale: number;
+    form: number;
+    fitness: number;
+  }[];
+  
+  // Famosidade para scouting
+  fame: number;             // 1-100
+}
+
+// ============================================================
+// TIME
+// ============================================================
+
+export interface Team {
+  id: string;
+  name: string;
+  division: string;
+  league: string;
+  reputation: number;       // 1-100 (reputação do clube)
+  budget: number;           // orçamento em milhões
+  wageBill: number;         // folha salarial
+  facilitiesLevel: number;  // nível das instalações (1-10)
+  youthFacilitiesLevel: number; // nível das camadas jovens
+  scoutingLevel: number;    // nível do scouting
+  
+  // Estatísticas
+  points: number;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  
+  // Elenco
+  squad: Player[];
+  formation: string; // '4-4-2', '4-3-3', '3-5-2', '5-2-2'
+  tactic: string; // 'attacking', 'defensive', 'balanced'
+  
+  // Performance na tabela de jogos (11.4)
+  leaguePosition: number; // 1-20
+  leagueForm: string[]; // últimos 5 jogos: 'W', 'D', 'L'
+  formRating: 'excellent' | 'good' | 'average' | 'poor' | 'terrible'; // forma recente
+  
+  // Táticas avançadas
+  teamMentality: string; // 'very defensive', 'defensive', 'cautious', 'balanced', 'positive', 'offensive', 'very offensive'
+  attackWidth: string; // 'narrow', 'balanced', 'wide'
+  passingStyle: string; // 'short', 'mixed', 'direct'
+  tempo: string; // 'slow', 'balanced', 'fast'
+  playOutOfWidth: boolean;
+  useFlank: string; // 'neither', 'left', 'right'
+  workBallIntoBox: boolean;
+  crossFromWide: boolean;
+  takeMoreRisks: boolean;
+  // Em Transição (8.5.2)
+  afterLosingPossession: 'counterPress' | 'regroup';
+  afterGainingPossession: 'counterAttack' | 'retainStructure';
+  // Sem Posse (8.5.3)
+  engagementLine: 'high' | 'medium' | 'low';
+  defensiveLine: 'high' | 'medium' | 'low';
+  pressIntensity: 'low' | 'medium' | 'high';
+  tacklingStyle: 'aggressive' | 'contain';
+  trapOffside: boolean;
+  /** @deprecated use afterLosingPossession */
+  highPress: boolean;
+  /** @deprecated use afterLosingPossession */
+  counterPress: boolean;
+  /** @deprecated use engagementLine / defensiveLine */
+  highLine: boolean;
+  /** @deprecated use tacklingStyle */
+  aggressiveTackling: boolean;
+  
+  // Diretoria
+  boardExpectation: string; // 'relegation', 'midtable', 'top4', 'title'
+  transferBudget: number;
+  staffLevel: number;
+  
+  // Promessas da diretoria
+  boardPromises: { goal: string; deadline: number; fulfilled: boolean }[];
+  
+  // Configuração tática avançada
+  tacticsConfig: TeamTacticsConfig;
+}
+
+// ============================================================
+// PARTIDA
+// ============================================================
+
+export interface MatchEvent {
+  minute: number;
+  type: 'shot' | 'goal' | 'save' | 'corner' | 'foul' | 'yellow' | 'red' | 'substitution';
+  team: 'home' | 'away';
+  player?: string;
+  description?: string;
+}
+
+export interface MatchStats {
+  homeXG: number;
+  awayXG: number;
+  homePossession: number;
+  awayPossession: number;
+  homeShots: number;
+  awayShots: number;
+  homeShotsOnTarget: number;
+  awayShotsOnTarget: number;
+  homePasses: number;
+  awayPasses: number;
+  homePassAccuracy: number;
+  awayPassAccuracy: number;
+}
+
+// ============================================================
+// RATING DE JOGADORES POR PARTIDA (Tarefa 2.2)
+// ============================================================
+
+export interface PlayerMatchRating {
+  playerId: string;
+  playerName: string;
+  position: string;
+  rating: number; // 1-10
+  goals: number;
+  assists: number;
+  shots: number;
+  shotsOnTarget: number;
+  passes: number;
+  passAccuracy: number;
+  tackles: number;
+  interceptions: number;
+  minutesPlayed: number;
+  isStarted: boolean;
+}
+
+export interface Match {
+  homeTeam: string;
+  awayTeam: string;
+  homeGoals: number;
+  awayGoals: number;
+  date: string;
+  completed: boolean;
+  // Live match tracking
+  isLive: boolean;
+  liveMinute: number; // 0-90
+  liveEvents: MatchEvent[];
+  liveStats: MatchStats;
+  // Substitution limits (5 per team)
+  homeSubstitutions: number;
+  awaySubstitutions: number;
+  // Previous events (from completed matches)
+  events?: MatchEvent[];
+  stats?: MatchStats;
+  // Player ratings (Tarefa 2.2)
+  playerRatings?: PlayerMatchRating[];
+  bestPlayer?: string; // playerId of best rated player
+}
+
+// ============================================================
+// TRANSFERÊNCIAS E MENSAGENS
+// ============================================================
+
+// ============================================================
+// CLÁUSULAS PARCELADAS E BÓNUS DE TRANSFERÊNCIA
+// ============================================================
+
+export interface InstallmentPayment {
+  installmentNumber: number;
+  amount: number; // em milhões
+  dueWeek: number; // semana em que deve ser pago
+  paid: boolean;
+  paidWeek?: number;
+}
+
+export interface InstallmentClause {
+  totalAmount: number; // valor total da transferência parcelada
+  installmentCount: number; // número de parcelas
+  installmentAmount: number; // valor de cada parcela
+  payments: InstallmentPayment[]; // histórico de pagamentos
+  status: 'active' | 'completed' | 'defaulted';
+}
+
+export interface PlayerBonus {
+  playerId: string;
+  type: 'goals' | 'appearances' | 'assists' | 'titles' | 'performance';
+  threshold: number; // quantidade necessária para ativar o bónus
+  bonusAmount: number; // valor do bónus em milhares (K)
+  triggered: boolean;
+  triggeredWeek?: number;
+  claimed?: boolean; // se o bónus já foi reclamado
+}
+
+// ============================================================
+// ACORDO CONTRATUAL DE TRANSFERÊNCIA (Item 7.10)
+// ============================================================
+
+export interface ContractClause {
+  weeklySalary: number; // em milhares
+  contractWeeks: number; // duração em semanas
+  releaseClause: number; // cláusula de rescisão em milhões
+  performanceBonuses?: {
+    type: 'goals' | 'appearances' | 'assists' | 'titles';
+    threshold: number;
+    bonusAmount: number; // em milhares
+  }[];
+}
+
+export interface TransferAgreement {
+  id: string; // ID único do acordo
+  playerId: string;
+  playerName: string;
+  fromTeamId: string;
+  toTeamId: string;
+  transferFee: number; // valor da transferência em milhões
+  paymentMethod: 'cash' | 'installments';
+  contract: ContractClause; // cláusulas contratuais do jogador
+  signingBonus?: number; // bónus de assinatura em milhares
+  agreementDate: number; // timestamp da data de assinatura
+  status: 'active' | 'terminated' | 'expired';
+  // Cláusulas parceladas associadas ao acordo
+  installmentClause?: InstallmentClause;
+  // Histórico de alterações
+  history?: {
+    action: string;
+    timestamp: number;
+    reason?: string;
+  }[];
+}
+
+export interface TransferOffer {
+  playerId: string;
+  offerPrice: number;
+  fromTeam: string;
+  paymentMethod?: 'cash' | 'installments'; // método de pagamento
+  installmentClause?: InstallmentClause; // cláusula de pagamento parcelado
+}
+
+export interface IncomingTransfer {
+  playerId: string;
+  offerPrice: number;
+  fromTeam: string;
+  contractProposal: {
+    salary: number;
+    duration: number; // em semanas
+    clause: number;
+  };
+  paymentMethod?: 'cash' | 'installments';
+  installmentClause?: InstallmentClause;
+  bonuses?: PlayerBonus[]; // bónus incluídos na oferta
+}
+
+export interface CounterOffer {
+  originalPlayerId: string;
+  originalFromTeam: string;
+  counterPrice: number; // preço proposto pelo usuário
+  counterSalary: number;
+  counterDuration: number;
+  counterClause: number;
+  status: 'pending' | 'accepted' | 'rejected';
+  createdAt: number;
+  paymentMethod?: 'cash' | 'installments';
+  installmentClause?: InstallmentClause;
+  bonuses?: PlayerBonus[];
+}
+
+export interface NegotiationResult {
+  status: 'accepted' | 'rejected' | 'countered';
+  marketValue: number;
+  offerPrice: number;
+  counterPrice?: number;
+  message: string;
+}
+
+export interface DeferredTransfer {
+  playerId: string;
+  offerPrice: number;
+  fromTeam: string;
+  contractProposal: {
+    salary: number;
+    duration: number; // em semanas
+    clause: number;
+  };
+  paymentMethod?: 'cash' | 'installments';
+  installmentClause?: InstallmentClause;
+  bonuses?: PlayerBonus[];
+  deferredAt: number; // timestamp quando foi adiado
+  deferredWeek: number; // semana em que foi adiado
+}
+
+// ============================================================
+// HISTÓRICO DE TRANSFERÊNCIAS REALIZADAS (Item 12 - Checklist)
+// ============================================================
+
+export interface CompletedTransfer {
+  id: string; // ID único da transferência
+  playerId: string;
+  playerName: string;
+  position: string;
+  age: number;
+  nationality: string;
+  fromTeamId: string;
+  fromTeamName: string;
+  transferFee: number; // valor da transferência em milhões
+  paymentMethod: 'cash' | 'installments';
+  contractWeeks: number; // duração do contrato em semanas
+  weeklySalary: number; // em milhares
+  transferDate: number; // timestamp da data da transferência
+  transferWeek: number; // semana em que foi realizada
+}
+
+export interface ScoutReport {
+  playerId: string;
+  playerName: string;
+  position: string;
+  age: number;
+  nationality: string;
+  currentAbility: number;
+  potentialAbility: number;
+  attributesRange: Partial<Record<keyof PlayerAttribute, [number, number]>>;
+  stars: number; // 1-5 para PA
+  reliability: number; // 1-5 para consistência do reporte
+}
+
+// ============================================================
+// RELATÓRIO DE LESÃO (Item 9.8.2)
+// ============================================================
+
+export interface InjuryReport {
+  playerId: string;
+  playerName: string;
+  position: string;
+  injuryType: string; // 'muscle', 'ligament', 'joint', 'ankle', 'knee', 'groin'
+  severity: 'minor' | 'moderate' | 'severe'; // gravidade
+  daysOut: number; // dias de afastamento
+  recoveryProgress: number; // 0-100
+  treatment: string; // tipo de tratamento recomendado
+  prognosis: string; // prognóstico
+  injuryProneness: number; // propensão do jogador (1-10)
+}
+
+// ============================================================
+// RELATÓRIO FINANCEIRO (Item 9.8.4)
+// ============================================================
+
+export interface FinancialReport {
+  teamId: string;
+  teamName: string;
+  budget: number; // em milhões
+  wageBill: number; // em milhões
+  ticketRevenue: number; // em milhões
+  sponsorshipRevenue: number; // em milhões
+  totalIncome: number; // em milhões
+  totalExpenses: number; // em milhões
+  profit: number; // em milhões
+  transferSpending: number; // em milhões
+  transferIncome: number; // em milhões
+  season: number;
+  week: number;
+  daysUntilDeadline: number; // dias até o fim do período
+  currency: 'BRL';
+}
+
+// ============================================================
+// RESPOSTA À DIRETORIA (Item 9.8.3)
+// ============================================================
+
+export interface BoardReply {
+  messageId: string;
+  subject: string;
+  response: string;
+  timestamp: number;
+  sent: boolean;
+  // Efeito na satisfação da diretoria (-100 a 100)
+  satisfactionChange: number;
+  category: 'budget' | 'transfer' | 'expectation' | 'performance' | 'general';
+}
+
+export interface InboxMessage {
+  id: string;
+  type: 'transfer' | 'injury' | 'suggestion' | 'board' | 'youth' | 'training' | 'financial';
+  subject: string;
+  body: string;
+  timestamp: number;
+  read: boolean;
+  priority: 'low' | 'medium' | 'high';
+  relatedPlayerId?: string;
+  relatedTeamId?: string;
+  // Item 9.8.3 - Diretoria: Responder
+  boardReply?: BoardReply;
+}
+
+// ============================================================
+// TÁTICAS E TÁTICAS INDIVIDUAIS
+// ============================================================
+
+export interface PlayerRole {
+  position: string; // 'GK', 'DEF', 'MID', 'FWD'
+  slotIndex: number; // índice na formação (0-10 para 4-4-2, 0-14 para 4-3-3, etc.)
+  role: string; // valor do role (ex: 'sweeperKeeper', 'wingBack', 'centralMidfielder')
+  duty: string; // 'attack', 'defend', 'balance'
+}
+
+export interface PlayerInstruction {
+  playerId: string;
+  // Instruções de posse
+  passMore: boolean;
+  passLess: boolean;
+  shootMore: boolean;
+  shootLess: boolean;
+  dribbMore: boolean;
+  dribbLess: boolean;
+  goGoal: boolean;
+  stayBack: boolean;
+  // Instruções de cruzamento
+  crossMore: boolean;
+  crossLess: boolean;
+  // Instruções de movimento
+  cutInside: boolean;
+  RunThrough: boolean;
+  // Instruções de jogo
+  playSlower: boolean;
+  playFaster: boolean;
+  throwInMore: boolean;
+  takeMoreRisks: boolean;
+  // Instruções de defesa
+  tackleMore: boolean;
+  tackleLess: boolean;
+  beMoreAggressive: boolean;
+  beFairer: boolean;
+}
+
+export interface TeamTacticsConfig {
+  playerRoles: PlayerRole[];
+  playerInstructions: PlayerInstruction[];
+}
+
+// ============================================================
+// TREINO
+// ============================================================
+
+export interface TrainingSession {
+  day: number; // 0-6 (seg-dom)
+  morning: { type: string; focus: string };
+  afternoon: { type: string; focus: string };
+  evening: { type: string; focus: string };
+}
+
+export interface WeeklyTrainingPlan {
+  week: number;
+  sessions: TrainingSession[];
+  teamFocus: string; // 'attack', 'defense', 'physical', 'cohesion'
+}
+
+// ============================================================
+// PREVENÇÃO DE LESÕES
+// ============================================================
+
+export interface InjuryHistory {
+  playerId: string;
+  injuryType: string;
+  severity: 'minor' | 'moderate' | 'severe';
+  daysOut: number;
+  occurredWeek: number;
+  fullyRecovered: boolean;
+}
+
+export interface LoadManagement {
+  playerId: string;
+  consecutivePhysicalDays: number;
+  cumulativeLoad: number;
+  lastTrainingDay: number;
+  recoveryNeeded: boolean;
+  riskLevel: 'low' | 'moderate' | 'high' | 'critical';
+}
+
+export interface PreventionSession {
+  type: 'medical' | 'recovery' | 'light';
+  targetPlayerIds: string[];
+  effectiveness: number; // 0-100
+  day: number;
+}
+
+export interface PlayerLoadState {
+  trainingLoad: number;
+  matchLoad: number;
+  totalLoad: number;
+  fatigueThreshold: number;
+  injuryRisk: number; // 0-100
+}
+
+// ============================================================
+// HISTÓRICO DE FADIGA E RECOMENDAÇÕES
+// ============================================================
+
+export interface FatigueLogEntry {
+  week: number;
+  day: number;
+  fatigue: number;
+  cumulativeLoad: number;
+  trainingType: string;
+}
+
+export interface Recommendation {
+  id: string;
+  type: 'rest' | 'medical' | 'recovery' | 'light' | 'substitution';
+  playerId: string;
+  playerName: string;
+  message: string;
+  urgency: 'low' | 'medium' | 'high' | 'critical';
+  week: number;
+  timestamp: number;
+  acknowledged: boolean;
+}
+
+export interface DegradedCondition {
+  playerId: string;
+  playerName: string;
+  conditionLevel: 'minimal' | 'low' | 'moderate' | 'good' | 'excellent';
+  weeksSinceInjury: number;
+  recoveryProgress: number; // 0-100
+  status: 'recovering' | 'resting' | 'training' | 'match';
+  weekTracked: number;
+}
+
+// ============================================================
+// ÁRVORE SOCIAL (Item 11.5)
+// ============================================================
+
+export interface SocialNode {
+  playerId: string;
+  playerName: string;
+  position: string;
+  socialGroup: string;
+  influence: number; // 0-100, baseado em liderança e squadStatus
+  connections: string[]; // IDs de jogadores que se conectam diretamente
+  depth?: number; // profundidade na hierarquia social
+}
+
+export interface SocialTree {
+  rootNodeId: string | null; // jogador central da equipe
+  nodes: SocialNode[];
+  edges: { from: string; to: string; strength: number }[];
+  generatedWeek: number; // semana em que foi gerada
+}
+
+// ============================================================
+// ESTADO GLOBAL DO JOGO
+// ============================================================
+
+// ============================================================
+// SISTEMA DE SAVES (Máximo 2 slots)
+// ============================================================
+
+export interface SaveSlotMetadata {
+  slotNumber: 1 | 2;
+  teamName: string;
+  currentWeek: number;
+  currentSeason: number;
+  savedAt: string; // ISO date string
+}
+
+export interface SaveSlot {
+  metadata: SaveSlotMetadata;
+  gameState: GameState;
+}
+
+// ============================================================
+// TIPOS DA TABELA DE CLASSIFICAÇÃO
+// ============================================================
+
+export type FormResult = 'W' | 'D' | 'L';
+
+export interface LeagueStandings {
+  teamId: string;
+  teamName: string;
+  position: number;
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDifference: number;
+  points: number;
+  form: FormResult[];
+  zone?: 'title' | 'europe' | 'safe' | 'relegation';
+  isRelegated?: boolean; // Item 1.2 — marca time rebaixado
+}
+
+// ============================================================
+// ACADEMIA DE JOVENS (P6.1)
+// ============================================================
+
+export interface YouthPlayer {
+  id: string;
+  name: string;
+  surname: string;
+  position: string;
+  age: number;
+  nationality: string;
+  technical: Partial<PlayerAttribute>;
+  mental: Partial<PlayerAttribute>;
+  physical: Partial<PlayerAttribute>;
+  currentAbility: number;
+  potentialAbility: number;
+  academyLevel: number; // 1-5 (progressão na academia)
+  weeksInAcademy: number;
+  trainingGrowth: number; // taxa de crescimento semanal
+  morale: number;
+  readyForPromotion: boolean; // quando PA >= CA e academyLevel >= 4
+}
+
+export interface YouthAcademy {
+  players: YouthPlayer[];
+  level: number; // 1-10 (qualidade das instalações)
+  weeklySlots: number; // vagas de treino na semana
+  currentTraining: string; // 'technical', 'physical', 'tactical', 'mental'
+  graduationRate: number; // 0-100 (probabilidade de promoção)
+}
+
+// ============================================================
+// EQUIPE RESERVA (P6.2)
+// ============================================================
+
+export interface ReserveTeamPlayer {
+  playerId: string;
+  player: Player;
+  isStarter: boolean;
+  reserveRank: number; // 1-15 (posição no reserva)
+  weeksOnReserve: number;
+  readiness: number; // 0-100 (preparação para promoção)
+}
+
+// ============================================================
+// ESTADO DO JOGO
+// ============================================================
+
+export interface GameState {
+  selectedTeam: string | null;
+  currentWeek: number;
+  currentSeason: number;
+  matches: Match[];
+  teams: Team[];
+  transfers: TransferOffer[];
+  incomingTransfers: IncomingTransfer[];
+  counterOffers: CounterOffer[];
+  deferredTransfers: DeferredTransfer[]; // transferências adiadas
+  inbox: InboxMessage[];
+  trainingPlan: WeeklyTrainingPlan | null;
+  youthIntakeCompleted: boolean;
+  scoutReports: ScoutReport[];
+  // Cláusulas parceladas e bónus
+  pendingInstallments: InstallmentClause[]; // parcelas a pagar pelo jogador
+  incomingBonuses: PlayerBonus[]; // bónus a receber por jogadores
+  // Acordos contratuais (Item 7.10)
+  transferAgreements: TransferAgreement[]; // acordos de transferência ativos
+  // Item 9.8.3 - Diretoria: Responder
+  boardReplies: BoardReply[]; // respostas ao board
+  boardSatisfaction: number; // satisfação da diretoria (-100 a 100)
+  // Item 9.8.4 - Financeiro: Ver Relatório
+  financialReports: FinancialReport[]; // relatórios financeiros
+  // Prevenção de lesões
+  injuryHistory: InjuryHistory[]; // histórico de lesões do time
+  preventionSessions: PreventionSession[]; // sessões de prevenção
+  fatigueLog: FatigueLogEntry[]; // histórico de fadiga por jogador
+  recommendations: Recommendation[]; // recomendações automáticas
+  degradedConditions: DegradedCondition[]; // condições degradadas pós-lesão
+  // Item 11.5 - Árvore Social
+  socialTree: SocialTree | null;
+  // Tabela de Classificação (P1.1)
+  leagueTable: LeagueStandings[];
+  // Saves (Item 12)
+  saveSlots?: SaveSlot[]; // máximo 2 saves (não persistido via middleware, gerenciado externamente)
+  // P6.1 — Academia de Jovens
+  youthAcademy: YouthAcademy;
+  // P6.2 — Equipe Reserva
+  reserveTeam: ReserveTeamPlayer[];
+  // Item 12 - Checklist: Histórico de transferências realizadas
+  completedTransfers: CompletedTransfer[];
+}
+
+export interface GameActions {
+  initGame: () => void;
+  deselectTeam: () => void;
+  selectTeam: (teamId: string) => void;
+  simulateMatch: (matchIndex: number) => void;
+  advanceWeek: () => void;
+  markAsRead: (messageId: string) => void;
+  removeMessage: (messageId: string) => void;
+  updatePlayerAttributes: (playerId: string, trainingType: string) => void;
+  completeYouthIntake: () => void;
+  updateTeam: (teamId: string, updater: (team: Team) => Team) => void;
+  buyPlayer: (playerId: string, sellerTeamId: string) => boolean;
+  makeOffer: (playerId: string, sellerTeamId: string, offerPrice: number) => Promise<NegotiationResult>;
+  acceptOffer: (playerId: string, sellerTeamId: string, offerPrice: number) => Promise<boolean>;
+  acceptIncomingTransfer: (playerId: string) => void;
+  rejectIncomingTransfer: (playerId: string) => void;
+  deferTransfer: (playerId: string) => void;
+  reinstateDeferredTransfer: (playerId: string) => void;
+  rejectDeferredTransfer: (playerId: string) => void;
+  assignScout: (playerId?: string) => boolean;
+  setTrainingPlan: (plan: WeeklyTrainingPlan) => void;
+  applyWeeklyTraining: () => void;
+  handleInboxAction: (messageId: string, actionLabel: string) => void;
+  applyMatchIntervention: (matchIndex: number, type: 'substitution' | 'shout') => void;
+  negotiateCounterOffer: (playerId: string) => boolean;
+  // Métodos para cláusulas parceladas e bónus
+  payInstallment: (installmentId: string) => boolean;
+  checkBonuses: (playerId?: string) => void;
+  claimBonus: (bonusId: string) => void;
+  // Métodos para acordos contratuais (Item 7.10)
+  terminateTransferAgreement: (agreementId: string, reason?: string) => void;
+  getTransferAgreements: (playerId?: string) => TransferAgreement[];
+  // Item 9.8.2 - Lesão: Ver Relatório
+  getInjuryReport: (playerId: string) => InjuryReport | null;
+  // Item 9.8.3 - Diretoria: Responder
+  handleBoardReply: (messageId: string, response: string, category: BoardReply['category']) => void;
+  // Item 9.8.4 - Financeiro: Ver Relatório
+  getFinancialReport: () => FinancialReport | null;
+  generateFinancialReport: () => FinancialReport | null;
+  // Prevenção de lesões
+  schedulePreventionSession: (session: PreventionSession) => void;
+  applyPreventionSession: () => void;
+  updatePlayerLoad: (playerId: string, day: number, trainingType: string) => void;
+  calculateInjuryRisk: (playerId: string) => number;
+  recoverInjuredPlayer: (playerId: string) => void;
+  getInjuryRiskSummary: () => { critical: Player[]; high: Player[]; moderate: Player[]; low: Player[] };
+  // Novos métodos de gestão de fadiga e recomendações
+  applyFatigueDecay: () => void;
+  generateInjuryRecommendation: (playerId: string) => void;
+  applyPostInjuryCondition: (playerId: string) => void;
+  acknowledgeRecommendation: (recommendationId: string) => void;
+  getFatigueHistory: (playerId: string) => FatigueLogEntry[];
+  applyTrainingCooldown: (playerId: string, trainingType: string, day: number) => void;
+  updateDegradedConditions: () => void;
+  generateLiveMatchMinute: (matchIndex: number) => void;
+  // Finalizar partida ao vivo
+  finishMatch: (matchIndex: number) => void;
+  // Progressão de atributos (10.5)
+  captureWeeklyAttributeSnapshot: () => void;
+  getAttributeDelta: (playerId: string, attributeName: string, weekA: number, weekB: number) => number;
+  getPlayerAttributeProgression: (playerId: string) => { week: number; changes: Record<string, { from: number; to: number }> }[];
+  // Item 11.5 - Árvore Social
+  generateSocialTree: () => void;
+  getSocialTree: () => SocialTree | null;
+  updateSocialConnections: (playerIdA: string, playerIdB: string, strength: number) => void;
+  // Item 11.6 - Contador dinâmico de promessas
+  updatePromiseCountdown: () => void;
+  getActivePromises: () => { player: Player; promise: PlayerPromise; weeksLeft: number }[];
+  checkPromiseDeadlines: () => { fulfilled: PlayerPromise[]; expired: PlayerPromise[] };
+  adjustPlayerSalary: (playerId: string, newSalary: number) => void;
+  // Sistema de Saves
+  saveGame: (slotNumber: 1 | 2) => void;
+  loadGame: (slotNumber: 1 | 2) => void;
+  deleteSave: (slotNumber: 1 | 2) => void;
+  getSaveSlots: () => SaveSlotMetadata[];
+  // P6.1 — Academia de Jovens
+  generateYouthPlayers: () => void;
+  promoteYouthPlayer: (playerId: string) => void;
+  setAcademyTraining: (type: string) => void;
+  getYouthPlayers: () => YouthPlayer[];
+  // P6.2 — Equipe Reserva
+  addPlayerToReserve: (playerId: string) => void;
+  promoteFromReserve: (playerId: string) => void;
+  getReserveTeam: () => ReserveTeamPlayer[];
+  setReserveTraining: (type: string) => void;
+  // Item 12 - Checklist: Histórico de transferências realizadas
+  getCompletedTransfers: () => CompletedTransfer[];
+}
+
+export type GameStore = GameState & GameActions;

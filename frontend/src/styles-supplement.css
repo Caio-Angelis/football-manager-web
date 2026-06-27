@@ -1,0 +1,3147 @@
+/* ===== Supplement: component styles added after refactor ===== */
+
+/* --- App shell --- */
+.fm-sidebar__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px 16px;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 8px;
+}
+
+.fm-sidebar__toggle {
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.fm-sidebar__logo-text {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.fm-sidebar__season {
+  padding: 8px 24px 12px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.fm-sidebar__footer {
+  padding: 16px;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fm-sidebar__item-icon {
+  font-size: 18px;
+  width: 24px;
+  text-align: center;
+}
+
+.fm-sidebar__item-label {
+  flex: 1;
+  text-align: left;
+}
+
+.fm-sidebar--collapsed {
+  width: 72px;
+}
+
+.fm-sidebar--collapsed .fm-sidebar__item-label,
+.fm-sidebar--collapsed .fm-sidebar__logo-text,
+.fm-sidebar--collapsed .fm-sidebar__season {
+  display: none;
+}
+
+.fm-button--primary {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.fm-button--continue {
+  width: 100%;
+  padding: 12px;
+  font-weight: 600;
+}
+
+.fm-button--home {
+  width: 100%;
+}
+
+.fm-club-view h1 {
+  font-size: var(--font-size-xl);
+  margin-bottom: 16px;
+}
+
+.fm-club-view__info {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  max-width: 480px;
+}
+
+.fm-club-view__info h2 {
+  font-size: 20px;
+  margin-bottom: 12px;
+}
+
+.fm-club-view__info p {
+  margin-bottom: 8px;
+  color: var(--color-text-secondary);
+}
+
+/* --- Toast (Glassmorphism + Slide-in) --- */
+.fm-toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 360px;
+}
+
+.fm-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 12px 16px;
+  box-shadow: var(--glass-shadow);
+  animation: fm-toast-slide-in 0.3s ease-out forwards;
+}
+
+@keyframes fm-toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.fm-toast__icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.fm-toast__content {
+  flex: 1;
+}
+
+.fm-toast__message {
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+.fm-toast__dismiss {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  padding: 0 4px;
+  transition: color var(--motion-fast) ease-out, transform var(--motion-fast) ease-out;
+}
+
+.fm-toast__dismiss:hover {
+  color: var(--color-text);
+  transform: rotate(90deg);
+}
+
+/* --- Landing page (club selection) — Night Pitch --- */
+.fm-landing {
+  min-height: 100vh;
+  position: relative;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 40%, #0d2418 0%, #0a1c14 50%, #060f0a 100%);
+  overflow-x: hidden;
+}
+
+.fm-landing::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0,
+    transparent 80px,
+    rgba(255, 255, 255, 0.025) 80px,
+    rgba(255, 255, 255, 0.025) 160px
+  );
+}
+
+.fm-landing::after {
+  content: none;
+}
+
+.fm-landing__topbar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: flex-end;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 16px 48px 0;
+}
+
+.fm-landing__layout {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 24px;
+  max-width: 1440px;
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: 0 48px 56px;
+}
+
+.fm-landing__layout--full {
+  grid-template-columns: 1fr;
+}
+
+.fm-landing__actions {
+  margin-top: 32px;
+}
+
+.fm-landing__new-game {
+  font-size: 1.1rem !important;
+  font-weight: 600 !important;
+  padding: 14px 32px !important;
+}
+
+.fm-landing__back-btn {
+  margin-left: auto;
+}
+
+.fm-landing__topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.fm-landing__main {
+  padding: 32px 0 0;
+  min-width: 0;
+}
+
+.fm-landing__brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 24px;
+  padding: 14px 20px;
+  background: rgba(18, 38, 28, 0.5);
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.fm-landing__mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: oklch(0.82 0.19 130);
+  color: oklch(0.15 0.03 130);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  border-radius: 10px;
+  flex-shrink: 0;
+  box-shadow: none;
+}
+
+.fm-landing__title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #ffffff;
+  margin-bottom: 2px;
+  line-height: 1.1;
+  text-transform: uppercase;
+  text-shadow: none;
+}
+
+.fm-landing__tagline {
+  font-size: var(--font-size-sm);
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.fm-landing__aside {
+  background: rgba(18, 38, 28, 0.5);
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  padding: 24px 20px;
+  position: sticky;
+  top: 24px;
+  height: calc(100vh - 48px);
+  overflow-y: auto;
+  margin-top: 24px;
+}
+
+.fm-landing__aside-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.fm-landing__aside-icon {
+  color: rgba(255, 255, 255, 0.5);
+  flex-shrink: 0;
+}
+
+.fm-landing__aside-title {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  text-shadow: none;
+}
+
+.fm-landing__aside-desc {
+  font-size: var(--font-size-sm);
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 20px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.fm-landing__aside .fm-save-slot {
+  border-radius: 10px;
+}
+
+.fm-landing__aside .fm-save-slot--active {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.fm-landing__aside .fm-save-slot--active:hover {
+  border-color: rgba(130, 200, 100, 0.3);
+  background: rgba(255, 255, 255, 0.07);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.fm-landing__aside .fm-save-slot--empty {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed rgba(255, 255, 255, 0.06);
+}
+
+.fm-landing__aside .fm-save-slot--empty:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+@media (max-width: 1024px) {
+  .fm-landing__layout {
+    grid-template-columns: 1fr;
+    padding: 0 24px 40px;
+  }
+
+  .fm-landing__main {
+    padding: 24px 0 0;
+  }
+
+  .fm-landing__aside {
+    position: static;
+    height: auto;
+    margin-top: 0;
+  }
+
+  .fm-landing__brand {
+    margin-bottom: 24px;
+  }
+}
+
+@media (max-width: 640px) {
+  .fm-landing__layout {
+    padding: 0 16px 32px;
+  }
+
+  .fm-landing__main {
+    padding: 16px 0 0;
+  }
+
+  .fm-landing__topbar {
+    padding: 12px 16px 0;
+  }
+}
+
+/* --- Squad view & table --- */
+.fm-squad-view__season {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-top: 8px;
+}
+
+.fm-squad-table {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-surface);
+}
+
+.fm-squad-table__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.fm-squad-table__title {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.fm-squad-table__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.fm-squad-table__chip {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.fm-squad-table__chip--accent {
+  color: var(--color-primary);
+  border-color: rgba(26, 115, 232, 0.25);
+  background: rgba(26, 115, 232, 0.08);
+}
+
+.fm-squad-table__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.fm-squad-table__search {
+  flex: 1;
+  min-width: 180px;
+}
+
+.fm-squad-table__search-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font-size: var(--font-size-base);
+}
+
+.fm-squad-table__filters {
+  display: flex;
+  gap: 8px;
+}
+
+.fm-squad-table__filter-btn {
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-background);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.fm-squad-table__count {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.fm-squad-table__wrapper {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}
+
+.fm-squad-table__grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.fm-squad-table__th {
+  text-align: left;
+  padding: 10px 12px;
+  background: var(--color-background);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.fm-squad-table__row {
+  cursor: pointer;
+  border-top: 1px solid var(--color-border);
+}
+
+.fm-squad-table__row:hover {
+  background: rgba(26, 115, 232, 0.04);
+}
+
+.fm-squad-table__row--selected {
+  background: rgba(26, 115, 232, 0.1);
+}
+
+.fm-squad-table__grid td {
+  padding: 10px 12px;
+  vertical-align: middle;
+}
+
+.fm-squad-table__pos-badge {
+  display: inline-block;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.fm-squad-table__name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fm-squad-table__name-text {
+  font-weight: 500;
+}
+
+.fm-squad-table__name-overall {
+  font-size: 11px;
+  background: var(--color-background);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+.fm-squad-table__ca-pa {
+  display: block;
+  font-size: 10px;
+  color: var(--color-text-secondary);
+}
+
+.fm-squad-table__bar {
+  height: 6px;
+  border-radius: 3px;
+  min-width: 4px;
+}
+
+.fm-squad-table__status-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--color-background);
+}
+
+.fm-squad-table__injury-badge {
+  font-size: 11px;
+  color: #d32f2f;
+}
+
+.fm-squad-table__injury-free {
+  color: var(--color-success);
+}
+
+/* --- Player detail panel --- */
+.fm-player-detail-panel-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 400px;
+  max-width: 100%;
+  height: 100vh;
+  z-index: 500;
+  box-shadow: -4px 0 24px var(--color-shadow);
+}
+
+.fm-player-detail-panel-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 500;
+  display: flex;
+  align-items: flex-end;
+}
+
+.fm-player-detail-panel-overlay--mobile .fm-player-detail-panel {
+  width: 100%;
+  max-height: 90vh;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.fm-player-detail-panel {
+  background: var(--color-surface);
+  height: 100%;
+  overflow-y: auto;
+  padding: 0 0 24px;
+}
+
+.fm-player-detail-panel__header {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 16px 0;
+}
+
+.fm-player-detail-panel__close {
+  background: none;
+  border: none;
+  font-size: 28px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  line-height: 1;
+}
+
+.fm-player-detail-panel__identity {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 0 24px 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.fm-player-detail-panel__position-badge {
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+}
+
+.fm-player-detail-panel__name h2 {
+  font-size: 20px;
+  margin-bottom: 4px;
+}
+
+.fm-player-detail-panel__meta,
+.fm-player-detail-panel__alt-pos {
+  display: block;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.fm-player-detail-panel__overall-badge {
+  margin-left: auto;
+  background: var(--color-primary);
+  color: #fff;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.fm-player-detail-panel__status,
+.fm-player-detail-panel__attributes,
+.fm-player-detail-panel__contract,
+.fm-player-detail-panel__squad-status,
+.fm-player-detail-panel__promises {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.fm-player-detail-panel__status-item {
+  margin-bottom: 10px;
+}
+
+.fm-player-detail-panel__status-label {
+  display: block;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+}
+
+.fm-player-detail-panel__status-bar {
+  height: 24px;
+  border-radius: var(--radius);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+}
+
+.fm-player-detail-panel__injury {
+  margin: 0 24px 16px;
+  padding: 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius);
+  color: #991b1b;
+  font-size: var(--font-size-sm);
+}
+
+.fm-player-detail-panel__section-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.fm-player-detail-panel__group {
+  margin-bottom: 16px;
+}
+
+.fm-player-detail-panel__group-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+}
+
+.fm-player-detail-panel__stats-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fm-player-detail-panel__contract-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: var(--font-size-sm);
+}
+
+.fm-player-detail-panel__contract-label {
+  color: var(--color-text-secondary);
+}
+
+.fm-player-detail-panel__contract-value {
+  font-weight: 600;
+}
+
+.fm-player-detail-panel__status-pill {
+  display: inline-block;
+  padding: 4px 12px;
+  background: var(--color-background);
+  border-radius: 20px;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+
+.fm-player-detail-panel__promise-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: var(--font-size-sm);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.fm-player-detail-panel__promise-status {
+  color: var(--color-text-secondary);
+}
+
+/* --- Player card extras --- */
+.fm-player-card__meta {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.fm-player-card__secondary-positions {
+  margin-left: 6px;
+  opacity: 0.8;
+}
+
+.fm-player-card__status-item {
+  margin-bottom: 6px;
+}
+
+.fm-player-card__status-label {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.fm-player-card__status-bar {
+  height: 6px;
+  border-radius: 3px;
+  margin-top: 2px;
+}
+
+.fm-player-card__injury {
+  font-size: var(--font-size-sm);
+  color: #d32f2f;
+  margin: 8px 0;
+}
+
+.fm-player-card__market-value,
+.fm-player-card__salary {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fm-player-card__action {
+  margin-top: 12px;
+}
+
+/* --- Transfer market --- */
+.fm-transfer-market__tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.fm-transfer-market__tab {
+  padding: 10px 20px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.fm-transfer-market__tab:hover {
+  color: var(--color-text);
+}
+
+.fm-transfer-market__tab.fm-transfer-market__tab--active,
+.fm-transfer-market__tab--active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+  font-weight: 600;
+}
+
+.fm-transfer-market__label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+}
+
+.fm-transfer-market__status-select,
+.fm-transfer-market__search {
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font-size: var(--font-size-base);
+}
+
+.fm-transfer-market__players {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.fm-transfer-market__load-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px;
+  margin-top: 16px;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius);
+  text-align: center;
+}
+
+.fm-transfer-market__load-more span {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.fm-transfer-market__feedback {
+  padding: 12px;
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  font-size: var(--font-size-sm);
+}
+
+.fm-transfer-market__value {
+  font-weight: 600;
+  color: var(--color-success);
+}
+
+.fm-transfer-player-wrap {
+  position: relative;
+}
+
+.fm-transfer-fog-card {
+  filter: blur(4px);
+  pointer-events: none;
+  user-select: none;
+}
+
+.fm-transfer-fog {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: var(--radius);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.fm-transfer-offer,
+.fm-transfer-agreement {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.fm-transfer-offer__header,
+.fm-transfer-agreement__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.fm-transfer-offer__player-name,
+.fm-transfer-agreement__player-name {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.fm-transfer-offer__from-team {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.fm-transfer-offer__details,
+.fm-transfer-agreement__details {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.fm-transfer-offer__detail,
+.fm-transfer-agreement__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fm-transfer-offer__detail-label,
+.fm-transfer-agreement__detail-label {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+}
+
+.fm-transfer-offer__detail-value,
+.fm-transfer-agreement__detail-value {
+  font-weight: 600;
+}
+
+.fm-transfer-offer__actions,
+.fm-transfer-agreement__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.fm-transfer-offer__bonuses-list,
+.fm-transfer-agreement__bonuses-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.fm-transfer-agreement__bonus-tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  background: var(--color-background);
+  border-radius: 4px;
+}
+
+.fm-transfer-agreement__history {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-size-sm);
+}
+
+.fm-transfer-agreement__history-label {
+  color: var(--color-text-secondary);
+}
+
+.fm-transfer-agreement__installments-summary {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-top: 8px;
+}
+
+.fm-offers-section,
+.fm-agreements-section,
+.fm-installments-section,
+.fm-bonuses-section,
+.fm-scouting-section {
+  margin-bottom: 32px;
+}
+
+.fm-offers-section__header,
+.fm-agreements-section__header,
+.fm-installments-section__header,
+.fm-bonuses-section__header,
+.fm-scouting-section__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.fm-agreements-section__count {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.fm-offers-list,
+.fm-agreements-list,
+.fm-installments-list,
+.fm-bonuses-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fm-installments-display,
+.fm-bonus-display {
+  background: var(--color-background);
+  border-radius: var(--radius);
+  padding: 12px;
+  margin-top: 8px;
+}
+
+.fm-installments-display__header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.fm-installments-display__label {
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+}
+
+.fm-installments-display__status {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--color-surface);
+}
+
+.fm-installments-display__status--active {
+  color: var(--color-primary);
+}
+
+.fm-installments-display__status--completed {
+  color: var(--color-success);
+}
+
+.fm-installments-display__status--defaulted {
+  color: #d32f2f;
+}
+
+.fm-installments-display__summary {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-size-sm);
+  margin-bottom: 8px;
+}
+
+.fm-installments-display__payments {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fm-installment-payment {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-size-sm);
+  padding: 4px 0;
+}
+
+.fm-installment-payment--paid {
+  opacity: 0.6;
+}
+
+.fm-bonus-display {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.fm-bonus-display--triggered {
+  border: 1px solid var(--color-success);
+}
+
+.fm-bonus-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.fm-bonus-card__header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.fm-bonus-card__progress {
+  height: 6px;
+  background: var(--color-background);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+
+.fm-installment-clause-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.fm-installment-clause-card__header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.fm-installment-clause-card__payments {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--font-size-sm);
+}
+
+.fm-payment-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: var(--font-size-sm);
+}
+
+/* --- Scout report --- */
+.fm-scout-reports-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.fm-scout-report {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+}
+
+.fm-scout-report__header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.fm-scout-report__position {
+  font-size: 11px;
+  padding: 2px 8px;
+  background: var(--color-background);
+  border-radius: 4px;
+}
+
+.fm-scout-report__meta {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: 12px;
+}
+
+.fm-scout-report__attr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: var(--font-size-sm);
+}
+
+.fm-scout-report__attr-name {
+  width: 80px;
+  color: var(--color-text-secondary);
+}
+
+.fm-scout-report__attr-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--color-background);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.fm-scout-report__attr-fill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 3px;
+}
+
+.fm-scout-report__fog {
+  filter: blur(3px);
+  user-select: none;
+}
+
+.fm-scout-report__footer {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+/* --- Inbox extras --- */
+.fm-inbox-message__time {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.fm-modal__close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+}
+
+.fm-modal__player-name,
+.fm-modal__team-name {
+  font-weight: 600;
+}
+
+.fm-modal__type-tag,
+.fm-modal__priority,
+.fm-modal__severity {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--color-background);
+}
+
+.fm-injury-report,
+.fm-financial-report {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.fm-injury-report__section,
+.fm-financial-report__section {
+  background: var(--color-background);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.fm-injury-report__section-title,
+.fm-financial-report__section-title {
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.fm-injury-report__grid,
+.fm-financial-report__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.fm-injury-report__field,
+.fm-financial-report__field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fm-injury-report__label,
+.fm-financial-report__label {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.fm-injury-report__value,
+.fm-financial-report__value {
+  font-weight: 600;
+}
+
+.fm-injury-report__progress-track,
+.fm-financial-report__profit-track {
+  height: 8px;
+  background: var(--color-border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.fm-injury-report__progress-fill,
+.fm-financial-report__profit-fill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 4px;
+}
+
+.fm-financial-report__field--total {
+  grid-column: 1 / -1;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+.fm-board-reply__section-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.fm-board-reply__label {
+  display: block;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+}
+
+.fm-board-reply__select,
+.fm-board-reply__textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font-size: var(--font-size-base);
+  margin-bottom: 12px;
+}
+
+.fm-board-reply__textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.fm-board-reply__char-count {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  text-align: right;
+}
+
+.fm-board-reply__satisfaction-bar {
+  height: 8px;
+  background: var(--color-border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+
+.fm-board-reply__satisfaction-fill {
+  height: 100%;
+  background: var(--color-success);
+}
+
+/* --- Match center extras --- */
+.fm-match-center__controls {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.fm-match-center__standings {
+  margin-top: 24px;
+}
+
+.fm-match__details-btn {
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.fm-match-finish-btn {
+  padding: 8px 16px;
+  background: var(--color-success);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* --- Tactics --- */
+.fm-tactics-view__team-name {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+}
+
+.fm-tactics-view__formations-list,
+.fm-tactics-view__tactics-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fm-tactics-view__mentality {
+  margin-bottom: 24px;
+}
+
+.fm-mentality {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fm-mentality__label {
+  font-weight: 600;
+}
+
+.fm-mentality__description {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.fm-tactics-view__phase-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+
+.fm-tactics-view__phase-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.fm-tactics-view__phase-tab--active {
+  border-color: var(--color-primary);
+  background: rgba(26, 115, 232, 0.08);
+  color: var(--color-primary);
+}
+
+.fm-tactics-view__instruction-group {
+  margin-bottom: 20px;
+}
+
+.fm-tactics-view__instruction-group-title {
+  font-weight: 600;
+  margin-bottom: 12px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+}
+
+.fm-tactics-view__instruction-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.fm-instruction-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.fm-instruction-toggle__button {
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.fm-instruction-toggle__button--active {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
+}
+
+.fm-instruction-toggle__description {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.fm-multi-value-instruction {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.fm-multi-value-instruction__header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.fm-multi-value-instruction__dropdown {
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font-size: var(--font-size-sm);
+}
+
+.fm-tactics-view__roles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.fm-player-role-selector-card {
+  background: var(--color-background);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+
+.fm-player-role-selector__header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: var(--font-size-sm);
+}
+
+.fm-player-role-selector__dropdown {
+  width: 100%;
+  padding: 6px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font-size: var(--font-size-sm);
+}
+
+.fm-tactics-view__player-instructions-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.fm-tactics-view__player-name {
+  font-weight: 600;
+}
+
+.fm-tactics-view__player-position {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+/* --- Training --- */
+.fm-training-view__section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.fm-training-view__toggle-btn {
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.fm-injury-risk-section,
+.fm-prevention-section {
+  margin-top: 24px;
+}
+
+.fm-injury-risk-grid,
+.fm-fatigue-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.fm-injury-risk-item,
+.fm-fatigue-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+
+.fm-injury-risk--low { border-left: 3px solid var(--color-success); }
+.fm-injury-risk--moderate { border-left: 3px solid #ffc107; }
+.fm-injury-risk--high { border-left: 3px solid #ff9800; }
+.fm-injury-risk--critical { border-left: 3px solid #d32f2f; }
+
+.fm-fatigue-card__bar {
+  height: 6px;
+  background: var(--color-background);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+
+.fm-fatigue-card__fill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 3px;
+}
+
+.fm-prevention-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.fm-attribute-progression {
+  margin-top: 24px;
+}
+
+.fm-attribute-progression__toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.fm-attribute-progression__hint {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.fm-attribute-progression-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.fm-attribute-progression-delta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-size-sm);
+  padding: 4px 0;
+}
+
+.fm-attribute-progression-delta-change--positive {
+  color: var(--color-success);
+}
+
+.fm-attribute-progression-delta-change--negative {
+  color: #d32f2f;
+}
+
+.fm-attribute-progression-no-history {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  padding: 24px;
+  text-align: center;
+}
+
+/* --- Finance --- */
+.fm-finance-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.fm-finance-card--highlight {
+  border-color: var(--color-primary);
+}
+
+.fm-finance-card__label {
+  display: block;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+}
+
+.fm-finance-card__value {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.fm-wage-control {
+  margin-bottom: 24px;
+}
+
+.fm-wage-control__meter-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: 6px;
+}
+
+.fm-wage-control__track {
+  height: 10px;
+  background: var(--color-background);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.fm-wage-control__fill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 5px;
+  transition: width 0.3s;
+}
+
+.fm-wage-control__fill--over {
+  background: #d32f2f;
+}
+
+.fm-finance-view__projection {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+}
+
+.fm-finance-view__projection-week {
+  text-align: center;
+  padding: 12px 8px;
+  background: var(--color-background);
+  border-radius: var(--radius);
+  font-size: var(--font-size-sm);
+}
+
+/* --- Dynamics --- */
+.fm-form-badge--W { background: #d1fae5; color: #065f46; }
+.fm-form-badge--D { background: #e5e7eb; color: #374151; }
+.fm-form-badge--L { background: #fee2e2; color: #991b1b; }
+
+.fm-social-tree__node--root {
+  border: 2px solid var(--color-primary);
+}
+
+.fm-social-tree__node-info {
+  font-size: var(--font-size-sm);
+}
+
+.fm-social-tree__node-influence {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+/* --- Inbox empty state (Item 7) --- */
+.fm-modal__body--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+}
+
+.fm-empty-message {
+  text-align: center;
+  padding: 32px;
+}
+
+.fm-empty-message__icon {
+  font-size: 48px;
+  display: block;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.fm-empty-message__text {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+}
+
+.fm-empty-message__hint {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary, rgba(255, 255, 255, 0.4));
+}
+
+/* ===== Theme toggle ===== */
+.fm-theme-toggle {
+  border: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.fm-theme-toggle__legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.fm-theme-toggle__options {
+  display: inline-flex;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  padding: 3px;
+  gap: 2px;
+}
+
+.fm-theme-toggle__option {
+  cursor: pointer;
+  position: relative;
+}
+
+.fm-theme-toggle__option input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.fm-theme-toggle__label {
+  display: block;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  transition: background var(--motion-fast), color var(--motion-fast), box-shadow var(--motion-fast);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.fm-theme-toggle__option input:checked + .fm-theme-toggle__label {
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-surface);
+}
+
+.fm-theme-toggle__option input:focus-visible + .fm-theme-toggle__label {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.fm-sidebar__theme {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.fm-sidebar__theme .fm-theme-toggle__options {
+  width: 100%;
+}
+
+.fm-sidebar__theme .fm-theme-toggle__option {
+  flex: 1;
+}
+
+.fm-sidebar__theme .fm-theme-toggle__label {
+  text-align: center;
+  padding: 6px 4px;
+}
+
+@media (max-width: 1024px) {
+  .fm-landing__topbar {
+    padding: 16px 24px 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .fm-landing__topbar {
+    padding: 12px 16px 0;
+  }
+}
+
+/* ===== Dark theme ===== */
+[data-theme="dark"] {
+  --color-primary: oklch(0.68 0.20 264);
+  --color-primary-hover: oklch(0.74 0.20 264);
+  --color-primary-active: oklch(0.62 0.18 264);
+  --color-primary-light: oklch(0.32 0.10 264);
+
+  --color-success: oklch(0.70 0.16 158);
+  --color-success-hover: oklch(0.76 0.16 158);
+  --color-warning: oklch(0.78 0.14 70);
+  --color-warning-hover: oklch(0.82 0.12 70);
+  --color-danger: oklch(0.65 0.20 30);
+  --color-danger-hover: oklch(0.70 0.18 30);
+
+  --color-text: oklch(0.93 0.005 264);
+  --color-text-secondary: oklch(0.68 0.008 264);
+  --color-text-tertiary: oklch(0.52 0.008 264);
+
+  --color-surface: oklch(0.20 0.008 264);
+  --color-background: oklch(0.15 0.008 264);
+  --color-border: oklch(0.30 0.010 264);
+  --color-border-strong: oklch(0.38 0.010 264);
+
+  --glass-bg: oklch(0.22 0.008 264 / 0.65);
+  --glass-bg-strong: oklch(0.26 0.008 264 / 0.75);
+  --glass-border: oklch(0.38 0.010 264 / 0.45);
+  --glass-shadow: 0 8px 32px oklch(0 0 0 / 0.45);
+
+  --gradient-primary: linear-gradient(135deg, oklch(0.68 0.20 264), oklch(0.62 0.18 280));
+  --gradient-surface: linear-gradient(180deg, oklch(0.18 0.008 264 / 0.95), oklch(0.14 0.008 264 / 0.7));
+  --gradient-accent: linear-gradient(135deg, oklch(0.78 0.14 70), oklch(0.70 0.16 50));
+  --gradient-card-hover: linear-gradient(135deg, oklch(0.28 0.010 264 / 0.3), oklch(0.22 0.008 264 / 0.2));
+
+  --shadow-hover: 0 2px 8px oklch(0 0 0 / 0.28);
+  --shadow-active: 0 4px 12px oklch(0 0 0 / 0.38);
+  --shadow-surface: 0 1px 4px oklch(0 0 0 / 0.22);
+  --shadow-modal: 0 16px 40px oklch(0 0 0 / 0.55);
+  --shadow-elevated: 0 12px 24px oklch(0 0 0 / 0.4);
+  --shadow-glow: 0 0 20px oklch(0.68 0.20 264 / 0.22);
+
+  --body-bg: linear-gradient(135deg, oklch(0.15 0.008 264), oklch(0.13 0.010 240));
+  --sidebar-bg: oklch(0.18 0.008 264 / 0.92);
+  --sidebar-border: oklch(0.30 0.010 264 / 0.7);
+  --hover-subtle: oklch(0.30 0.010 264 / 0.55);
+  --landing-glow: oklch(0.62 0.10 158 / 0.14);
+
+  color-scheme: dark;
+}
+
+[data-theme="dark"] .fm-team-card__metric-value--money {
+  color: oklch(0.82 0.16 140);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body,
+  .fm-landing {
+    transition: none;
+  }
+}
+
+/* ============================================
+   ITEM 12 - CHECKLIST: HISTÓRICO DE TRANSFERÊNCIAS REALIZADAS
+   ============================================ */
+
+.fm-completed-section {
+  padding: 1.5rem;
+}
+
+.fm-completed-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid var(--color-border);
+}
+
+.fm-completed-section__header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.fm-completed-section__count {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.fm-completed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.fm-completed-transfer-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  transition: all 0.2s ease;
+}
+
+.fm-completed-transfer-card:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-hover);
+}
+
+.fm-completed-transfer-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.fm-completed-transfer-card__player-name {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.fm-completed-transfer-card__status {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.fm-completed-transfer-card__status--cash {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+}
+
+.fm-completed-transfer-card__status--installments {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.fm-completed-transfer-card__details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.fm-completed-transfer-card__detail {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.fm-completed-transfer-card__detail-label {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  min-width: 80px;
+}
+
+.fm-completed-transfer-card__detail-value {
+  font-size: 0.85rem;
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.fm-completed-transfer-card__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.fm-completed-transfer-card__meta-label {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.fm-completed-transfer-card__meta-value {
+  font-size: 0.85rem;
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .fm-completed-transfer-card__details {
+    grid-template-columns: 1fr;
+  }
+  
+  .fm-completed-section {
+    padding: 1rem;
+  }
+  
+  .fm-completed-section__header {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+}
+
+/* ============================================
+   NIGHT PITCH THEME — Internal Pages Override
+   Aligns all routes with the landing page aesthetic
+   ============================================ */
+
+.fm-app {
+  background: radial-gradient(ellipse 80% 60% at 50% 40%, #0d2418 0%, #0a1c14 50%, #060f0a 100%);
+  position: relative;
+}
+
+.fm-app::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0,
+    transparent 80px,
+    rgba(255, 255, 255, 0.025) 80px,
+    rgba(255, 255, 255, 0.025) 160px
+  );
+}
+
+.fm-app {
+  --color-surface: rgba(18, 38, 28, 0.5);
+  --color-background: rgba(255, 255, 255, 0.03);
+  --color-text: #ffffff;
+  --color-text-secondary: rgba(255, 255, 255, 0.5);
+  --color-text-tertiary: rgba(255, 255, 255, 0.35);
+  --color-border: rgba(255, 255, 255, 0.07);
+  --color-border-strong: rgba(255, 255, 255, 0.12);
+  --color-shadow: rgba(0, 0, 0, 0.2);
+
+  --glass-bg: rgba(18, 38, 28, 0.5);
+  --glass-bg-strong: rgba(22, 46, 34, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.07);
+  --glass-shadow: 0 2px 12px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+
+  --gradient-surface: none;
+  --gradient-card-hover: linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+
+  --shadow-surface: 0 2px 12px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --shadow-elevated: 0 8px 28px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  --shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.2);
+  --shadow-glow: 0 0 20px oklch(0.82 0.19 130 / 0.15);
+
+  --sidebar-bg: rgba(10, 20, 15, 0.85);
+  --sidebar-border: rgba(255, 255, 255, 0.07);
+  --hover-subtle: rgba(255, 255, 255, 0.04);
+  --body-bg: radial-gradient(ellipse 80% 60% at 50% 40%, #0d2418 0%, #0a1c14 50%, #060f0a 100%);
+}
+
+.fm-main {
+  background: transparent;
+  position: relative;
+  z-index: 1;
+  color: #ffffff;
+}
+
+/* Scrollable views fill main and scroll internally */
+.fm-match-center,
+.fm-tactics-view,
+.fm-transfer-market,
+.fm-training-view,
+.fm-dynamics-view,
+.fm-finance-view,
+.fm-inbox-view,
+.fm-club-view {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+
+/* Sidebar */
+.fm-sidebar {
+  background: rgba(10, 20, 15, 0.85);
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+  position: relative;
+  z-index: 2;
+}
+
+.fm-sidebar__item {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.fm-sidebar__item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.fm-sidebar__item--active {
+  color: oklch(0.82 0.19 130);
+  border-left-color: oklch(0.82 0.19 130);
+}
+
+.fm-sidebar__season {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.fm-sidebar__toggle {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.fm-sidebar__footer,
+.fm-sidebar__header {
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+.fm-sidebar__logo,
+.fm-sidebar__logo-text {
+  background: none;
+  -webkit-background-clip: unset;
+  background-clip: unset;
+  -webkit-text-fill-color: oklch(0.82 0.19 130);
+  color: oklch(0.82 0.19 130);
+}
+
+/* View containers */
+.fm-squad-view,
+.fm-match-center,
+.fm-tactics-view,
+.fm-transfer-market,
+.fm-training-view,
+.fm-dynamics-view,
+.fm-finance-view,
+.fm-league-view {
+  background: transparent;
+  max-width: none;
+}
+
+/* Headings */
+.fm-main h1,
+.fm-main h2,
+.fm-main h3,
+.fm-main h4 {
+  color: #ffffff;
+}
+
+.fm-main p {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Gradient text → solid white */
+.fm-squad-table__title,
+.fm-match-center__header h1,
+.fm-tactics-view__header h1,
+.fm-inbox-view__header h1,
+.fm-transfer-market__header h1,
+.fm-training-view__header h1,
+.fm-dynamics-view__header h1,
+.fm-finance-view__header h1,
+.fm-league-view__header h1,
+.fm-match__team-score,
+.fm-match-live-view__score > span,
+.fm-match-details-modal__score > span,
+.fm-section-header__title {
+  background: none;
+  -webkit-background-clip: unset;
+  background-clip: unset;
+  -webkit-text-fill-color: #ffffff;
+  color: #ffffff;
+}
+
+.fm-squad-table__title,
+.fm-match-center__header h1,
+.fm-tactics-view__header h1,
+.fm-inbox-view__header h1,
+.fm-transfer-market__header h1,
+.fm-training-view__header h1,
+.fm-dynamics-view__header h1,
+.fm-finance-view__header h1,
+.fm-league-view__header h1 {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+}
+
+/* Tables */
+.fm-main th {
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.fm-main td {
+  color: rgba(255, 255, 255, 0.85);
+  border-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Form inputs */
+.fm-main input,
+.fm-main select,
+.fm-main textarea {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.07);
+  color: #ffffff;
+}
+
+.fm-main input::placeholder,
+.fm-main textarea::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* Statbar */
+.fm-statbar__track {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+.fm-statbar__label {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Position group */
+.fm-position-group {
+  background: linear-gradient(180deg, rgba(255,255,255,0.02) 0%, transparent 100%);
+}
+
+.fm-position-group__title {
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom-color: oklch(0.82 0.19 130);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Player card */
+.fm-player-card__position {
+  background: linear-gradient(135deg, oklch(0.72 0.19 130), oklch(0.65 0.16 150));
+  color: oklch(0.15 0.03 130);
+}
+
+.fm-player-card__overall-badge {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: oklch(0.82 0.19 130);
+  color: oklch(0.82 0.19 130);
+}
+
+.fm-player-card__footer {
+  border-top-color: rgba(255, 255, 255, 0.07);
+}
+
+.fm-player-card__label,
+.fm-player-card__age,
+.fm-player-card__meta {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.fm-player-card__attribute-bar {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Player status badges */
+.fm-player-card__status--key-player { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+.fm-player-card__status--regular-starter { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+.fm-player-card__status--rotation { background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.7); }
+.fm-player-card__status--young-talent { background: rgba(139, 92, 246, 0.15); color: #a78bfa; }
+.fm-player-card__status--excess { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+
+/* Match event types */
+.fm-match-event__type--goal { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+.fm-match-event__type--shot { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+.fm-match-event__type--save { background: rgba(139, 92, 246, 0.15); color: #a78bfa; }
+.fm-match-event__type--foul { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+.fm-match-event__type--yellow { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+.fm-match-event__type--red { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+.fm-match-event__type--corner { background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.7); }
+.fm-match-event__type--substitution { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+
+/* Chips & badges */
+.fm-match-center__week,
+.fm-transfer-market__budget {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+/* Filter/toggle buttons */
+.fm-inbox-view__filter-btn,
+.fm-squad-table__filter-btn,
+.fm-tactics-view__phase-tab,
+.fm-training-view__toggle-btn,
+.fm-instruction-toggle__button,
+.fm-tactic {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.fm-inbox-view__filter-btn--active,
+.fm-tactics-view__phase-tab--active,
+.fm-instruction-toggle__button--active,
+.fm-tactic--active {
+  background: oklch(0.82 0.19 130);
+  border-color: transparent;
+  color: oklch(0.15 0.03 130);
+}
+
+/* Formation cards */
+.fm-formation {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+.fm-formation--active {
+  border-color: oklch(0.82 0.19 130);
+  background: rgba(130, 200, 100, 0.1);
+}
+
+/* Training */
+.fm-training-type {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+.fm-training-type--active {
+  border-color: oklch(0.82 0.19 130);
+  background: rgba(130, 200, 100, 0.1);
+}
+
+.fm-training-day,
+.fm-training-view__session,
+.fm-training-view__day {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.fm-training-block__select,
+.fm-multi-value-instruction__dropdown,
+.fm-player-role-selector__dropdown {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.07);
+  color: #ffffff;
+}
+
+/* Squad table */
+.fm-squad-table__header {
+  border-bottom-color: rgba(255, 255, 255, 0.07);
+}
+
+.fm-squad-table__chip {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.fm-squad-table__chip--accent {
+  background: rgba(130, 200, 100, 0.1);
+  border-color: rgba(130, 200, 100, 0.25);
+  color: oklch(0.82 0.19 130);
+}
+
+.fm-squad-table__toolbar {
+  border-bottom-color: rgba(255, 255, 255, 0.07);
+}
+
+.fm-squad-table__search-input {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.07);
+  color: #ffffff;
+}
+
+.fm-squad-table__row {
+  border-top-color: rgba(255, 255, 255, 0.05);
+}
+
+.fm-squad-table__row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.fm-squad-table__row--selected {
+  background: rgba(130, 200, 100, 0.1);
+}
+
+.fm-squad-table__name-overall,
+.fm-squad-table__status-badge {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Standings */
+.fm-standings-table {
+  background: transparent;
+}
+
+.fm-standings-table th {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.fm-standings-table--user {
+  background: rgba(130, 200, 100, 0.08);
+}
+
+/* Transfer market */
+.fm-transfer-market__tab {
+  color: rgba(255, 255, 255, 0.5);
+  border-bottom-color: rgba(255, 255, 255, 0.07);
+}
+
+.fm-transfer-market__tab--active {
+  color: oklch(0.82 0.19 130);
+  border-bottom-color: oklch(0.82 0.19 130);
+}
+
+.fm-transfer-market__search,
+.fm-transfer-market__status-select {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.07);
+  color: #ffffff;
+}
+
+.fm-transfer-fog {
+  background: rgba(10, 20, 15, 0.7);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Match extras */
+.fm-match__details-btn {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.fm-match-finish-btn {
+  background: oklch(0.82 0.19 130);
+  color: oklch(0.15 0.03 130);
+}
+
+.fm-match-live-view {
+  background: rgba(18, 38, 28, 0.5);
+}
+
+.fm-match-center__intervention {
+  background: rgba(130, 200, 100, 0.05);
+  border-color: rgba(130, 200, 100, 0.2);
+}
+
+/* Live data hub */
+.fm-live-data-hub {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+.fm-live-data-hub__indicator {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+/* Match event */
+.fm-match-event {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Progress/bar tracks */
+.fm-promise-bar,
+.fm-wage-control__track,
+.fm-fatigue-card__bar,
+.fm-attribute-progression-bar,
+.fm-social-tree__node-stat-bar,
+.fm-injury-report__progress-track,
+.fm-financial-report__profit-track,
+.fm-board-reply__satisfaction-bar {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Finance */
+.fm-finance-ledger__row--income { background: rgba(34, 197, 94, 0.08); }
+.fm-finance-ledger__row--expense { background: rgba(239, 68, 68, 0.08); }
+
+.fm-finance-chart__bar {
+  background: linear-gradient(180deg, oklch(0.82 0.19 130), oklch(0.65 0.16 150));
+}
+
+.fm-finance-view__projection-week {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.fm-finance-card--highlight {
+  border-color: oklch(0.82 0.19 130);
+}
+
+/* Board reply */
+.fm-board-reply {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+.fm-board-reply__select,
+.fm-board-reply__textarea {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.07);
+  color: #ffffff;
+}
+
+.fm-board-reply__satisfaction--positive { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+.fm-board-reply__satisfaction--negative { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+
+/* Injury/financial report */
+.fm-injury-report__section,
+.fm-financial-report__section {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+/* Installment/bonus displays */
+.fm-installment-clause-display,
+.fm-player-bonus-display,
+.fm-installments-display,
+.fm-bonus-display {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+/* Club view */
+.fm-club-view__info {
+  background: rgba(18, 38, 28, 0.5);
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+}
+
+.fm-club-view__info p {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Club performance */
+.fm-club-performance__stat {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Hierarchy */
+.fm-hierarchy__level {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.fm-hierarchy__player {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Social group */
+.fm-social-group {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+.fm-social-tree__connection {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Dynamics note */
+.fm-dynamics-view__note {
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Form badges */
+.fm-form-badge--w, .fm-form-badge--W { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+.fm-form-badge--d, .fm-form-badge--D { background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.7); }
+.fm-form-badge--l, .fm-form-badge--L { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+
+/* League table — Night Pitch */
+.fm-league-view__count {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.fm-league-table__th {
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.45);
+  border-bottom-color: rgba(255, 255, 255, 0.07);
+}
+
+.fm-league-table__grid td {
+  color: rgba(255, 255, 255, 0.85);
+  border-bottom-color: rgba(255, 255, 255, 0.05);
+}
+
+.fm-league-table__num {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.fm-league-table__points {
+  color: oklch(0.82 0.19 130);
+}
+
+.fm-league-table__user-tag {
+  background: rgba(130, 200, 100, 0.15);
+  color: oklch(0.82 0.19 130);
+}
+
+.fm-league-table__row--user {
+  background: rgba(130, 200, 100, 0.08);
+}
+
+.fm-league-table__row--user:hover {
+  background: rgba(130, 200, 100, 0.12);
+}
+
+.fm-league-table__row--title { background: rgba(255, 215, 0, 0.04); }
+.fm-league-table__row--europe { background: rgba(96, 165, 250, 0.04); }
+.fm-league-table__row--relegation,
+.fm-league-table__row--relegated { background: rgba(239, 68, 68, 0.06); }
+
+.fm-league-table__zone-badge--title { background: rgba(255, 215, 0, 0.12); color: #fbbf24; }
+.fm-league-table__zone-badge--europe { background: rgba(96, 165, 250, 0.12); color: #60a5fa; }
+.fm-league-table__zone-badge--safe { background: rgba(255, 255, 255, 0.05); color: rgba(255, 255, 255, 0.5); }
+.fm-league-table__zone-badge--relegation { background: rgba(239, 68, 68, 0.12); color: #f87171; }
+
+.fm-league-table__legend {
+  background: rgba(255, 255, 255, 0.02);
+  border-top-color: rgba(255, 255, 255, 0.07);
+}
+
+.fm-league-table__legend-item {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.fm-relegation-badge {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+/* Completed transfer card */
+.fm-completed-transfer-card {
+  background: rgba(18, 38, 28, 0.45);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+.fm-completed-transfer-card__header,
+.fm-completed-transfer-card__meta {
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+.fm-completed-transfer-card__status--cash { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+.fm-completed-transfer-card__status--installments { background: rgba(96, 165, 250, 0.15); color: #60a5fa; }
+
+/* Player detail panel */
+.fm-player-detail-panel {
+  background: rgba(10, 20, 15, 0.95);
+  backdrop-filter: blur(20px) saturate(1.3);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+}
+
+.fm-player-detail-panel__identity,
+.fm-player-detail-panel__status,
+.fm-player-detail-panel__attributes,
+.fm-player-detail-panel__contract,
+.fm-player-detail-panel__squad-status,
+.fm-player-detail-panel__promises {
+  border-bottom-color: rgba(255, 255, 255, 0.07);
+}
+
+.fm-player-detail-panel__close {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.fm-player-detail-panel__section-title,
+.fm-player-detail-panel__name h2 {
+  color: #ffffff;
+}
+
+.fm-player-detail-panel__meta,
+.fm-player-detail-panel__alt-pos,
+.fm-player-detail-panel__status-label,
+.fm-player-detail-panel__contract-label,
+.fm-player-detail-panel__group-title {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.fm-player-detail-panel__contract-value {
+  color: #ffffff;
+}
+
+.fm-player-detail-panel__injury {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+.fm-player-detail-panel__promise-item {
+  border-bottom-color: rgba(255, 255, 255, 0.07);
+}
+
+.fm-player-detail-panel__promise-status {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.fm-player-detail-panel__status-pill {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Modals */
+.fm-modal,
+.fm-message-modal__content,
+.fm-injury-report-modal__content,
+.fm-board-reply-modal__content,
+.fm-match-details-modal__content {
+  background: rgba(10, 20, 15, 0.95);
+  backdrop-filter: blur(20px) saturate(1.3);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: #ffffff;
+}
+
+.fm-modal__header,
+.fm-modal__meta,
+.fm-modal__footer,
+.fm-match-details-modal__header {
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+.fm-modal__close,
+.fm-modal__close-btn,
+.fm-message-modal__close,
+.fm-injury-report-modal__close,
+.fm-board-reply-modal__close,
+.fm-match-details-modal__close {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.fm-modal__close:hover,
+.fm-modal__close-btn:hover,
+.fm-message-modal__close:hover,
+.fm-match-details-modal__close:hover {
+  color: #ffffff;
+}
+
+.fm-modal__type-tag,
+.fm-modal__priority,
+.fm-modal__severity {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Inbox */
+.fm-inbox-view__unread-badge {
+  background: oklch(0.82 0.19 130);
+  color: oklch(0.15 0.03 130);
+}
+
+.fm-inbox-message--unread,
+.fm-inbox-view__message--unread {
+  border-left-color: oklch(0.82 0.19 130);
+}
+
+.fm-inbox-message__icon {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.fm-inbox-message__type-tag {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.fm-inbox-message__actions {
+  border-top-color: rgba(255, 255, 255, 0.07);
+}
+
+.fm-inbox-message__unread-dot {
+  background: oklch(0.82 0.19 130);
+}
+
+.fm-inbox-view__action-feedback {
+  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.2);
+  color: #4ade80;
+}
+
+/* Injury risk */
+.fm-injury-risk--low { border-left-color: #4ade80; }
+.fm-injury-risk--moderate { border-left-color: #fbbf24; }
+.fm-injury-risk--high { border-left-color: #f59e0b; }
+.fm-injury-risk--critical { border-left-color: #f87171; }
+
+/* Empty state */
+.fm-empty {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.fm-empty-message__text {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.fm-empty-message__hint {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Error boundary */
+.fm-error-boundary__content {
+  background: rgba(18, 38, 28, 0.5);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+/* Save slots panel */
+.fm-save-slots-panel {
+  background: rgba(18, 38, 28, 0.5);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+[data-theme="dark"] .fm-save-slot--active {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .fm-save-slot--active:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(130, 200, 100, 0.35);
+}
+
+[data-theme="dark"] .fm-save-slot--empty {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .fm-save-slot__badge {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .fm-save-slot__chip {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+/* Theme toggle in sidebar */
+.fm-sidebar__theme .fm-theme-toggle__options {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+.fm-sidebar__theme .fm-theme-toggle__label {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.fm-sidebar__theme .fm-theme-toggle__option input:checked + .fm-theme-toggle__label {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+/* Scrollbar */
+.fm-main::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.fm-main::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Attribute progression */
+.fm-attribute-progression-no-history {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.fm-attribute-progression__hint {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.fm-attribute-progression-delta-change--positive {
+  color: #4ade80;
+}
+
+.fm-attribute-progression-delta-change--negative {
+  color: #f87171;
+}
+
+/* Transfer market load more */
+.fm-transfer-market__load-more {
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+/* Injury/financial report labels */
+.fm-injury-report__label,
+.fm-financial-report__label {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.fm-injury-report__value,
+.fm-financial-report__value {
+  color: #ffffff;
+}
+
+/* --- Negotiation Modal --- */
+.fm-negotiation-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.fm-negotiation-modal {
+  background: var(--color-surface, #1a1a2e);
+  border: 1px solid var(--color-border, rgba(255,255,255,0.1));
+  border-radius: 12px;
+  width: 90%;
+  max-width: 480px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.fm-negotiation-modal__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--color-border, rgba(255,255,255,0.1));
+}
+
+.fm-negotiation-modal__header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.fm-negotiation-modal__close {
+  background: none;
+  border: none;
+  font-size: 28px;
+  cursor: pointer;
+  color: var(--color-text-secondary, rgba(255,255,255,0.5));
+  padding: 0;
+  line-height: 1;
+}
+
+.fm-negotiation-modal__close:hover {
+  color: var(--color-text, #fff);
+}
+
+.fm-negotiation-modal__body {
+  padding: 24px;
+}
+
+.fm-negotiation-modal__player-info {
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-border, rgba(255,255,255,0.07));
+}
+
+.fm-negotiation-modal__player-info h3 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.fm-negotiation-modal__player-info p {
+  margin: 4px 0;
+  font-size: 14px;
+  color: var(--color-text-secondary, rgba(255,255,255,0.5));
+}
+
+.fm-negotiation-modal__offer-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.fm-negotiation-modal__offer-form label {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.fm-negotiation-modal__offer-form input {
+  padding: 10px 14px;
+  border: 1px solid var(--color-border, rgba(255,255,255,0.1));
+  border-radius: 8px;
+  font-size: 16px;
+  background: rgba(255,255,255,0.03);
+  color: #fff;
+}
+
+.fm-negotiation-modal__offer-form input:focus {
+  outline: none;
+  border-color: var(--color-primary, #4a90d9);
+}
+
+.fm-negotiation-modal__result {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.fm-negotiation-modal__result-status {
+  font-size: 18px;
+  font-weight: 700;
+  padding: 12px 16px;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.fm-negotiation-modal__result-status--accepted {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.fm-negotiation-modal__result-status--rejected {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.fm-negotiation-modal__result-status--countered {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+.fm-negotiation-modal__result-message {
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+  color: var(--color-text-secondary, rgba(255,255,255,0.7));
+}
+
+.fm-negotiation-modal__counter-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}

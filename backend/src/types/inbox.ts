@@ -1,0 +1,17 @@
+// Tipos de Mensagens (Inbox)
+
+import type { BoardReply } from './financial';
+
+export interface InboxMessage {
+  id: string;
+  type: 'transfer' | 'injury' | 'suggestion' | 'board' | 'youth' | 'training' | 'financial';
+  subject: string;
+  body: string;
+  timestamp: number;
+  read: boolean;
+  priority: 'low' | 'medium' | 'high';
+  relatedPlayerId?: string;
+  relatedTeamId?: string;
+  // Item 9.8.3 - Diretoria: Responder
+  boardReply?: BoardReply;
+}
