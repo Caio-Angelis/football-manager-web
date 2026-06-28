@@ -20,6 +20,12 @@ const ZONE_LABELS: Record<string, string> = {
   relegation: 'Rebaixamento',
 };
 
+const FORM_LABELS: Record<string, string> = {
+  W: 'V',
+  D: 'E',
+  L: 'D',
+};
+
 const formClass = (r: string) =>
   r === 'W' ? 'fm-form-badge--W' : r === 'D' ? 'fm-form-badge--D' : 'fm-form-badge--L';
 
@@ -86,7 +92,7 @@ export const LeagueTable: React.FC<LeagueTableProps> = ({ standings, userTeamId 
                   <td className="fm-league-table__form">
                     {s.form.map((r, i) => (
                       <span key={i} className={`fm-form-badge ${formClass(r)}`}>
-                        {r}
+                        {FORM_LABELS[r] ?? r}
                       </span>
                     ))}
                   </td>

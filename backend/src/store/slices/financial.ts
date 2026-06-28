@@ -13,7 +13,7 @@ export const createFinancialSlice = (set: Set, get: Get) => ({
     const ticketRevenue = (team.reputation / 100) * 0.5;
     const sponsorship = (team.reputation / 100) * 0.3;
     const totalIncome = ticketRevenue + sponsorship;
-    const totalExpenses = team.wageBill * 0.01;
+    const totalExpenses = team.wageBill * (12 / 52);
     const profit = totalIncome - totalExpenses;
 
     // Calculate transfer-related figures

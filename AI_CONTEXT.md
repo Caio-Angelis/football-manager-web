@@ -6,11 +6,11 @@
 
 **Localização:** `C:\Users\caioa\Desktop\football-manager-web`
 
-**Progresso estimado:** ~98% da especificação completa (ver `IMPLMENTATION_CHECKLIST.md`). Fluxos completos documentados em `docs/fluxo.md`.
+**Progresso estimado:** ~98% da especificação completa (ver `IMPLMENTATION_CHECKLIST.md`). Fluxos completos documentados em `docs/fluxo.md`. Database real de 20 clubes do Brasileirão integrada (ver `DataBase jogadores/`).
 
 **Stack:**
-- **Backend:** Express 4, Zustand 5 (estado em memória), Zod 4 (validação), TypeScript 5.6, tsx (dev), Vitest (testes)
-- **Frontend:** Vite 6, React 19, Zustand 5 (thin client), React Router DOM 7, Lucide React (ícones), Recharts (gráficos), TypeScript 5.6, Vitest (testes)
+- **Backend:** Express 4, Zustand 5 (estado em memória), Zod 4 (validação), TypeScript 5.6, tsx (dev), Vitest 4 (testes)
+- **Frontend:** Vite 6, React 19, Zustand 5 (thin client), React Router DOM 7, Lucide React (ícones), Recharts (gráficos), TypeScript 5.6, Vitest 3 + happy-dom (testes)
 - **Root:** concurrently (orquestra backend + frontend)
 
 **Persistência:**
@@ -30,6 +30,15 @@ football-manager-web/
 ├── PRODUCT.md
 ├── Projeto.md
 ├── DESIGN.md
+├── especificacao_football_manager_web.md  # Especificação completa do produto
+├── TransferenciasChecklist.md  # Checklist do sistema de transferências
+├── DynamicsView_content.txt    # Conteúdo de referência da DynamicsView
+├── DataBase jogadores/         # Database real de clubes (20 JSONs + gerar_jsons.py)
+│   ├── atletico_mineiro.json
+│   ├── bahia.json
+│   ├── botafogo.json
+│   ├── ... (17 outros clubes do Brasileirão)
+│   └── gerar_jsons.py          # Script Python que gera os JSONs
 ├── docs/
 │   ├── fluxo.md
 │   ├── screenshot_*.png
@@ -40,6 +49,7 @@ football-manager-web/
 │   ├── .env.example            # PORT, NODE_ENV, SAVES_DIR
 │   ├── eslint.config.js
 │   ├── .prettierrc
+│   ├── saves/                  # save_slot_{1,2}.json (criados em runtime)
 │   └── src/
 │       ├── server.ts           # Express app + hydrateSavesFromDisk() on boot
 │       ├── routes/
@@ -54,7 +64,8 @@ football-manager-web/
 │       │   └── schemas.ts       # Zod schemas para todas as actions
 │       ├── utils/
 │       │   ├── errors.ts        # AppError, ValidationError, toErrorResponse
-│       │   └── playerGenerator.ts  # Geração procedural (jogadores + times)
+│       │   ├── playerGenerator.ts  # Geração procedural (jogadores + times)
+│       │   └── dataLoader.ts    # Carrega times reais de DataBase jogadores/*.json
 │       ├── types/               # 13 arquivos de tipos de domínio
 │       │   ├── game.ts          # Barrel re-export + GameState + GameActions + GameStore
 │       │   ├── player.ts
@@ -97,9 +108,11 @@ football-manager-web/
 │           └── schemas.test.ts
 │
 └── frontend/
-    ├── package.json            # Vite, React 19, React Router 7, Lucide, Recharts
+    ├── package.json            # Vite, React 19, React Router 7, Lucide, Recharts, happy-dom
     ├── index.html              # Inline theme bootstrap (anti-flash)
     ├── tsconfig.json
+    ├── vite.config.ts          # Proxy /api → localhost:3001
+    ├── vitest.config.ts        # happy-dom, setup smoke tests
     └── src/
         ├── main.tsx            # BrowserRouter + ErrorBoundary + fetch /api/state
         ├── App.tsx             # Routes + sidebar + footer + toast system
@@ -113,9 +126,9 @@ football-manager-web/
         │   └── useTheme.ts     # Theme preference + system listener
         ├── utils/
         │   └── theme.ts        # resolveTheme, applyTheme, getStoredThemePreference
-        ├── styles.css             # ~104KB, variáveis --fm-*, light/dark via [data-theme]
-        ├── styles-supplement.css  # ~66KB, estilos complementares
-        ├── styles-mobile.css      # ~6KB, media queries (1024/768/640/480px)
+        ├── styles.css             # ~105KB, variáveis --fm-*, light/dark via [data-theme]
+        ├── styles-supplement.css  # ~107KB, estilos complementares (componentes, telas, responsivo)
+        ├── styles-mobile.css      # ~7KB, media queries (1024/768/640/480px)
         ├── smoke/
         │   ├── setup.ts
         │   └── gameFlows.test.ts  # Smoke tests (Vitest)
@@ -135,7 +148,9 @@ football-manager-web/
             │   ├── PlayerCard.tsx
             │   └── PlayerDetailPanel.tsx
             ├── match/
-            │   └── MatchCenter.tsx
+            │   ├── MatchCenter.tsx
+            │   ├── MatchPitch2D.tsx      # Visualização 2D estilo "jogo de botão"
+            │   └── MatchPitch2D.css
             ├── transfer/
             │   ├── TransferMarket.tsx
             │   └── ScoutReportCard.tsx
@@ -198,6 +213,8 @@ Backend (Express 4)
 
 Tipos são definidos no backend em 13 arquivos de domínio sob `backend/src/types/`, com barrel export em `game.ts`. O frontend espelha os tipos em `frontend/src/types/game.ts`.
 
+> **⚠️ Dessincronização:** O `GameActions` do backend (`backend/src/types/game.ts`) possui 8 actions extras não espelhadas no frontend: `generateInstallmentClause`, `generatePlayerBonus`, `setCoachTreatment`, `setPlayerTrustLevel`, `setPlayerTrainingLoad`, `updateClubPerformance`, `updateLeagueForm`, `setLeaguePosition`. Essas actions são invocadas diretamente via `apiAction()` sem tipagem no thin client.
+
 ---
 
 ## 🧩 Tipos de Domínio (`backend/src/types/`)
@@ -245,9 +262,30 @@ Tipos são definidos no backend em 13 arquivos de domínio sob `backend/src/type
 
 ---
 
-## ⚙️ Engine Procedural (`backend/src/utils/playerGenerator.ts`)
+## ⚙️ Geração de Times — Database Real + Procedural
 
-### Funções Principais
+### Database Real (`backend/src/utils/dataLoader.ts`)
+
+Carrega times reais do Brasileirão a partir de arquivos JSON em `DataBase jogadores/`. **Prioridade:** `initGame()` tenta carregar do database primeiro; se vazio, faz fallback para geração procedural.
+
+| Função | Descrição |
+|--------|-----------|
+| `loadTeamsFromDatabase()` | Lê todos os `*.json` de `DataBase jogadores/`, converte para `Team[]` |
+| `convertPlayer()` | Converte `JsonPlayer` (6 stats + over_geral) → `Player` completo |
+| `convertTeam()` | Converte `JsonTeam` → `Team` com reputação baseada no overall médio |
+| `buildAttributes()` | Deriva atributos técnicos, mentais, físicos e GK dos 6 stats básicos |
+| `to20()` | Converte escala 0-100 → 1-20 |
+
+**Mapeamento de posições:** GOL→GK, ZAG/LAT→DEF, VOL/MEI→MID, ATA/PD/PE→FWD
+
+**Database JSON (`DataBase jogadores/`):**
+- 20 clubes reais do Brasileirão Série A 2025
+- Cada JSON tem: `time` (nome), `jogadores[]` (nome, posicao, jogos, gols, assistencias, velocidade, chute, passe, drible, defesa, fisico, over_geral)
+- `gerar_jsons.py` — script Python que gera os JSONs a partir de dados reais
+
+### Geração Procedural (`backend/src/utils/playerGenerator.ts`)
+
+Usada como fallback quando o database não está disponível.
 
 | Função | Descrição |
 |--------|-----------|
@@ -255,10 +293,10 @@ Tipos são definidos no backend em 13 arquivos de domínio sob `backend/src/type
 | `generateTeam()` | Time completo com elenco, táticas e finanças |
 | `generateYouthIntake()` | Fornada de jovens (auto-admission na semana 1) |
 | `getRandomNationality()` | Nacionalidade ponderada pela reputação do jogador |
-| `createDefaultTacticsConfig()` | Config tática padrão |
+| `createDefaultTacticsConfig()` | Config tática padrão (usado também pelo dataLoader) |
 | `NAMES_DATABASE` | Banco de nomes por país (Brasil, Argentina, Portugal, etc.) |
 
-### Algoritmo de Geração
+### Algoritmo Procedural
 
 **Distribuição Gaussiana:** Usa Box-Muller transform para gerar atributos com média e desvio padrão, limitados entre 1-20.
 
@@ -269,7 +307,7 @@ Tipos são definidos no backend em 13 arquivos de domínio sob `backend/src/type
 - Idades: 16-35 anos
 - CA = overall × 10 + random; PA = CA × 1.5 + random (com restrições por idade)
 
-**Geração de Times:**
+**Geração de Times (fallback):**
 - Gera 8 times procedurais (4 Série A + 4 Série B)
 - Reputação define tier (elite ≥80, forte ≥60, regular ≥40, emergente)
 - Cada tier tem diferentes faixas de orçamento, salário e atributos
@@ -301,16 +339,16 @@ youthAcademy, reserveTeam
 
 | Slice | Arquivo | Responsabilidade |
 |-------|---------|-----------------|
-| Core | `core.ts` | `initGame`, `selectTeam`, `deselectTeam`, `advanceWeek` |
-| Match | `match.ts` | `simulateMatch`, `generateLiveMatchMinute`, `applyMatchIntervention`, `finishMatch` |
-| Transfer | `transfer.ts` | `buyPlayer`, `makeOffer`, `acceptOffer`, `deferTransfer`, `negotiateCounterOffer`, parcelas, bônus, acordos |
+| Core | `core.ts` | `initGame` (database real + fallback procedural), `selectTeam`, `deselectTeam`, `updateTeam`, `advanceWeek` (auto-finaliza partida pendente do usuário, deixa nova partida pendente para jogo ao vivo), `updateClubPerformance`, `updateLeagueForm`, `setLeaguePosition` |
+| Match | `match.ts` | `simulateMatch` (pré-computa resultado), `generateLiveMatchMinute` (revela eventos progressivamente), `applyMatchIntervention`, `finishMatch` (usa resultado pré-computado) |
+| Transfer | `transfer.ts` | `buyPlayer`, `makeOffer`, `acceptOffer`, `deferTransfer`, `reinstateDeferredTransfer`, `rejectDeferredTransfer`, `negotiateCounterOffer`, `generateInstallmentClause`, `generatePlayerBonus`, parcelas, bônus, acordos |
 | Training | `training.ts` | `setTrainingPlan`, `applyWeeklyTraining`, `applyTrainingCooldown` |
 | Injury | `injury.ts` | `calculateInjuryRisk`, `schedulePreventionSession`, `recoverInjuredPlayer`, fadiga, recomendações |
 | Inbox | `inbox.ts` | `handleInboxAction`, `handleBoardReply`, `markAsRead`, `removeMessage` |
 | Financial | `financial.ts` | `generateFinancialReport`, `getFinancialReport`, `adjustPlayerSalary` |
 | Scouting | `scouting.ts` | `assignScout` |
 | Social | `social.ts` | `generateSocialTree`, `updateSocialConnections` |
-| Promises | `promises.ts` | `updatePromiseCountdown`, `getActivePromises`, `checkPromiseDeadlines`, `setCoachTreatment` |
+| Promises | `promises.ts` | `updatePromiseCountdown`, `getActivePromises`, `checkPromiseDeadlines`, `setCoachTreatment`, `setPlayerTrustLevel`, `setPlayerTrainingLoad` |
 | Saves | `saves.ts` | `saveGame`, `loadGame`, `deleteSave` (disco via `saveService`) |
 | Youth | `youth.ts` | `generateYouthPlayers`, `promoteYouthPlayer`, `setAcademyTraining`, reserva |
 | Attributes | `attributes.ts` | `captureWeeklyAttributeSnapshot`, `getAttributeDelta`, `getPlayerAttributeProgression` |
@@ -337,10 +375,23 @@ youthAcademy, reserveTeam
 - Combina CA com atributos técnicos, mentais e físicos (pesos diferentes)
 - Aplica `getTacticalBonus()`
 
-**`simulateMatchResult()`**
-- Compara forças dos times (home/away com boost)
-- Gera gols baseado em diferença de força + random
-- Cria eventos, stats (xG, posse, chutes, passes)
+**`simulateMatchResult()`** — Modelo de Gols Esperados (xG) + Poisson
+- **Força ofensiva e defensiva separadas** por posição (FWD/MID/DEF/GK), ponderadas por forma e condição física
+- Atributos reais: `finishing`, `tackling`, `marking`, `reflexes`, `composure`, `positioning`, etc.
+- **Gols esperados (λ):** `BASE_GOALS × (ataque / defesa adversária) × vantagem de casa (1.12)`
+- **Amostragem de Poisson** para o número de gols de cada time
+- **Autor do gol ponderado** por finalização + posição (FWD peso 3.2, MID 1.5, DEF 0.45, GK 0.02)
+- **Assistências** atribuídas por passe/visão/cruzamento, priorizando meias (~62% dos gols têm assistência)
+- **Estatísticas coerentes** (chutes, no alvo, posse, passes, xG) derivadas dos lambdas e gols
+- Retorna `MatchResult` com `goalDetails[]` (scorerId, assistId, minute) além de events e stats
+
+**`calculatePlayerMatchRatings()`**
+- Notas baseadas em **contribuição real** (por `playerId`), não aleatória
+- Gols (+1.15) e assistências (+0.65) contam diretamente
+- Goleiro/zaga: bônus por clean sheet, penalidade por gols sofridos
+- Atacante sem gol é penalizado; vitória/derrota ajusta a nota
+- Forma e condição física influenciam; teto de qualidade baseado em CA (exceção para 2+ gols)
+- Retorna `PlayerMatchRating[]` com stats coerentes por posição (passes, tackles, etc.)
 
 ---
 
@@ -362,7 +413,7 @@ youthAcademy, reserveTeam
 
 ### Validação Zod (`backend/src/validation/schemas.ts`)
 
-122 schemas cobrindo todas as actions. Tipos comuns: `zString`, `zNumber`, `zMatchIndex`, `zSlot` (1|2), `zEmpty`. Actions sem schema emitem `console.warn`.
+79 schemas cobrindo todas as actions. Tipos comuns: `zString`, `zNumber`, `zMatchIndex`, `zSlot` (1|2), `zEmpty`. Actions sem schema emitem `console.warn`.
 
 ### Erros (`backend/src/utils/errors.ts`)
 
@@ -419,7 +470,10 @@ youthAcademy, reserveTeam
 **Sidebar:**
 - Colapsável (botão toggle)
 - Badge de inbox não-lidas
-- Footer: ThemeToggle, Voltar, Início, Continuar ▶, 💾 Save 1/2
+- Footer: ThemeToggle
+
+**Action bar (topo do main):**
+- Voltar (deselectTeam), Início (navega /elenco), Continuar ▶ (advanceWeek), 💾 Save 1, 💾 Save 2
 
 **Toast System:**
 - `addToast(message, type)` — adiciona notificação temporária
@@ -482,6 +536,26 @@ youthAcademy, reserveTeam
 - `MatchEventDisplay`, `MatchStatsDisplay`, `LiveDataHub`
 - Live mode: `setInterval` 2s → `generateLiveMatchMinute()`
 - Substituições (máx 5) + Gritos + Finalizar
+- **Visualização 2D** (`MatchPitch2D`) integrada no modo ao vivo e no modal de detalhes
+
+### MatchPitch2D (`match/MatchPitch2D.tsx`)
+
+- **Campo 2D estilo "jogo de botão"** com discos coloridos representando os 22 jogadores
+- **Posicionamento por formação:** GK/DEF/MID/FWD dispostos em linhas, casa ataca à direita, visitante à esquerda
+- **Cores dos times** derivadas deterministicamente do nome (hash → hue), com correção se cores iguais
+- **Bola animada** que desliza pelo campo (~0.7s), indo para jogadores avançados do time com posse
+- **Movimento dinâmico dos jogadores (`computeShiftedPositions`):** a cada tick da bola (700ms), os 22 jogadores recalculam suas posições com um modelo tático de 5 camadas:
+  1. **Shift de bloco** — toda a equipe avança (atacando) ou recua (defendendo) proporcional ao progresso da bola no campo; bloco acompanha lateralmente o lado da bola
+  2. **Comportamento individual por posição** — GK acompanha bola lateralmente e sai da meta sob pressão; DEF sobe no ataque (laterais mais pela ponta) e recua na defesa; MID cobre todo o meio-campo com pressing; FWD faz runs diagonais no ataque e volta para pressionar na defesa
+  3. **Pressing** — jogador mais próximo da bola persegue ativamente (50-55% da distância); segundo mais próximo faz cobertura/dobra (25%)
+  4. **Espaçamento** — jogadores não-envolvidos se abrem para o lado oposto da bola, evitando amontoamento
+  5. **Limites por posição (`POS_RANGE`)** — GK restrito à área (1-14%), DEF até meio-campo (5-60%), MID quase todo o campo (18-82%), FWD de meio-campo ao gol adversário (30-95%); limites invertidos para o time visitante
+  6. **Micro-jitter** — movimento natural aleatório de ±2% em cada eixo
+- **Estados dinâmicos (`homeDyn`/`awayDyn`):** posições atualizadas a cada tick durante partida ao vivo; posições estáticas no modal de detalhes
+- **Celebração de gol:** bola corre pro gol, jogadores do time atacante avançam em direção ao gol, disco do autor pisca em dourado, letreiro "GOL!" com nome; ao fim da celebração todos voltam às posições base
+- **Placar ao vivo** com relógio pulsante, **barra de posse** e **ticker do último lance**
+- **Transições CSS suaves** (`left`/`top` 0.7s) nos discos dos jogadores sincronizadas com a velocidade da bola
+- No modal de detalhes (jogos concluídos) o campo aparece estático com formações e placar final
 
 ### TransferMarket (`transfer/TransferMarket.tsx`)
 
@@ -493,9 +567,13 @@ youthAcademy, reserveTeam
 
 ### TacticsView (`tactics/TacticsView.tsx`)
 
-- 7 mentalidades, possessão (4 opções), transição (2), sem posse (5)
-- Drag-and-drop de jogadores para posições
-- Roles individuais por posição
+- 7 mentalidades (Muito Defensivo → Muito Ofensivo)
+- **Em Posse:** 4 opções multi-valor (largura, estilo de passe, ritmo, foco lateral) + 3 toggles (levar bola à área, centro das laterais, mais riscos)
+- **Em Transição:** 2 opções (contra-pressionar/recuar + contra-atacar/manter posse)
+- **Sem Posse:** 4 opções multi-valor (linha de engajamento, linha defensiva, intensidade de pressão, desarmes) + 1 toggle (armadilha de impedimento)
+- Drag-and-drop de jogadores para posições no campo
+- Roles individuais por posição (GK, DEF, MID, FWD — múltiplos roles cada)
+- Instruções individuais por jogador
 
 ### InboxView (`inbox/InboxView.tsx`)
 
@@ -562,10 +640,30 @@ youthAcademy, reserveTeam
 
 ### Partida ao Vivo
 ```
-1. Usuário clica "Assistir" → simulateMatch(matchIndex)
+1. Usuário clica "Simular Partida" → simulateMatch(matchIndex)
+   └─ Backend PRÉ-COMPUTA o resultado completo UMA vez (fonte única de verdade)
+   └─ Armazena events, stats, playerRatings no objeto match
 2. MatchCenter inicia setInterval (2s) → generateLiveMatchMinute()
+   └─ Revela eventos pré-computados até o minuto atual (placar sempre consistente)
+   └─ Estatísticas escaladas pelo progresso da partida (minuto/90)
+   └─ MatchPitch2D mostra animação 2D em tempo real
 3. Usuário: substituir, gritar (applyMatchIntervention)
 4. Fim: finishMatch() ou minute atinge 90
+   └─ Usa o resultado já pré-computado (sem re-simular, sem contagem dupla)
+   └─ applyMatchResultToTeams() atualiza classificação UMA vez
+```
+
+### Avançar Semana (`advanceWeek`)
+```
+1. Usuário clica "Continuar" → advanceWeek() → POST /api/action
+2. Backend advanceWeek():
+   ├─ Auto-finaliza partida pendente do usuário da rodada anterior (se não jogou)
+   ├─ Simula partidas dos outros times (auto-simuladas)
+   ├─ Deixa a partida do usuário PENDENTE (jogável ao vivo no Centro de Partidas)
+   ├─ Atualiza classificação (leagueTable)
+   ├─ Gera mensagens de inbox, atualiza finanças, promessas, snapshots
+   └─ Incrementa currentWeek
+3. Response { state } → syncFromResponse → UI atualizada
 ```
 
 ### Transferência
@@ -592,9 +690,9 @@ Carregar:
 
 ## 🎮 Regras de Jogo
 
-1. **Gerar clubes** → escolher time
-2. **Avançar semanas** via "Continuar"; calendário round-robin (8 times, 38 semanas)
-3. **Partidas do jogador:** modo **live**; demais auto-simuladas
+1. **Gerar clubes** → `initGame()` carrega 20 times reais do Brasileirão (fallback: 8 procedurais) → escolher time
+2. **Avançar semanas** via "Continuar"; calendário round-robin (times do database, 38 semanas)
+3. **Partidas do jogador:** ficam **pendentes** a cada rodada (jogáveis ao vivo no Centro de Partidas com visualização 2D); demais auto-simuladas; partida não jogada é auto-finalizada na próxima rodada
 4. **Até 5 substituições + gritos** em partida ao vivo
 5. **Transferências** com scouting, contra-ofertas, parcelas, bônus e acordos
 6. **Transferências adiadas** (`deferTransfer`) — podem ser reinstadas ou rejeitadas
@@ -616,7 +714,7 @@ Carregar:
 |------|--------|------------|
 | Testes automatizados | ✅ | Smoke tests (frontend) + errors/schemas tests (backend) |
 | Testes de UI | 🟡 | Sem Playwright/Cypress no CI |
-| Liga | 🔲 | 8 times, sem descenso/subida |
+| Liga | 🔲 | 20 times (database real), sem descenso/subida |
 | IA adversária | 🔲 | Times AI não adaptam táticas |
 | Salários gerados | 🟡 | `playerGenerator` pode gerar salários >> 500K (cap da UI) |
 | Estado backend | 🟡 | Em memória; perdido ao reiniciar (exceto saves em disco) |
@@ -643,8 +741,11 @@ npm run dev          # tsx watch src/server.ts
 npm run build        # tsc
 npm run start        # node dist/server.js
 npm run test         # Vitest — errors + schemas
+npm run test:watch   # Vitest em watch mode
 npm run lint         # eslint src
+npm run lint:fix     # eslint src --fix
 npm run format       # prettier --write src
+npm run format:check # prettier --check src
 ```
 
 **Portas:** Backend `:3001` | Frontend Vite `:5173` (proxy `/api` → `:3001`)
@@ -655,15 +756,15 @@ npm run format       # prettier --write src
 
 | Métrica | Valor |
 |---------|-------|
-| Arquivos TS/TSX (backend) | ~30 |
-| Arquivos TS/TSX (frontend) | ~28 |
+| Arquivos TS/TSX (backend) | ~45 |
+| Arquivos TS/TSX (frontend) | ~31 |
 | Slices de store (backend) | 13 |
 | Helpers de store (backend) | 6 |
 | Tipos de domínio (backend) | 13 arquivos |
-| Componentes React | ~24 |
+| Componentes React | ~23 |
 | Telas na sidebar | 10 |
-| Schemas Zod | 122 |
-| Times por partida | 8 (procedurais) |
+| Schemas Zod | 79 |
+| Times por partida | 20 (database real) ou 8 (fallback procedural) |
 
 ---
 
@@ -710,4 +811,4 @@ Console sem erros. Ver também `IMPLMENTATION_CHECKLIST.md`.
 
 ---
 
-**Última atualização:** Junho 2026 — refatoração completa para arquitetura cliente-servidor (Express + React), slices, helpers, Zod, tema claro/escuro, React Router
+**Última atualização:** Junho 2026 — correção da contagem de clubes (20, não 21), adição de novas actions nos slices (Transfer: `generateInstallmentClause`/`generatePlayerBonus`/`reinstateDeferredTransfer`/`rejectDeferredTransfer`; Promises: `setPlayerTrustLevel`/`setPlayerTrainingLoad`; Core: `updateClubPerformance`/`updateLeagueForm`/`setLeaguePosition`), nota de dessincronização frontend/backend GameActions (8 actions não espelhadas)

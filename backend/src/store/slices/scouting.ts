@@ -1,6 +1,7 @@
 import type { GameStore, Player } from '../../types/game';
 import { generateScoutReport, recalcWageBill } from '../helpers/transfer';
 import { generateYouthIntake } from '../../utils/playerGenerator';
+import { generateDefaultScouts } from '../helpers/scouting';
 
 type Set = (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void;
 type Get = () => GameStore;
@@ -42,6 +43,50 @@ export const createScoutingSlice = (set: Set, get: Get) => ({
     const newReports = candidates.map(generateScoutReport);
     set({ scoutReports: [...state.scoutReports, ...newReports] });
     return true;
+  },
+
+  assignScoutMission: (scoutId: string, targetId: string, weeks: number) => {
+    const state = get();
+    if (!state.selectedTeam) return false;
+
+    const team = state.teams.find(t => t.id === state.selectedTeam);
+    if (!team || !team.scouts) return false;
+
+    const scout = team.scouts.find(s => s.id === scoutId);
+    if (!scout || scout.assigned) return false;
+
+    // Não permitir missão duplicada para o mesmo jogador
+    const existingMission = state.scoutMissions.find(m => m.targetId === targetId);
+    if (existingMission) return false;
+
+    const mission = {
+      id: `mission_${Date.now()}_${scoutId}_${targetId}`,
+      scoutId,
+      targetId,
+      weeksAssigned: weeks,
+      weeksTotal: weeks,
+    };
+
+    // Marcar olheiro como ocupado
+    const updatedTeams = state.teams.map(t =>
+      t.id === state.selectedTeam
+        ? {
+            ...t,
+            scouts: t.scouts.map(s => s.id === scoutId ? { ...s, assigned: true } : s),
+          }
+        : t,
+    );
+
+    set({
+      scoutMissions: [...state.scoutMissions, mission],
+      teams: updatedTeams,
+    });
+    return true;
+  },
+
+  getScoutKnowledge: (playerId: string) => {
+    const state = get();
+    return state.scoutKnowledge[playerId] ?? 0;
   },
 
   completeYouthIntake: () => {

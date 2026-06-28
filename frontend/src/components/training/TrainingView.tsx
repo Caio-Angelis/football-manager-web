@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { Button } from '../ui/Button';
 import type { TrainingSession, WeeklyTrainingPlan } from '../../types/game';
@@ -25,13 +25,89 @@ function createEmptySession(day: number): TrainingSession {
   };
 }
 
+type BlockType = { type: string; focus: string };
+type DayPattern = [BlockType, BlockType, BlockType]; // morning, afternoon, evening
+
+const FOCUS_PATTERNS: Record<string, DayPattern[]> = {
+  physical: [
+    [{ type: 'physical', focus: 'physical' }, { type: 'physical', focus: 'physical' }, { type: 'rest', focus: '' }],
+    [{ type: 'physical', focus: 'physical' }, { type: 'technical', focus: 'technical' }, { type: 'rest', focus: '' }],
+    [{ type: 'physical', focus: 'physical' }, { type: 'physical', focus: 'physical' }, { type: 'rest', focus: '' }],
+    [{ type: 'recovery', focus: 'recovery' }, { type: 'light', focus: 'light' }, { type: 'rest', focus: '' }],
+    [{ type: 'physical', focus: 'physical' }, { type: 'technical', focus: 'technical' }, { type: 'rest', focus: '' }],
+    [{ type: 'light', focus: 'light' }, { type: 'rest', focus: '' }, { type: 'rest', focus: '' }],
+    [{ type: 'rest', focus: '' }, { type: 'rest', focus: '' }, { type: 'rest', focus: '' }],
+  ],
+  technical: [
+    [{ type: 'technical', focus: 'technical' }, { type: 'technical', focus: 'technical' }, { type: 'rest', focus: '' }],
+    [{ type: 'technical', focus: 'technical' }, { type: 'cohesion', focus: 'cohesion' }, { type: 'rest', focus: '' }],
+    [{ type: 'technical', focus: 'technical' }, { type: 'technical', focus: 'technical' }, { type: 'rest', focus: '' }],
+    [{ type: 'technical', focus: 'technical' }, { type: 'light', focus: 'light' }, { type: 'rest', focus: '' }],
+    [{ type: 'technical', focus: 'technical' }, { type: 'cohesion', focus: 'cohesion' }, { type: 'rest', focus: '' }],
+    [{ type: 'light', focus: 'light' }, { type: 'rest', focus: '' }, { type: 'rest', focus: '' }],
+    [{ type: 'rest', focus: '' }, { type: 'rest', focus: '' }, { type: 'rest', focus: '' }],
+  ],
+  cohesion: [
+    [{ type: 'cohesion', focus: 'cohesion' }, { type: 'technical', focus: 'technical' }, { type: 'rest', focus: '' }],
+    [{ type: 'cohesion', focus: 'cohesion' }, { type: 'cohesion', focus: 'cohesion' }, { type: 'rest', focus: '' }],
+    [{ type: 'technical', focus: 'technical' }, { type: 'cohesion', focus: 'cohesion' }, { type: 'rest', focus: '' }],
+    [{ type: 'cohesion', focus: 'cohesion' }, { type: 'light', focus: 'light' }, { type: 'rest', focus: '' }],
+    [{ type: 'cohesion', focus: 'cohesion' }, { type: 'technical', focus: 'technical' }, { type: 'rest', focus: '' }],
+    [{ type: 'light', focus: 'light' }, { type: 'rest', focus: '' }, { type: 'rest', focus: '' }],
+    [{ type: 'rest', focus: '' }, { type: 'rest', focus: '' }, { type: 'rest', focus: '' }],
+  ],
+  medical: [
+    [{ type: 'medical', focus: 'medical' }, { type: 'recovery', focus: 'recovery' }, { type: 'rest', focus: '' }],
+    [{ type: 'medical', focus: 'medical' }, { type: 'light', focus: 'light' }, { type: 'rest', focus: '' }],
+    [{ type: 'medical', focus: 'medical' }, { type: 'recovery', focus: 'recovery' }, { type: 'rest', focus: '' }],
+    [{ type: 'medical', focus: 'medical' }, { type: 'light', focus: 'light' }, { type: 'rest', focus: '' }],
+    [{ type: 'medical', focus: 'medical' }, { type: 'recovery', focus: 'recovery' }, { type: 'rest', focus: '' }],
+    [{ type: 'light', focus: 'light' }, { type: 'rest', focus: '' }, { type: 'rest', focus: '' }],
+    [{ type: 'rest', focus: '' }, { type: 'rest', focus: '' }, { type: 'rest', focus: '' }],
+  ],
+  recovery: [
+    [{ type: 'recovery', focus: 'recovery' }, { type: 'light', focus: 'light' }, { type: 'rest', focus: '' }],
+    [{ type: 'recovery', focus: 'recovery' }, { type: 'recovery', focus: 'recovery' }, { type: 'rest', focus: '' }],
+    [{ type: 'light', focus: 'light' }, { type: 'recovery', focus: 'recovery' }, { type: 'rest', focus: '' }],
+    [{ type: 'recovery', focus: 'recovery' }, { type: 'light', focus: 'light' }, { type: 'rest', focus: '' }],
+    [{ type: 'recovery', focus: 'recovery' }, { type: 'light', focus: 'light' }, { type: 'rest', focus: '' }],
+    [{ type: 'light', focus: 'light' }, { type: 'rest', focus: '' }, { type: 'rest', focus: '' }],
+    [{ type: 'rest', focus: '' }, { type: 'rest', focus: '' }, { type: 'rest', focus: '' }],
+  ],
+  light: [
+    [{ type: 'light', focus: 'light' }, { type: 'light', focus: 'light' }, { type: 'rest', focus: '' }],
+    [{ type: 'light', focus: 'light' }, { type: 'light', focus: 'light' }, { type: 'rest', focus: '' }],
+    [{ type: 'light', focus: 'light' }, { type: 'light', focus: 'light' }, { type: 'rest', focus: '' }],
+    [{ type: 'light', focus: 'light' }, { type: 'light', focus: 'light' }, { type: 'rest', focus: '' }],
+    [{ type: 'light', focus: 'light' }, { type: 'light', focus: 'light' }, { type: 'rest', focus: '' }],
+    [{ type: 'light', focus: 'light' }, { type: 'rest', focus: '' }, { type: 'rest', focus: '' }],
+    [{ type: 'rest', focus: '' }, { type: 'rest', focus: '' }, { type: 'rest', focus: '' }],
+  ],
+};
+
+function generateWeeklySchedule(focus: string): TrainingSession[] {
+  const pattern = FOCUS_PATTERNS[focus] ?? FOCUS_PATTERNS.technical;
+  return pattern.map((day, i) => ({
+    day: i,
+    morning: day[0],
+    afternoon: day[1],
+    evening: day[2],
+  }));
+}
+
 export const TrainingView: React.FC = () => {
-  const { selectedTeam, teams, currentWeek, trainingPlan, setTrainingPlan, applyWeeklyTraining, calculateInjuryRisk, schedulePreventionSession, getInjuryRiskSummary, applyPreventionSession, captureWeeklyAttributeSnapshot } = useGameStore();
+  const { selectedTeam, teams, currentWeek, trainingPlan, setTrainingPlan, applyWeeklyTraining, calculateInjuryRisk, schedulePreventionSession, getInjuryRiskSummary, applyPreventionSession, captureWeeklyAttributeSnapshot, recoverInjuredPlayer } = useGameStore();
   const team = teams.find(t => t.id === selectedTeam);
   const [teamFocus, setTeamFocus] = useState(trainingPlan?.teamFocus ?? 'technical');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [showInjuryRisk, setShowInjuryRisk] = useState(false);
   const [showProgression, setShowProgression] = useState(true);
+
+  useEffect(() => {
+    if (trainingPlan?.teamFocus) {
+      setTeamFocus(trainingPlan.teamFocus);
+    }
+  }, [trainingPlan?.teamFocus]);
 
   if (!team) {
     return <div className="fm-empty">Selecione um time para configurar treinos</div>;
@@ -45,15 +121,18 @@ export const TrainingView: React.FC = () => {
       return { ...s, [block]: { type, focus: type } };
     });
     const plan: WeeklyTrainingPlan = { week: currentWeek, teamFocus, sessions: newSessions };
+    useGameStore.setState({ trainingPlan: plan });
     setTrainingPlan(plan);
   };
 
   const savePlan = () => {
+    const generatedSessions = generateWeeklySchedule(teamFocus);
     const plan: WeeklyTrainingPlan = {
       week: currentWeek,
       teamFocus,
-      sessions: sessions.length ? sessions : DAYS.map((_, i) => createEmptySession(i)),
+      sessions: generatedSessions,
     };
+    useGameStore.setState({ trainingPlan: plan });
     setTrainingPlan(plan);
   };
 
@@ -97,7 +176,7 @@ export const TrainingView: React.FC = () => {
         </div>
         <div className="fm-training-view__actions">
           <Button onClick={savePlan}>Salvar Plano</Button>
-          <Button variant="success" onClick={applyWeeklyTraining}>Aplicar Treino Agora</Button>
+          <Button variant="success" onClick={() => { savePlan(); applyWeeklyTraining(); }}>Aplicar Treino Agora</Button>
           <Button variant="secondary" onClick={() => setShowInjuryRisk(!showInjuryRisk)}>
             {showInjuryRisk ? 'Ocultar' : 'Mostrar'} Risco de Lesões
           </Button>
@@ -213,7 +292,12 @@ export const TrainingView: React.FC = () => {
                     <Button
                       variant="secondary"
                       onClick={() => {
-                        setSelectedPlayerId(player.id === selectedPlayerId ? null : player.id);
+                        if (selectedPlayerId === player.id) {
+                          setSelectedPlayerId(null);
+                        } else {
+                          setSelectedPlayerId(player.id);
+                          recoverInjuredPlayer(player.id);
+                        }
                       }}
                     >
                       {selectedPlayerId === player.id ? 'Cancelar' : 'Recuperar'}
@@ -233,7 +317,6 @@ export const TrainingView: React.FC = () => {
             className="fm-training-view__toggle-btn"
             onClick={() => {
               setShowProgression(!showProgression);
-              captureWeeklyAttributeSnapshot();
             }}
           >
             {showProgression ? 'Ocultar' : 'Mostrar'}
@@ -335,9 +418,9 @@ export const TrainingView: React.FC = () => {
             </div>
             <div className="fm-attribute-progression-grid">
               {team?.squad.slice(0, 15).map((player) => {
-                const latestSnapshot = player.attributeHistory?.[player.attributeHistory.length - 1];
-                const prevSnapshot = player.attributeHistory?.[player.attributeHistory.length - 2];
                 const historyLength = player.attributeHistory?.length ?? 0;
+                const prevSnapshot = historyLength >= 2 ? player.attributeHistory![historyLength - 2] : undefined;
+                const latestSnapshot = historyLength >= 1 ? player.attributeHistory![historyLength - 1] : undefined;
                 const hasHistory = historyLength >= 2;
 
                 return (
@@ -358,15 +441,15 @@ export const TrainingView: React.FC = () => {
                             <span className="fm-attribute-progression-delta-label">Técnica</span>
                             <div className="fm-attribute-progression-delta-values">
                               <span className="fm-attribute-progression-delta-old">
-                                {latestSnapshot.technical.technique || 8}
+                                {prevSnapshot.technical.technique || 8}
                               </span>
                               <span className="fm-attribute-progression-delta-arrow">→</span>
                               <span className="fm-attribute-progression-delta-new">
-                                {prevSnapshot.technical.technique || 8}
+                                {latestSnapshot.technical.technique || 8}
                               </span>
-                              <span className={`fm-attribute-progression-delta-change ${((prevSnapshot.technical.technique || 8) - (latestSnapshot.technical.technique || 8)) >= 0 ? 'positive' : 'negative'}`}>
-                                {((prevSnapshot.technical.technique || 8) - (latestSnapshot.technical.technique || 8)) >= 0 ? '+' : ''}
-                                {((prevSnapshot.technical.technique || 8) - (latestSnapshot.technical.technique || 8))}
+                              <span className={`fm-attribute-progression-delta-change ${((latestSnapshot.technical.technique || 8) - (prevSnapshot.technical.technique || 8)) >= 0 ? 'positive' : 'negative'}`}>
+                                {((latestSnapshot.technical.technique || 8) - (prevSnapshot.technical.technique || 8)) >= 0 ? '+' : ''}
+                                {((latestSnapshot.technical.technique || 8) - (prevSnapshot.technical.technique || 8))}
                               </span>
                             </div>
                           </div>
@@ -374,15 +457,15 @@ export const TrainingView: React.FC = () => {
                             <span className="fm-attribute-progression-delta-label">Passe</span>
                             <div className="fm-attribute-progression-delta-values">
                               <span className="fm-attribute-progression-delta-old">
-                                {latestSnapshot.technical.passing || 8}
+                                {prevSnapshot.technical.passing || 8}
                               </span>
                               <span className="fm-attribute-progression-delta-arrow">→</span>
                               <span className="fm-attribute-progression-delta-new">
-                                {prevSnapshot.technical.passing || 8}
+                                {latestSnapshot.technical.passing || 8}
                               </span>
-                              <span className={`fm-attribute-progression-delta-change ${((prevSnapshot.technical.passing || 8) - (latestSnapshot.technical.passing || 8)) >= 0 ? 'positive' : 'negative'}`}>
-                                {((prevSnapshot.technical.passing || 8) - (latestSnapshot.technical.passing || 8)) >= 0 ? '+' : ''}
-                                {((prevSnapshot.technical.passing || 8) - (latestSnapshot.technical.passing || 8))}
+                              <span className={`fm-attribute-progression-delta-change ${((latestSnapshot.technical.passing || 8) - (prevSnapshot.technical.passing || 8)) >= 0 ? 'positive' : 'negative'}`}>
+                                {((latestSnapshot.technical.passing || 8) - (prevSnapshot.technical.passing || 8)) >= 0 ? '+' : ''}
+                                {((latestSnapshot.technical.passing || 8) - (prevSnapshot.technical.passing || 8))}
                               </span>
                             </div>
                           </div>
@@ -390,15 +473,15 @@ export const TrainingView: React.FC = () => {
                             <span className="fm-attribute-progression-delta-label">CA</span>
                             <div className="fm-attribute-progression-delta-values">
                               <span className="fm-attribute-progression-delta-old">
-                                {latestSnapshot.currentAbility}
+                                {prevSnapshot.currentAbility}
                               </span>
                               <span className="fm-attribute-progression-delta-arrow">→</span>
                               <span className="fm-attribute-progression-delta-new">
-                                {prevSnapshot.currentAbility}
+                                {latestSnapshot.currentAbility}
                               </span>
-                              <span className={`fm-attribute-progression-delta-change ${(prevSnapshot.currentAbility - latestSnapshot.currentAbility) >= 0 ? 'positive' : 'negative'}`}>
-                                {(prevSnapshot.currentAbility - latestSnapshot.currentAbility) >= 0 ? '+' : ''}
-                                {(prevSnapshot.currentAbility - latestSnapshot.currentAbility)}
+                              <span className={`fm-attribute-progression-delta-change ${(latestSnapshot.currentAbility - prevSnapshot.currentAbility) >= 0 ? 'positive' : 'negative'}`}>
+                                {(latestSnapshot.currentAbility - prevSnapshot.currentAbility) >= 0 ? '+' : ''}
+                                {(latestSnapshot.currentAbility - prevSnapshot.currentAbility)}
                               </span>
                             </div>
                           </div>
@@ -406,15 +489,15 @@ export const TrainingView: React.FC = () => {
                             <span className="fm-attribute-progression-delta-label">Fitness</span>
                             <div className="fm-attribute-progression-delta-values">
                               <span className="fm-attribute-progression-delta-old">
-                                {latestSnapshot.fitness}%
+                                {prevSnapshot.fitness}%
                               </span>
                               <span className="fm-attribute-progression-delta-arrow">→</span>
                               <span className="fm-attribute-progression-delta-new">
-                                {prevSnapshot.fitness}%
+                                {latestSnapshot.fitness}%
                               </span>
-                              <span className={`fm-attribute-progression-delta-change ${(prevSnapshot.fitness - latestSnapshot.fitness) >= 0 ? 'positive' : 'negative'}`}>
-                                {(prevSnapshot.fitness - latestSnapshot.fitness) >= 0 ? '+' : ''}
-                                {Math.round(prevSnapshot.fitness - latestSnapshot.fitness)}%
+                              <span className={`fm-attribute-progression-delta-change ${(latestSnapshot.fitness - prevSnapshot.fitness) >= 0 ? 'positive' : 'negative'}`}>
+                                {(latestSnapshot.fitness - prevSnapshot.fitness) >= 0 ? '+' : ''}
+                                {Math.round(latestSnapshot.fitness - prevSnapshot.fitness)}%
                               </span>
                             </div>
                           </div>

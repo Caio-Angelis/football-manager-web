@@ -1,11 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { Button } from '../ui/Button';
-import type { MatchEvent, MatchStats, PlayerMatchRating } from '../../types/game';
+import { MatchPitch2D } from './MatchPitch2D';
+import type { MatchEvent, MatchStats, PlayerMatchRating, MatchAction } from '../../types/game';
 
 const EVENT_ICONS: Record<string, string> = {
   goal: '⚽', shot: '👟', save: '🧤', corner: '🚩', foul: '🛑',
   yellow: '🟨', red: '🟥', substitution: '🔄',
+};
+
+const ACTION_ICONS: Record<string, string> = {
+  pass: '➡️', dribble: '⚡', shot: '👟', tackle: '🛑', interception: '🤚',
+  clearance: '💨', cross: '📐', foul: '⚠️', kickoff: '⚽', goalKick: '🧤', throwIn: '📤',
+};
+
+const ACTION_ICONS_FAIL: Record<string, string> = {
+  pass: '❌', dribble: '❌', shot: '❌', tackle: '❌', interception: '❌',
+  clearance: '💨', cross: '❌', foul: '⚠️', kickoff: '⚽', goalKick: '🧤', throwIn: '📤',
 };
 
 const EVENT_LABELS: Record<string, string> = {
@@ -21,6 +32,17 @@ const MatchEventDisplay: React.FC<{ event: MatchEvent }> = ({ event }) => (
       <span className="fm-match-event__team-label">{event.team === 'home' ? 'Casa' : 'Fora'}</span>
       {' '}{EVENT_LABELS[event.type]}
       {event.player && <span className="fm-match-event__player"> - {event.player}</span>}
+    </span>
+  </div>
+);
+
+const MatchActionDisplay: React.FC<{ action: MatchAction }> = ({ action }) => (
+  <div className={`fm-match-action ${action.success ? '' : 'fm-match-action--fail'}`}>
+    <span className="fm-match-action__icon">{action.success ? ACTION_ICONS[action.type] : ACTION_ICONS_FAIL[action.type]}</span>
+    <span className="fm-match-action__time">{action.minute}'</span>
+    <span className="fm-match-action__content">
+      <span className="fm-match-action__team-label">{action.team === 'home' ? 'Casa' : 'Fora'}</span>
+      {' '}{action.description}
     </span>
   </div>
 );
@@ -157,31 +179,22 @@ export const MatchCenter: React.FC = () => {
   const { matches, teams, selectedTeam, currentWeek, currentSeason, simulateMatch, advanceWeek, applyMatchIntervention, generateLiveMatchMinute, finishMatch } = useGameStore();
   const [selectedMatchIndex, setSelectedMatchIndex] = useState<number | null>(null);
   const [liveMatchWatching, setLiveMatchWatching] = useState<number | null>(null);
-  const [liveMatchTimer, setLiveMatchTimer] = useState<ReturnType<typeof setInterval> | null>(null);
+
+  // Reset selection when week changes (new matches are generated)
+  useEffect(() => {
+    setSelectedMatchIndex(null);
+    setLiveMatchWatching(null);
+  }, [currentWeek]);
 
   // Live match auto-advance effect
   useEffect(() => {
     if (liveMatchWatching !== null && matches[liveMatchWatching]?.isLive) {
       const timer = setInterval(() => {
-        setLiveMatchTimer(timer);
         generateLiveMatchMinute(liveMatchWatching);
-      }, 2000); // Advance every 2 seconds
-      setLiveMatchTimer(timer);
+      }, 2000);
       return () => clearInterval(timer);
-    } else {
-      // Match finished or no longer live
-      setLiveMatchTimer(null);
     }
   }, [liveMatchWatching, liveMatchWatching !== null ? matches[liveMatchWatching]?.isLive : false]);
-
-  // Cleanup effect
-  useEffect(() => {
-    return () => {
-      if (liveMatchTimer) {
-        clearInterval(liveMatchTimer);
-      }
-    };
-  }, [liveMatchTimer]);
 
   const getTeamName = (teamId: string) => teams.find(t => t.id === teamId)?.name ?? teamId;
   const isUserMatch = (match: typeof matches[0]) =>
@@ -252,7 +265,7 @@ export const MatchCenter: React.FC = () => {
                         simulateMatch(index);
                         setLiveMatchWatching(index);
                       }}>
-                        {match.isLive ? 'Reativar Partida' : 'Simular Partida'}
+                        Simular Partida
                       </Button>
                     </div>
                   )}
@@ -300,6 +313,36 @@ export const MatchCenter: React.FC = () => {
               <span>-</span>
               <span>{matches[liveMatchWatching].awayGoals}</span>
             </div>
+            {(() => {
+              const lm = matches[liveMatchWatching];
+              const home = teams.find(t => t.id === lm.homeTeam);
+              const away = teams.find(t => t.id === lm.awayTeam);
+              if (!home || !away) return null;
+              return (
+                <MatchPitch2D
+                  homeTeam={home}
+                  awayTeam={away}
+                  homeGoals={lm.homeGoals}
+                  awayGoals={lm.awayGoals}
+                  minute={lm.liveMinute}
+                  possession={lm.liveStats?.homePossession ?? 50}
+                  events={lm.liveEvents ?? []}
+                  isLive={true}
+                  ballPos={lm.liveMatchState?.ballPos}
+                  possessionSide={lm.liveMatchState?.possession}
+                />
+              );
+            })()}
+            {matches[liveMatchWatching].liveActions && matches[liveMatchWatching].liveActions.length > 0 && (
+              <div className="fm-match-live-view__actions">
+                <h3>Lances da Partida</h3>
+                <div className="fm-match-actions-list">
+                  {matches[liveMatchWatching].liveActions!.slice(-20).reverse().map((action, i) => (
+                    <MatchActionDisplay key={i} action={action} />
+                  ))}
+                </div>
+              </div>
+            )}
             {matches[liveMatchWatching].liveEvents && matches[liveMatchWatching].liveEvents.length > 0 && (
               <div className="fm-match-live-view__events">
                 <h3>Eventos da Partida</h3>
@@ -339,6 +382,24 @@ export const MatchCenter: React.FC = () => {
                 <span>{matches[selectedMatchIndex].awayGoals}</span>
               </div>
             </div>
+            {(() => {
+              const dm = matches[selectedMatchIndex];
+              const home = teams.find(t => t.id === dm.homeTeam);
+              const away = teams.find(t => t.id === dm.awayTeam);
+              if (!home || !away) return null;
+              return (
+                <MatchPitch2D
+                  homeTeam={home}
+                  awayTeam={away}
+                  homeGoals={dm.homeGoals}
+                  awayGoals={dm.awayGoals}
+                  minute={90}
+                  possession={dm.stats?.homePossession ?? 50}
+                  events={dm.events ?? []}
+                  isLive={false}
+                />
+              );
+            })()}
             {matches[selectedMatchIndex].events && (
               <div className="fm-match-details-modal__events">
                 <h3>Eventos</h3>
@@ -376,16 +437,14 @@ export const MatchCenter: React.FC = () => {
         <h3>Intervenção</h3>
         <div className="fm-match-center__intervention-buttons">
           <Button
-            onClick={() => applyMatchIntervention(userPendingMatch, 'substitution')}
-            disabled={userPendingMatch === -1 || (userPendingMatch !== -1 && matches[userPendingMatch]?.isLive)}
-            title={userPendingMatch === -1 ? 'Disponível durante partida ao vivo' : 'Partida ao vivo — substituição finalizada'}
+            onClick={() => applyMatchIntervention(userPendingMatch !== -1 ? userPendingMatch : (liveMatchWatching ?? -1), 'substitution')}
+            disabled={userPendingMatch === -1 && (liveMatchWatching === null || !matches[liveMatchWatching]?.isLive)}
           >
             Substituição
           </Button>
           <Button
-            onClick={() => applyMatchIntervention(userPendingMatch, 'shout')}
-            disabled={userPendingMatch === -1 || (userPendingMatch !== -1 && matches[userPendingMatch]?.isLive)}
-            title={userPendingMatch === -1 ? 'Disponível durante partida ao vivo' : 'Partida ao vivo — gritos finalizados'}
+            onClick={() => applyMatchIntervention(userPendingMatch !== -1 ? userPendingMatch : (liveMatchWatching ?? -1), 'shout')}
+            disabled={userPendingMatch === -1 && (liveMatchWatching === null || !matches[liveMatchWatching]?.isLive)}
           >
             Gritos à Equipa
           </Button>
@@ -393,7 +452,9 @@ export const MatchCenter: React.FC = () => {
       </div>
 
       <div className="fm-match-center__controls">
-        <Button onClick={advanceWeek}>Avançar Semana</Button>
+        <Button onClick={advanceWeek} disabled={matches.some(m => m.isLive)}>
+          Avançar Semana
+        </Button>
       </div>
 
       <div className="fm-match-center__standings">
@@ -406,7 +467,13 @@ export const MatchCenter: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {[...teams].sort((a, b) => b.points - a.points).map((t, index) => (
+            {[...teams].sort((a, b) => {
+              if (b.points !== a.points) return b.points - a.points;
+              const aGD = a.goalsFor - a.goalsAgainst;
+              const bGD = b.goalsFor - b.goalsAgainst;
+              if (bGD !== aGD) return bGD - aGD;
+              return b.goalsFor - a.goalsFor;
+            }).map((t, index) => (
               <tr key={t.id} className={t.id === selectedTeam ? 'fm-standings-table--user' : ''}>
                 <td>{index + 1}</td><td>{t.name}</td><td>{t.points}</td><td>{t.played}</td>
                 <td>{t.won}</td><td>{t.drawn}</td><td>{t.lost}</td>

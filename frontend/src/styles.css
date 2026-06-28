@@ -274,7 +274,8 @@ body {
   flex: 1;
   min-height: 0;
   min-width: 0;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   padding: 0;
@@ -298,17 +299,35 @@ body {
   background: var(--color-text-secondary);
 }
 
+.fm-main__actionbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.fm-main__content {
+  flex: 1;
+  min-height: 0;
+}
+
 /* ===== Buttons ===== */
 .fm-button {
   padding: 10px 20px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   font-size: var(--font-size-base);
   font-weight: 600;
   cursor: pointer;
   transition: background var(--motion-fast) ease-out, color var(--motion-fast) ease-out, border-color var(--motion-fast) ease-out, transform var(--motion-fast) ease-out;
   background: transparent;
-  color: #ffffff;
+  color: var(--color-text);
 }
 
 .fm-button:hover:not(:disabled) {
@@ -363,14 +382,14 @@ body {
 
 .fm-button--back {
   background: transparent;
-  color: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
 }
 
 .fm-button--back:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.2);
-  color: #ffffff;
+  background: var(--hover-subtle);
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
 }
 
 .fm-button--back:active {
@@ -379,14 +398,14 @@ body {
 
 .fm-button--home {
   background: transparent;
-  color: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
 }
 
 .fm-button--home:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.2);
-  color: #ffffff;
+  background: var(--hover-subtle);
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
 }
 
 .fm-button--home:active {
@@ -610,17 +629,11 @@ body {
 
 /* ===== Squad View ===== */
 .fm-squad-view {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
   padding: 12px 16px;
   background: transparent;
 }
 
 .fm-squad-table {
-  flex: 1;
-  min-height: 0;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -634,9 +647,7 @@ body {
 }
 
 .fm-squad-table__wrapper {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
+  overflow: visible;
 }
 
 .fm-position-group__title {
@@ -685,7 +696,6 @@ body {
   /* ponytail: Glassmorphism container */
   padding: 32px 24px;
   background: var(--gradient-surface);
-  min-height: 100vh;
 }
 
 .fm-match-center__header {
@@ -857,7 +867,6 @@ body {
   /* ponytail: Glassmorphism container */
   padding: 32px 24px;
   background: var(--gradient-surface);
-  min-height: 100vh;
 }
 
 .fm-transfer-market__header {
@@ -1463,7 +1472,6 @@ input:focus-visible {
   /* ponytail: Glassmorphism container */
   padding: 32px 24px;
   background: var(--gradient-surface);
-  min-height: 100vh;
 }
 
 .fm-tactics-view__header {
@@ -1603,7 +1611,6 @@ input:focus-visible {
   /* ponytail: Glassmorphism container */
   padding: 32px 24px;
   background: var(--gradient-surface);
-  min-height: 100vh;
 }
 
 .fm-inbox-view__header {

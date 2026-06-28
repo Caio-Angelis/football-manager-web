@@ -101,6 +101,7 @@ export const createSavesSlice = (set: Set, get: Get) => ({
       recommendations: gameState.recommendations,
       degradedConditions: gameState.degradedConditions,
       socialTree: gameState.socialTree,
+      leagueTable: gameState.leagueTable ?? [],
       deferredTransfers: gameState.deferredTransfers ?? [],
       youthAcademy: gameState.youthAcademy ?? { players: [], level: 1, weeklySlots: 3, currentTraining: 'technical', graduationRate: 20 },
       reserveTeam: gameState.reserveTeam ?? [],

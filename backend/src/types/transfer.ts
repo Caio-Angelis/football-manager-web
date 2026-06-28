@@ -15,6 +15,7 @@ export interface InstallmentPayment {
 }
 
 export interface InstallmentClause {
+  id?: string; // ID único da cláusula
   totalAmount: number; // valor total da transferência parcelada
   installmentCount: number; // número de parcelas
   installmentAmount: number; // valor de cada parcela
@@ -23,6 +24,7 @@ export interface InstallmentClause {
 }
 
 export interface PlayerBonus {
+  id?: string; // ID único do bónus
   playerId: string;
   type: 'goals' | 'appearances' | 'assists' | 'titles' | 'performance';
   threshold: number; // quantidade necessária para ativar o bónus
@@ -106,11 +108,20 @@ export interface CounterOffer {
 }
 
 export interface NegotiationResult {
-  status: 'accepted' | 'rejected' | 'countered';
+  status: 'accepted' | 'rejected' | 'countered' | 'walked_away';
   marketValue: number;
   offerPrice: number;
   counterPrice?: number;
   message: string;
+  playerWillingness?: number; // 0-100, quanto o jogador quer mudar de clube
+  willingnessLabel?: string; // descrição textual da vontagem do jogador
+  negotiationRound?: number; // ronda atual de negociação
+  maxRounds?: number; // máximo de rondas antes de o vendedor desistir
+  contractPreview?: {
+    estimatedSalary: number; // em milhares
+    estimatedWeeks: number;
+    estimatedReleaseClause: number; // em milhões
+  };
 }
 
 export interface DeferredTransfer {
@@ -165,4 +176,13 @@ export interface ScoutReport {
   attributesRange: Partial<Record<keyof PlayerAttribute, [number, number]>>;
   stars: number; // 1-5 para PA
   reliability: number; // 1-5 para consistência do reporte
+  grade?: 'A' | 'B' | 'C' | 'D' | 'E' | 'F'; // nota de recomendação
+}
+
+export interface ActiveScoutMission {
+  id: string;
+  scoutId: string;
+  targetId: string;       // Player ID do jogador sendo observado
+  weeksAssigned: number;  // semanas restantes na missão
+  weeksTotal: number;     // total de semanas designadas
 }

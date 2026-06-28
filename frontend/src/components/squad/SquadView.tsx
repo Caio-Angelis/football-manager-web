@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { SquadTable } from './SquadTable';
 import { PlayerDetailPanel } from './PlayerDetailPanel';
@@ -8,23 +8,29 @@ export const SquadView: React.FC = () => {
   const team = teams.find(t => t.id === selectedTeam);
 
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [isNarrow, setIsNarrow] = useState(
+    typeof window !== 'undefined' ? window.innerWidth < 1024 : false
+  );
 
-  if (!team) {
-    return <div className="fm-empty">Selecione um time para começar</div>;
-  }
+  useEffect(() => {
+    const handleResize = () => setIsNarrow(window.innerWidth < 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handlePlayerSelect = useCallback((playerId: string) => {
-    setSelectedPlayerId(selectedPlayerId === playerId ? null : playerId);
-  }, [selectedPlayerId]);
+    setSelectedPlayerId(prev => prev === playerId ? null : playerId);
+  }, []);
 
   const handleCloseDetail = useCallback(() => {
     setSelectedPlayerId(null);
   }, []);
 
-  const selectedPlayer = selectedPlayerId ? team.squad.find(p => p.id === selectedPlayerId) || null : null;
+  if (!team) {
+    return <div className="fm-empty">Selecione um time para começar</div>;
+  }
 
-  const pageWidth = typeof window !== 'undefined' ? window.innerWidth : 1024;
-  const isNarrow = pageWidth < 1024;
+  const selectedPlayer = selectedPlayerId ? team.squad.find(p => p.id === selectedPlayerId) || null : null;
 
   return (
     <div className="fm-squad-view">

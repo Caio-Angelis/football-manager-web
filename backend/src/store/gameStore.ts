@@ -51,6 +51,8 @@ export const useGameStore = create<GameStore>()(
     leagueTable: [],
     saveSlots: [],
     completedTransfers: [],
+    scoutKnowledge: {},
+    scoutMissions: [],
     youthAcademy: { players: [], level: 1, weeklySlots: 3, currentTraining: 'technical', graduationRate: 20 },
     reserveTeam: [],
 

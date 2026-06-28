@@ -96,7 +96,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
         </div>
       </div>
 
-      {player.injury && (
+      {player.injury?.active && (
         <div className="fm-player-card__injury">
           <span>🏥 Lesão: {player.injury.days} dias restantes</span>
         </div>
@@ -122,17 +122,17 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
           
           {showAttributes === 'all' && player.mental && (
             <>
-              <StatBar label="Visão" value={player.mental.vision ?? 0} maxValue={20} />
-              <StatBar label="Decisões" value={player.mental.decisions ?? 0} maxValue={20} />
-              <StatBar label="Compostura" value={player.mental.composure ?? 0} maxValue={20} />
+              <StatBar label="Visão" value={player.mental.vision ?? null} maxValue={20} />
+              <StatBar label="Decisões" value={player.mental.decisions ?? null} maxValue={20} />
+              <StatBar label="Compostura" value={player.mental.composure ?? null} maxValue={20} />
             </>
           )}
           
           {showAttributes === 'all' && player.physical && (
             <>
-              <StatBar label="Velocidade" value={player.physical.speed ?? 0} maxValue={20} />
-              <StatBar label="Força" value={player.physical.strength ?? 0} maxValue={20} />
-              <StatBar label="Resistência" value={player.physical.stamina ?? 0} maxValue={20} />
+              <StatBar label="Velocidade" value={player.physical.speed ?? null} maxValue={20} />
+              <StatBar label="Força" value={player.physical.strength ?? null} maxValue={20} />
+              <StatBar label="Resistência" value={player.physical.stamina ?? null} maxValue={20} />
             </>
           )}
         </div>
@@ -141,7 +141,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
       <div className="fm-player-card__footer">
         <div className="fm-player-card__market-value">
           <span className="fm-player-card__label">Valor:</span>
-          <span className="fm-player-card__value">R$ {player.marketValue}M</span>
+          <span className="fm-player-card__value">R$ {player.marketValue.toFixed(1)}M</span>
         </div>
         <div className="fm-player-card__salary">
           <span className="fm-player-card__label">Salário:</span>

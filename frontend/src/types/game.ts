@@ -4,61 +4,63 @@
 // ATRIBUTOS DE JOGADOR (Escala 1-20)
 // ============================================================
 
+export type AttributeValue = number | string | null;
+
 export interface PlayerAttribute {
   // Técnicos
-  heading: number;        // Cabeceamento
-  crossing: number;       // Cruzamentos
-  tackling: number;       // Desarme
-  technique: number;      // Técnica
-  finishing: number;      // Finalização
-  passing: number;        // Passe
-  firstTouch: number;     // Primeiro Toque
-  dribbling: number;      // Fintas
-  marking: number;        // Marcação
-  freeKicks: number;      // Livres
-  longShots: number;      // Grandes Penalidades
-  throwIns: number;       // Lançamentos Linha Lateral
+  heading: AttributeValue;
+  crossing: AttributeValue;
+  tackling: AttributeValue;
+  technique: AttributeValue;
+  finishing: AttributeValue;
+  passing: AttributeValue;
+  firstTouch: AttributeValue;
+  dribbling: AttributeValue;
+  marking: AttributeValue;
+  freeKicks: AttributeValue;
+  longShots: AttributeValue;
+  throwIns: AttributeValue;
   
   // Mentais
-  aggression: number;     // Agressividade
-  anticipation: number;   // Antecipação
-  bravery: number;        // Bravura
-  composure: number;      // Compostura
-  concentration: number;  // Concentração
-  decisions: number;      // Decisões
-  determination: number;  // Determinação
-  improvise: number;      // Imprevisto
-  positioning: number;    // Posicionamento
-  leadership: number;     // Liderança
-  teamWork: number;       // Trabalho de Equipe
-  vision: number;         // Visão de Jogo
-  offBall: number;        // Sem Bola
-  workRate: number;       // Índice de Trabalho
+  aggression: AttributeValue;
+  anticipation: AttributeValue;
+  bravery: AttributeValue;
+  composure: AttributeValue;
+  concentration: AttributeValue;
+  decisions: AttributeValue;
+  determination: AttributeValue;
+  improvise: AttributeValue;
+  positioning: AttributeValue;
+  leadership: AttributeValue;
+  teamWork: AttributeValue;
+  vision: AttributeValue;
+  offBall: AttributeValue;
+  workRate: AttributeValue;
   
   // Físicos
-  acceleration: number;   // Aceleração
-  speed: number;          // Velocidade
-  strength: number;       // Força
-  stamina: number;        // Resistência
-  agility: number;        // Agilidade
-  naturalFitness: number; // Aptidão Física Natural
-  jumping: number;        // Impulsão
-  balance: number;        // Equilíbrio
+  acceleration: AttributeValue;
+  speed: AttributeValue;
+  strength: AttributeValue;
+  stamina: AttributeValue;
+  agility: AttributeValue;
+  naturalFitness: AttributeValue;
+  jumping: AttributeValue;
+  balance: AttributeValue;
 }
 
 // GK exclusivos
 export interface GKAttributes {
-  aerialReach: number;
-  commandOfArea: number;
-  communication: number;
-  eccentricity: number;
-  handballing: number;
-  punching: number;
-  throwing: number;
-  reflexes: number;
-  rushing: number;
-  tendencyToCome: number;
-  oneOnOne: number;
+  aerialReach: AttributeValue;
+  commandOfArea: AttributeValue;
+  communication: AttributeValue;
+  eccentricity: AttributeValue;
+  handballing: AttributeValue;
+  punching: AttributeValue;
+  throwing: AttributeValue;
+  reflexes: AttributeValue;
+  rushing: AttributeValue;
+  tendencyToCome: AttributeValue;
+  oneOnOne: AttributeValue;
 }
 
 // Métricas ocultas de personalidade
@@ -79,7 +81,8 @@ export interface HiddenAttributes {
 // Promessas ao jogador
 export interface PlayerPromise {
   goal: string;
-  deadline: number; // em semanas
+  deadline: number; // em semanas restantes
+  originalDeadline?: number; // prazo original (para barra de progresso)
   fulfilled: boolean;
 }
 
@@ -176,6 +179,14 @@ export interface Player {
 // TIME
 // ============================================================
 
+export interface Scout {
+  id: string;
+  name: string;
+  judgingAbility: number;    // 1-20
+  judgingPotential: number;  // 1-20
+  assigned: boolean;
+}
+
 export interface Team {
   id: string;
   name: string;
@@ -240,6 +251,9 @@ export interface Team {
   transferBudget: number;
   staffLevel: number;
   
+  // Olheiros
+  scouts: Scout[];
+  
   // Promessas da diretoria
   boardPromises: { goal: string; deadline: number; fulfilled: boolean }[];
   
@@ -272,6 +286,34 @@ export interface MatchStats {
   awayPasses: number;
   homePassAccuracy: number;
   awayPassAccuracy: number;
+}
+
+// Ação individual durante a partida (cada passe, drible, chute, etc.)
+export interface MatchAction {
+  minute: number;
+  type: 'pass' | 'dribble' | 'shot' | 'tackle' | 'interception' | 'clearance' | 'cross' | 'foul' | 'kickoff' | 'goalKick' | 'throwIn';
+  team: 'home' | 'away';
+  playerId: string;
+  playerName: string;
+  success: boolean;
+  description: string;
+  ballPos: number; // 0-1 (0 = gol de casa, 1 = gol de fora)
+}
+
+// Estado da partida ao vivo — simulação passo a passo
+export interface LiveMatchState {
+  possession: 'home' | 'away';
+  ballPos: number;
+  ballHolderId: string;
+  passChain: number;
+  pressure: number;
+  homeGoals: number;
+  awayGoals: number;
+  stats: MatchStats;
+  events: MatchEvent[];
+  actions: MatchAction[];
+  goalDetails: { team: 'home' | 'away'; minute: number; scorerId: string; scorerName: string; assistId?: string; assistName?: string }[];
+  interventionBoost?: { team: 'home' | 'away'; type: string; untilMinute: number };
 }
 
 // ============================================================
@@ -307,6 +349,8 @@ export interface Match {
   liveMinute: number; // 0-90
   liveEvents: MatchEvent[];
   liveStats: MatchStats;
+  liveActions: MatchAction[];
+  liveMatchState?: LiveMatchState;
   // Substitution limits (5 per team)
   homeSubstitutions: number;
   awaySubstitutions: number;
@@ -335,6 +379,7 @@ export interface InstallmentPayment {
 }
 
 export interface InstallmentClause {
+  id?: string; // ID único da cláusula
   totalAmount: number; // valor total da transferência parcelada
   installmentCount: number; // número de parcelas
   installmentAmount: number; // valor de cada parcela
@@ -343,6 +388,7 @@ export interface InstallmentClause {
 }
 
 export interface PlayerBonus {
+  id?: string; // ID único do bónus
   playerId: string;
   type: 'goals' | 'appearances' | 'assists' | 'titles' | 'performance';
   threshold: number; // quantidade necessária para ativar o bónus
@@ -426,11 +472,20 @@ export interface CounterOffer {
 }
 
 export interface NegotiationResult {
-  status: 'accepted' | 'rejected' | 'countered';
+  status: 'accepted' | 'rejected' | 'countered' | 'walked_away';
   marketValue: number;
   offerPrice: number;
   counterPrice?: number;
   message: string;
+  playerWillingness?: number; // 0-100, quanto o jogador quer mudar de clube
+  willingnessLabel?: string; // descrição textual da vontagem do jogador
+  negotiationRound?: number; // ronda atual de negociação
+  maxRounds?: number; // máximo de rondas antes de o vendedor desistir
+  contractPreview?: {
+    estimatedSalary: number; // em milhares
+    estimatedWeeks: number;
+    estimatedReleaseClause: number; // em milhões
+  };
 }
 
 export interface DeferredTransfer {
@@ -481,6 +536,15 @@ export interface ScoutReport {
   attributesRange: Partial<Record<keyof PlayerAttribute, [number, number]>>;
   stars: number; // 1-5 para PA
   reliability: number; // 1-5 para consistência do reporte
+  grade?: 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
+}
+
+export interface ActiveScoutMission {
+  id: string;
+  scoutId: string;
+  targetId: string;
+  weeksAssigned: number;
+  weeksTotal: number;
 }
 
 // ============================================================
@@ -556,7 +620,7 @@ export interface InboxMessage {
 // ============================================================
 
 export interface PlayerRole {
-  position: string; // 'GK', 'DEF', 'MID', 'FWD'
+  playerId: string; // ID do jogador (não posição, pois múltiplos jogadores podem ter a mesma posição)
   slotIndex: number; // índice na formação (0-10 para 4-4-2, 0-14 para 4-3-3, etc.)
   role: string; // valor do role (ex: 'sweeperKeeper', 'wingBack', 'centralMidfielder')
   duty: string; // 'attack', 'defend', 'balance'
@@ -839,6 +903,9 @@ export interface GameState {
   reserveTeam: ReserveTeamPlayer[];
   // Item 12 - Checklist: Histórico de transferências realizadas
   completedTransfers: CompletedTransfer[];
+  // Scouting — conhecimento do manager sobre jogadores
+  scoutKnowledge: Record<string, number>;
+  scoutMissions: ActiveScoutMission[];
 }
 
 export interface GameActions {
@@ -853,7 +920,7 @@ export interface GameActions {
   completeYouthIntake: () => void;
   updateTeam: (teamId: string, updater: (team: Team) => Team) => void;
   buyPlayer: (playerId: string, sellerTeamId: string) => boolean;
-  makeOffer: (playerId: string, sellerTeamId: string, offerPrice: number) => Promise<NegotiationResult>;
+  makeOffer: (playerId: string, sellerTeamId: string, offerPrice: number, negotiationRound?: number) => Promise<NegotiationResult>;
   acceptOffer: (playerId: string, sellerTeamId: string, offerPrice: number) => Promise<boolean>;
   acceptIncomingTransfer: (playerId: string) => void;
   rejectIncomingTransfer: (playerId: string) => void;
@@ -928,6 +995,9 @@ export interface GameActions {
   setReserveTraining: (type: string) => void;
   // Item 12 - Checklist: Histórico de transferências realizadas
   getCompletedTransfers: () => CompletedTransfer[];
+  // Scouting
+  assignScoutMission: (scoutId: string, targetId: string, weeks: number) => boolean;
+  getScoutKnowledge: (playerId: string) => number;
 }
 
 export type GameStore = GameState & GameActions;

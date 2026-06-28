@@ -3,11 +3,23 @@
 import type { Player } from './player';
 
 // ============================================================
+// OLHEIRO (Scout)
+// ============================================================
+
+export interface Scout {
+  id: string;
+  name: string;
+  judgingAbility: number;    // 1-20 — capacidade de avaliar atributos atuais
+  judgingPotential: number;  // 1-20 — capacidade de avaliar potencial
+  assigned: boolean;         // se está em missão ativa
+}
+
+// ============================================================
 // TÁTICAS E TÁTICAS INDIVIDUAIS
 // ============================================================
 
 export interface PlayerRole {
-  position: string; // 'GK', 'DEF', 'MID', 'FWD'
+  playerId: string; // ID do jogador (não posição, pois múltiplos jogadores podem ter a mesma posição)
   slotIndex: number; // índice na formação (0-10 para 4-4-2, 0-14 para 4-3-3, etc.)
   role: string; // valor do role (ex: 'sweeperKeeper', 'wingBack', 'centralMidfielder')
   duty: string; // 'attack', 'defend', 'balance'
@@ -114,6 +126,9 @@ export interface Team {
   boardExpectation: string; // 'relegation', 'midtable', 'top4', 'title'
   transferBudget: number;
   staffLevel: number;
+
+  // Olheiros
+  scouts: Scout[];
   
   // Promessas da diretoria
   boardPromises: { goal: string; deadline: number; fulfilled: boolean }[];

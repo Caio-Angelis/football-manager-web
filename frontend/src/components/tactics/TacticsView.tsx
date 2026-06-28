@@ -1,6 +1,36 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useGameStore } from '../../store/gameStore';
-import type { PlayerRole, PlayerInstruction, Team } from '../../types/game';
+import type { PlayerInstruction, Team } from '../../types/game';
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function DEFAULT_PLAYER_INSTRUCTIONS(playerId: string): PlayerInstruction {
+  return {
+    playerId,
+    passMore: false,
+    passLess: false,
+    shootMore: false,
+    shootLess: false,
+    dribbMore: false,
+    dribbLess: false,
+    goGoal: false,
+    stayBack: false,
+    crossMore: false,
+    crossLess: false,
+    cutInside: false,
+    RunThrough: false,
+    playSlower: false,
+    playFaster: false,
+    throwInMore: false,
+    takeMoreRisks: false,
+    tackleMore: false,
+    tackleLess: false,
+    beMoreAggressive: false,
+    beFairer: false,
+  };
+}
 
 // ============================================================
 // CONCEITOS DE TÁTICAS AVANÇADAS
@@ -269,48 +299,12 @@ const DraggableFormationVisual: React.FC<{
 
   const positions = formationPositions[formation] || formationPositions['4-4-2'];
 
-  // Calcular qual slot está mais próximo de um ponto no campo
-  const getNearestSlot = (clientX: number, clientY: number): number => {
-    if (!fieldRef.current) return 0;
-    
-    const fieldRect = fieldRef.current.getBoundingClientRect();
-    const x = (clientX - fieldRect.left) / fieldRect.width;
-    const y = (clientY - fieldRect.top) / fieldRect.height;
-
-    let nearestSlot = 0;
-    let minDistance = Infinity;
-    
-    positions.forEach(([px, py], index) => {
-      const distance = Math.sqrt(Math.pow(px - x, 2) + Math.pow(py - y, 2));
-      if (distance < minDistance) {
-        minDistance = distance;
-        nearestSlot = index;
-      }
-    });
-
-    return nearestSlot;
-  };
-
   // Iniciar drag ao clicar em um jogador
   const handleMouseDown = useCallback((e: React.MouseEvent, playerId: string) => {
     e.preventDefault();
     e.stopPropagation();
     setDraggingPlayerId(playerId);
   }, []);
-
-  // Atualizar posição durante movimento do mouse
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!draggingPlayerId || !fieldRef.current) return;
-    
-    const slot = getNearestSlot(e.clientX, e.clientY);
-    currentSlotRef.current = slot;
-    
-    // Atualizar apenas se mudou o slot
-    if (slot !== currentSlotRef.current) {
-      currentSlotRef.current = slot;
-      onUpdatePlayerPosition(draggingPlayerId, slot);
-    }
-  }, [draggingPlayerId, onUpdatePlayerPosition]);
 
   // Finalizar drag
   const handleMouseUp = useCallback(() => {
@@ -365,10 +359,7 @@ const DraggableFormationVisual: React.FC<{
                 zIndex: isDragging ? 100 : 1,
               }}
               onMouseDown={(e) => player && handleMouseDown(e, player.id)}
-              onMouseMove={(e) => {
-                handleMouseMove(e);
-                handleSlotHover(e);
-              }}
+              onMouseMove={handleSlotHover}
               onMouseUp={handleMouseUp}
             >
               <span className="fm-tactics-view__player-number">{i + 1}</span>
@@ -604,17 +595,21 @@ export const TacticsView: React.FC = () => {
   const { selectedTeam, teams, updateTeam } = useGameStore();
   const team = teams.find(t => t.id === selectedTeam);
   const [selectedPhase, setSelectedPhase] = useState<'POSSESSION' | 'TRANSITION' | 'NO_POSSESSION'>('POSSESSION');
+  const [activeTab, setActiveTab] = useState<'formation' | 'team' | 'players'>('formation');
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
 
-  // Inicializar tacticsConfig se não existir
-  if (team && !team.tacticsConfig) {
-    updateTeam(team.id, (t) => ({
-      ...t,
-      tacticsConfig: {
-        playerRoles: [],
-        playerInstructions: [],
-      },
-    }));
-  }
+  // Inicializar tacticsConfig se não existir (useEffect para evitar side-effect durante render)
+  useEffect(() => {
+    if (team && !team.tacticsConfig) {
+      updateTeam(team.id, (t) => ({
+        ...t,
+        tacticsConfig: {
+          playerRoles: [],
+          playerInstructions: [],
+        },
+      }));
+    }
+  }, [team, updateTeam]);
 
   const updateFormation = (formation: string) => {
     if (!team) return;
@@ -661,79 +656,69 @@ export const TacticsView: React.FC = () => {
     });
   };
 
-  // Atualizar posição do jogador no campo (drag-and-drop)
+  // Atualizar posição do jogador no campo (drag-and-drop com swap de slots)
   const updatePlayerPosition = (playerId: string, slotIndex: number) => {
     if (!team || !team.tacticsConfig) return;
     
     const player = team.squad.find(p => p.id === playerId);
     if (!player) return;
     
-    const existingRoleIndex = team.tacticsConfig.playerRoles.findIndex(r => r.position === player.position);
-    const playerRoleIndex = team.tacticsConfig.playerRoles.findIndex(r => r.position === player.position);
-    
-    const newRole: PlayerRole = {
-      position: player.position,
-      slotIndex,
-      role: team.tacticsConfig.playerRoles[playerRoleIndex]?.role || '',
-      duty: team.tacticsConfig.playerRoles[playerRoleIndex]?.duty || 'balance',
-    };
-    
     updateTeam(team.id, (t) => {
-      const updated = { ...t };
-      if (existingRoleIndex !== -1) {
-        updated.tacticsConfig.playerRoles[existingRoleIndex] = newRole;
-      } else {
-        updated.tacticsConfig.playerRoles.push(newRole);
+      const roles = [...t.tacticsConfig!.playerRoles];
+      const existingIndex = roles.findIndex(r => r.playerId === playerId);
+      const occupierIndex = roles.findIndex(r => r.slotIndex === slotIndex && r.playerId !== playerId);
+      
+      let oldSlot = 0;
+      if (existingIndex !== -1) {
+        oldSlot = roles[existingIndex].slotIndex;
       }
-      return updated;
+      
+      // Swap: se outro jogador ocupa o slot alvo, move-o para o slot antigo
+      if (occupierIndex !== -1) {
+        roles[occupierIndex] = { ...roles[occupierIndex], slotIndex: oldSlot };
+      }
+      
+      if (existingIndex !== -1) {
+        roles[existingIndex] = { ...roles[existingIndex], slotIndex };
+      } else {
+        roles.push({ playerId, slotIndex, role: '', duty: 'balance' });
+      }
+      
+      return { ...t, tacticsConfig: { ...t.tacticsConfig!, playerRoles: roles } };
     });
   };
 
   // Atualizar Role do jogador
   const updatePlayerRole = (playerId: string, role: string) => {
     if (!team || !team.tacticsConfig) return;
-    const player = team.squad.find(p => p.id === playerId);
-    if (!player) return;
     
-    const existingRoleIndex = team.tacticsConfig.playerRoles.findIndex(r => r.position === player.position);
+    const existingRoleIndex = team.tacticsConfig.playerRoles.findIndex(r => r.playerId === playerId);
     
     updateTeam(team.id, (t) => {
-      const updated = { ...t };
+      const roles = [...t.tacticsConfig!.playerRoles];
       if (existingRoleIndex !== -1) {
-        updated.tacticsConfig.playerRoles[existingRoleIndex] = {
-          ...updated.tacticsConfig.playerRoles[existingRoleIndex],
-          role,
-        };
+        roles[existingRoleIndex] = { ...roles[existingRoleIndex], role };
       } else {
-        const newRole: PlayerRole = {
-          position: player.position,
-          slotIndex: 0,
-          role,
-          duty: 'balance',
-        };
-        updated.tacticsConfig.playerRoles.push(newRole);
+        roles.push({ playerId, slotIndex: 0, role, duty: 'balance' });
       }
-      return updated;
+      return { ...t, tacticsConfig: { ...t.tacticsConfig!, playerRoles: roles } };
     });
   };
 
   // Atualizar Duty do jogador
   const updatePlayerDuty = (playerId: string, duty: string) => {
     if (!team || !team.tacticsConfig) return;
-    const player = team.squad.find(p => p.id === playerId);
-    if (!player) return;
     
-    const existingRoleIndex = team.tacticsConfig.playerRoles.findIndex(r => r.position === player.position);
+    const existingRoleIndex = team.tacticsConfig.playerRoles.findIndex(r => r.playerId === playerId);
     
     updateTeam(team.id, (t) => {
-      const updated = { ...t };
+      const roles = [...t.tacticsConfig!.playerRoles];
       if (existingRoleIndex !== -1) {
-        updated.tacticsConfig.playerRoles[existingRoleIndex] = {
-          ...updated.tacticsConfig.playerRoles[existingRoleIndex],
-          duty,
-        };
+        roles[existingRoleIndex] = { ...roles[existingRoleIndex], duty };
+      } else {
+        roles.push({ playerId, slotIndex: 0, role: '', duty });
       }
-      return updated;
+      return { ...t, tacticsConfig: { ...t.tacticsConfig!, playerRoles: roles } };
     });
   };
 
@@ -742,56 +727,32 @@ export const TacticsView: React.FC = () => {
     if (!team || !team.tacticsConfig) return;
     
     updateTeam(team.id, (t) => {
-      const updated = { ...t };
-      const existingInstructionIndex = updated.tacticsConfig.playerInstructions.findIndex(i => i.playerId === playerId);
+      const instructions = [...t.tacticsConfig!.playerInstructions];
+      const existingInstructionIndex = instructions.findIndex(i => i.playerId === playerId);
       
       if (existingInstructionIndex !== -1) {
-        const existingInstruction = { ...updated.tacticsConfig.playerInstructions[existingInstructionIndex] };
+        const existingInstruction = { ...instructions[existingInstructionIndex] };
         (existingInstruction as any)[instructionKey] = value;
-        updated.tacticsConfig.playerInstructions[existingInstructionIndex] = existingInstruction;
+        instructions[existingInstructionIndex] = existingInstruction;
       } else {
-        const newInstruction: PlayerInstruction = {
-          playerId,
-          passMore: false,
-          passLess: false,
-          shootMore: false,
-          shootLess: false,
-          dribbMore: false,
-          dribbLess: false,
-          goGoal: false,
-          stayBack: false,
-          crossMore: false,
-          crossLess: false,
-          cutInside: false,
-          RunThrough: false,
-          playSlower: false,
-          playFaster: false,
-          throwInMore: false,
-          takeMoreRisks: false,
-          tackleMore: false,
-          tackleLess: false,
-          beMoreAggressive: false,
-          beFairer: false,
-        };
+        const newInstruction = DEFAULT_PLAYER_INSTRUCTIONS(playerId);
         (newInstruction as any)[instructionKey] = value;
-        updated.tacticsConfig.playerInstructions.push(newInstruction);
+        instructions.push(newInstruction);
       }
-      return updated;
+      return { ...t, tacticsConfig: { ...t.tacticsConfig!, playerInstructions: instructions } };
     });
   };
 
   // Obter instruções atuais do jogador
   const getPlayerInstructions = (playerId: string): PlayerInstruction => {
-    if (!team || !team.tacticsConfig) return {} as PlayerInstruction;
-    return team.tacticsConfig.playerInstructions.find(i => i.playerId === playerId) || {} as PlayerInstruction;
+    if (!team || !team.tacticsConfig) return DEFAULT_PLAYER_INSTRUCTIONS(playerId);
+    return team.tacticsConfig.playerInstructions.find(i => i.playerId === playerId) || DEFAULT_PLAYER_INSTRUCTIONS(playerId);
   };
 
   // Obter role atual do jogador
   const getPlayerRole = (playerId: string): { role: string; duty: string } | null => {
     if (!team || !team.tacticsConfig) return null;
-    const player = team.squad.find(p => p.id === playerId);
-    if (!player) return null;
-    const playerRole = team.tacticsConfig.playerRoles.find(r => r.position === player.position);
+    const playerRole = team.tacticsConfig.playerRoles.find(r => r.playerId === playerId);
     return playerRole ? { role: playerRole.role, duty: playerRole.duty } : null;
   };
 
@@ -801,10 +762,7 @@ export const TacticsView: React.FC = () => {
     
     const positionMap: Record<string, number> = {};
     team.tacticsConfig.playerRoles.forEach(role => {
-      const player = team?.squad.find(p => p.position === role.position);
-      if (player) {
-        positionMap[player.id] = role.slotIndex;
-      }
+      positionMap[role.playerId] = role.slotIndex;
     });
     return positionMap;
   };
@@ -814,163 +772,209 @@ export const TacticsView: React.FC = () => {
   }
 
   const playerPositionMap = getPlayerPositionMap();
+  const startingXI = team.squad.slice(0, 11);
+  const selectedPlayer = selectedPlayerId
+    ? startingXI.find(p => p.id === selectedPlayerId)
+    : startingXI[0];
+
+  const TABS = [
+    { id: 'formation' as const, label: 'Formação', icon: '⚽' },
+    { id: 'team' as const, label: 'Equipa', icon: '📋' },
+    { id: 'players' as const, label: 'Jogadores', icon: '👤' },
+  ];
 
   return (
     <div className="fm-tactics-view">
       <header className="fm-tactics-view__header">
-        <h1>Configuração de Táticas</h1>
-        <div className="fm-tactics-view__team-name">{team.name}</div>
+        <div className="fm-tactics-view__header-left">
+          <h1>Configuração de Táticas</h1>
+          <div className="fm-tactics-view__team-name">{team.name}</div>
+        </div>
+        <div className="fm-tactics-view__header-right">
+          <span className="fm-tactics-view__formation-badge">{team.formation}</span>
+          <span className={`fm-tactics-view__tactic-badge fm-tactics-view__tactic-badge--${team.tactic}`}>
+            {team.tactic}
+          </span>
+        </div>
       </header>
 
+      {/* Tab Navigation */}
+      <nav className="fm-tactics-view__tabs">
+        {TABS.map(tab => (
+          <button
+            key={tab.id}
+            className={`fm-tactics-view__tab ${activeTab === tab.id ? 'fm-tactics-view__tab--active' : ''}`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            <span className="fm-tactics-view__tab-icon">{tab.icon}</span>
+            <span>{tab.label}</span>
+          </button>
+        ))}
+      </nav>
+
       <div className="fm-tactics-view__content">
-        {/* Mentalidade da Equipa */}
-        <div className="fm-tactics-view__section">
-          <h2>🧠 Mentalidade da Equipa</h2>
-          <div className="fm-tactics-view__mentality">
-            {TEAM_MENTALITY_OPTIONS.map((mentality) => (
-              <div
-                key={mentality.value}
-                className={`fm-mentality ${team.teamMentality === mentality.value ? 'fm-mentality--active' : ''}`}
-                onClick={() => updateMentality(mentality.value)}
-              >
-                <div className="fm-mentality__label">{mentality.label}</div>
-                <div className="fm-mentality__description">{mentality.description}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* 3 Fases de Instruções Coletivas */}
-        <div className="fm-tactics-view__section">
-          <h2>📋 Instruções Coletivas</h2>
-          
-          {/* Tabs das 3 fases */}
-          <div className="fm-tactics-view__phase-tabs">
-            {Object.entries(INSTRUCTION_PHASES).map(([phaseKey, phase]) => (
-              <button
-                key={phaseKey}
-                className={`fm-tactics-view__phase-tab ${selectedPhase === phaseKey ? 'fm-tactics-view__phase-tab--active' : ''}`}
-                onClick={() => setSelectedPhase(phaseKey as 'POSSESSION' | 'TRANSITION' | 'NO_POSSESSION')}
-              >
-                <span className="fm-tactics-view__phase-tab__icon">{phase.icon}</span>
-                <span className="fm-tactics-view__phase-tab__label">{phase.label}</span>
-              </button>
-            ))}
-          </div>
-
-          {/* Instruções da fase selecionada */}
-          <div className="fm-tactics-view__phase-instructions">
-            {INSTRUCTION_PHASES[selectedPhase].instructions.map((instruction) => (
-              <InstructionToggle
-                key={instruction.key}
-                instructionKey={instruction.key}
-                label={instruction.label}
-                description={instruction.description}
-                selected={Boolean((team as unknown as Record<string, boolean>)[instruction.key])}
-                onSelect={() => updateInstruction(instruction.key)}
+        {/* ===== TAB: Formação ===== */}
+        {activeTab === 'formation' && (
+          <>
+            <div className="fm-tactics-view__section fm-tactics-view__section--formation">
+              <DraggableFormationVisual
+                formation={team.formation}
+                players={startingXI.map(p => ({ id: p.id, name: p.name, position: p.position }))}
+                playerPositions={playerPositionMap}
+                onUpdatePlayerPosition={updatePlayerPosition}
               />
-            ))}
+            </div>
 
-            {INSTRUCTION_PHASES[selectedPhase].multiValueInstructions && (
-              <div className="fm-tactics-view__multi-value-instructions">
-                {INSTRUCTION_PHASES[selectedPhase].multiValueInstructions!.map((instruction) => (
-                  <MultiValueInstructionSelector
-                    key={instruction.key}
-                    instruction={instruction}
-                    currentValue={getCollectiveInstructionValue(
-                      team,
-                      instruction.key,
-                      instruction.values[Math.floor(instruction.values.length / 2)].value,
-                    )}
-                    onSelect={(_key, value) => updateCollectiveOption(instruction.key, value)}
-                  />
+            <div className="fm-tactics-view__section">
+              <h2>Formação</h2>
+              <div className="fm-tactics-view__formations-list">
+                {['4-4-2', '4-3-3', '3-5-2', '5-2-2'].map((formation) => (
+                  <button
+                    key={formation}
+                    className={`fm-formation ${team.formation === formation ? 'fm-formation--active' : ''}`}
+                    onClick={() => updateFormation(formation)}
+                  >
+                    <div className="fm-formation__name">{formation}</div>
+                  </button>
                 ))}
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* Configuração de Formação e Tática */}
-        <div className="fm-tactics-view__section">
-          <h2>📊 Formação e Tática</h2>
-          
-          {/* Visualização do Campo com Drag-and-Drop */}
-          <DraggableFormationVisual 
-            formation={team.formation} 
-            players={team.squad.slice(0, 11).map(p => ({ id: p.id, name: p.name, position: p.position }))} 
-            playerPositions={playerPositionMap}
-            onUpdatePlayerPosition={updatePlayerPosition}
-          />
-
-          <div className="fm-tactics-view__formations">
-            <h3>Formação</h3>
-            <div className="fm-tactics-view__formations-list">
-              {['4-4-2', '4-3-3', '3-5-2', '5-2-2'].map((formation) => (
-                <div
-                  key={formation}
-                  className={`fm-formation ${team.formation === formation ? 'fm-formation--active' : ''}`}
-                  onClick={() => updateFormation(formation)}
-                >
-                  <div className="fm-formation__name">{formation}</div>
-                </div>
-              ))}
             </div>
-          </div>
 
-          <div className="fm-tactics-view__tactics">
-            <h3>Tática</h3>
-            <div className="fm-tactics-view__tactics-list">
-              {['attacking', 'defensive', 'balanced'].map((tactic) => (
-                <button
-                  key={tactic}
-                  className={`fm-tactic ${team.tactic === tactic ? 'fm-tactic--active' : ''}`}
-                  onClick={() => updateTactic(tactic)}
-                >
-                  {tactic.charAt(0).toUpperCase() + tactic.slice(1)}
-                </button>
-              ))}
+            <div className="fm-tactics-view__section">
+              <h2>Estilo de Jogo</h2>
+              <div className="fm-tactics-view__tactics-list">
+                {['attacking', 'defensive', 'balanced'].map((tactic) => (
+                  <button
+                    key={tactic}
+                    className={`fm-tactic ${team.tactic === tactic ? 'fm-tactic--active' : ''}`}
+                    onClick={() => updateTactic(tactic)}
+                  >
+                    {tactic.charAt(0).toUpperCase() + tactic.slice(1)}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          </>
+        )}
 
-          {/* Roles e Tarefas - Funcional */}
-          <div className="fm-tactics-view__roles">
-            <h3>Roles e Tarefas</h3>
-            <div className="fm-tactics-view__roles-grid">
-              {team.squad.slice(0, 11).map((player) => {
-                const playerRole = getPlayerRole(player.id);
-                return (
-                  <div key={player.id} className="fm-player-role-selector-card">
-                    <PlayerRoleSelector
-                      player={player}
-                      currentRole={playerRole?.role || null}
-                      currentDuty={playerRole?.duty || null}
-                      onRoleChange={(playerId, role) => updatePlayerRole(playerId, role)}
-                      onDutyChange={(playerId, duty) => updatePlayerDuty(playerId, duty)}
-                    />
+        {/* ===== TAB: Equipa ===== */}
+        {activeTab === 'team' && (
+          <>
+            {/* Mentalidade */}
+            <div className="fm-tactics-view__section">
+              <h2>🧠 Mentalidade da Equipa</h2>
+              <div className="fm-tactics-view__mentality">
+                {TEAM_MENTALITY_OPTIONS.map((mentality) => (
+                  <button
+                    key={mentality.value}
+                    className={`fm-mentality ${team.teamMentality === mentality.value ? 'fm-mentality--active' : ''}`}
+                    onClick={() => updateMentality(mentality.value)}
+                    title={mentality.description}
+                  >
+                    <span className="fm-mentality__label">{mentality.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Instruções Coletivas */}
+            <div className="fm-tactics-view__section">
+              <h2>📋 Instruções Coletivas</h2>
+
+              <div className="fm-tactics-view__phase-tabs">
+                {Object.entries(INSTRUCTION_PHASES).map(([phaseKey, phase]) => (
+                  <button
+                    key={phaseKey}
+                    className={`fm-tactics-view__phase-tab ${selectedPhase === phaseKey ? 'fm-tactics-view__phase-tab--active' : ''}`}
+                    onClick={() => setSelectedPhase(phaseKey as 'POSSESSION' | 'TRANSITION' | 'NO_POSSESSION')}
+                  >
+                    <span className="fm-tactics-view__phase-tab__icon">{phase.icon}</span>
+                    <span className="fm-tactics-view__phase-tab__label">{phase.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="fm-tactics-view__phase-instructions">
+                {INSTRUCTION_PHASES[selectedPhase].instructions.map((instruction) => (
+                  <InstructionToggle
+                    key={instruction.key}
+                    instructionKey={instruction.key}
+                    label={instruction.label}
+                    description={instruction.description}
+                    selected={Boolean((team as unknown as Record<string, boolean>)[instruction.key])}
+                    onSelect={() => updateInstruction(instruction.key)}
+                  />
+                ))}
+
+                {INSTRUCTION_PHASES[selectedPhase].multiValueInstructions && (
+                  <div className="fm-tactics-view__multi-value-instructions">
+                    {INSTRUCTION_PHASES[selectedPhase].multiValueInstructions!.map((instruction) => (
+                      <MultiValueInstructionSelector
+                        key={instruction.key}
+                        instruction={instruction}
+                        currentValue={getCollectiveInstructionValue(
+                          team,
+                          instruction.key,
+                          instruction.values[Math.floor(instruction.values.length / 2)].value,
+                        )}
+                        onSelect={(_key, value) => updateCollectiveOption(instruction.key, value)}
+                      />
+                    ))}
                   </div>
-                );
-              })}
+                )}
+              </div>
             </div>
-          </div>
-        </div>
+          </>
+        )}
 
-        {/* Instruções Individuais por Jogador - Com Estado Real */}
-        <div className="fm-tactics-view__section">
-          <h2>👤 Instruções Individuais</h2>
-          <div className="fm-tactics-view__players">
-            {team.squad.slice(0, 11).map((player) => {
-              const instructions = getPlayerInstructions(player.id);
-              return (
+        {/* ===== TAB: Jogadores ===== */}
+        {activeTab === 'players' && (
+          <>
+            {/* Roles e Tarefas */}
+            <div className="fm-tactics-view__section">
+              <h2>Roles e Tarefas</h2>
+              <div className="fm-tactics-view__roles-grid">
+                {startingXI.map((player) => {
+                  const playerRole = getPlayerRole(player.id);
+                  return (
+                    <div key={player.id} className="fm-player-role-selector-card">
+                      <PlayerRoleSelector
+                        player={player}
+                        currentRole={playerRole?.role || null}
+                        currentDuty={playerRole?.duty || null}
+                        onRoleChange={(playerId, role) => updatePlayerRole(playerId, role)}
+                        onDutyChange={(playerId, duty) => updatePlayerDuty(playerId, duty)}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Instruções Individuais */}
+            <div className="fm-tactics-view__section">
+              <h2>Instruções Individuais</h2>
+              <div className="fm-tactics-view__player-picker">
+                {startingXI.map((player) => (
+                  <button
+                    key={player.id}
+                    className={`fm-tactics-view__player-chip ${selectedPlayer?.id === player.id ? 'fm-tactics-view__player-chip--active' : ''}`}
+                    onClick={() => setSelectedPlayerId(player.id)}
+                  >
+                    {player.name.split(' ')[0]}
+                  </button>
+                ))}
+              </div>
+              {selectedPlayer && (
                 <IndividualInstructions
-                  key={player.id}
-                  player={player}
-                  instructions={instructions}
+                  player={selectedPlayer}
+                  instructions={getPlayerInstructions(selectedPlayer.id)}
                   onInstructionChange={updatePlayerInstruction}
                 />
-              );
-            })}
-          </div>
-        </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

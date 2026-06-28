@@ -13,9 +13,10 @@ export const createInjurySlice = (set: Set, get: Get) => ({
     const player = team.squad.find(p => p.id === playerId);
     if (!player || !player.injury?.active) return null;
 
-    // Map injury type based on injury proneness and randomness
+    // Map injury type deterministically based on playerId
     const injuryTypes = ['muscle', 'ligament', 'joint', 'ankle', 'knee', 'groin'];
-    const injuryType = injuryTypes[Math.floor(Math.random() * injuryTypes.length)];
+    const hash = playerId.split('').reduce((sum, c) => sum + c.charCodeAt(0), 0);
+    const injuryType = injuryTypes[hash % injuryTypes.length];
 
     // Severity based on days out
     const days = player.injury.days;

@@ -143,7 +143,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     const activePromises: { player: Player; promise: PlayerPromise; weeksLeft: number }[] = [];
     team.squad.forEach(player => {
       player.promises.forEach(promise => {
-        if (!promise.fulfilled) {
+        if (!promise.fulfilled && promise.deadline > 0) {
           activePromises.push({ player, promise, weeksLeft: promise.deadline });
         }
       });
@@ -232,7 +232,8 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     const player = team.squad.find(p => p.id === playerId);
     if (!player || !player.injury?.active) return null;
     const injuryTypes = ['muscle', 'ligament', 'joint', 'ankle', 'knee', 'groin'];
-    const injuryType = injuryTypes[Math.floor(Math.random() * injuryTypes.length)];
+    const hash = playerId.split('').reduce((sum, c) => sum + c.charCodeAt(0), 0);
+    const injuryType = injuryTypes[hash % injuryTypes.length];
     const days = player.injury.days;
     const severity: InjuryReport['severity'] = days <= 7 ? 'minor' : days <= 21 ? 'moderate' : 'severe';
     const treatments = {
@@ -266,7 +267,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     const ticketRevenue = (team.reputation / 100) * 0.5;
     const sponsorship = (team.reputation / 100) * 0.3;
     const totalIncome = ticketRevenue + sponsorship;
-    const totalExpenses = team.wageBill * 0.01;
+    const totalExpenses = team.wageBill * (12 / 52);
     const profit = totalIncome - totalExpenses;
     const transferSpending = state.transferAgreements
       .filter(a => a.toTeamId === state.selectedTeam)
@@ -375,8 +376,9 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     }) as any;
   },
 
-  makeOffer: (playerId: string, sellerTeamId: string, offerPrice: number) => {
-    return apiAction('makeOffer', [playerId, sellerTeamId, offerPrice]).then(data => {
+  makeOffer: (playerId: string, sellerTeamId: string, offerPrice: number, negotiationRound?: number) => {
+    const args = negotiationRound ? [playerId, sellerTeamId, offerPrice, negotiationRound] : [playerId, sellerTeamId, offerPrice];
+    return apiAction('makeOffer', args).then(data => {
       syncFromResponse(data);
       return data.result as NegotiationResult;
     }) as any;

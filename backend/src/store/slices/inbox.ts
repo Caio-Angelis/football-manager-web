@@ -88,6 +88,12 @@ export const createInboxSlice = (set: Set, get: Get) => ({
       return;
     }
 
+    // Treino: Ver Detalhes — marca como lido (o modal de detalhe é aberto no frontend)
+    if (actionLabel === 'Ver Detalhes') {
+      get().markAsRead(messageId);
+      return;
+    }
+
     get().markAsRead(messageId);
   },
 
@@ -124,7 +130,7 @@ export const createInboxSlice = (set: Set, get: Get) => ({
     };
 
     set({
-      inbox: state.inbox.map(m => m.id === messageId ? { ...m, boardReply } : m),
+      inbox: state.inbox.map(m => m.id === messageId ? { ...m, boardReply, read: true } : m),
       boardReplies: [...state.boardReplies, boardReply],
       boardSatisfaction: Math.max(-100, Math.min(100, state.boardSatisfaction + satisfactionChange)),
     });

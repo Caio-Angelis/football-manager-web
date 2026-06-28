@@ -5,10 +5,10 @@
 export type { PlayerAttribute, GKAttributes, HiddenAttributes, Promise, Player } from './player';
 
 // Team & Tactics
-export type { PlayerRole, PlayerInstruction, TeamTacticsConfig, Team } from './team';
+export type { PlayerRole, PlayerInstruction, TeamTacticsConfig, Team, Scout } from './team';
 
 // Match
-export type { MatchEvent, MatchStats, PlayerMatchRating, Match } from './match';
+export type { MatchEvent, MatchStats, MatchAction, LiveMatchState, PlayerMatchRating, Match } from './match';
 
 // Transfer
 export type {
@@ -16,6 +16,7 @@ export type {
   ContractClause, TransferAgreement, TransferOffer,
   IncomingTransfer, CounterOffer, NegotiationResult,
   DeferredTransfer, CompletedTransfer, ScoutReport,
+  ActiveScoutMission,
 } from './transfer';
 
 // Injury & Fatigue
@@ -51,7 +52,7 @@ export type { YouthPlayer, YouthAcademy, ReserveTeamPlayer } from './youth';
 
 import type { Match } from './match';
 import type { Team } from './team';
-import type { TransferOffer, IncomingTransfer, CounterOffer, DeferredTransfer, InstallmentClause, PlayerBonus, TransferAgreement, CompletedTransfer, ScoutReport, NegotiationResult } from './transfer';
+import type { TransferOffer, IncomingTransfer, CounterOffer, DeferredTransfer, InstallmentClause, PlayerBonus, TransferAgreement, CompletedTransfer, ScoutReport, NegotiationResult, ActiveScoutMission } from './transfer';
 import type { InboxMessage } from './inbox';
 import type { BoardReply, FinancialReport } from './financial';
 import type { WeeklyTrainingPlan } from './training';
@@ -105,6 +106,9 @@ export interface GameState {
   reserveTeam: ReserveTeamPlayer[];
   // Item 12 - Checklist: Histórico de transferências realizadas
   completedTransfers: CompletedTransfer[];
+  // Scouting — conhecimento do manager sobre jogadores
+  scoutKnowledge: Record<string, number>; // Player ID -> 0-100
+  scoutMissions: ActiveScoutMission[];   // missões de observação ativas
 }
 
 export interface GameActions {
@@ -119,7 +123,7 @@ export interface GameActions {
   completeYouthIntake: () => void;
   updateTeam: (teamId: string, updater: (team: Team) => Team) => void;
   buyPlayer: (playerId: string, sellerTeamId: string) => boolean;
-  makeOffer: (playerId: string, sellerTeamId: string, offerPrice: number) => NegotiationResult;
+  makeOffer: (playerId: string, sellerTeamId: string, offerPrice: number, negotiationRound?: number) => NegotiationResult;
   acceptOffer: (playerId: string, sellerTeamId: string, offerPrice: number) => boolean;
   acceptIncomingTransfer: (playerId: string) => void;
   rejectIncomingTransfer: (playerId: string) => void;
@@ -214,6 +218,9 @@ export interface GameActions {
   setReserveTraining: (type: string) => void;
   // Item 12 - Checklist: Histórico de transferências realizadas
   getCompletedTransfers: () => CompletedTransfer[];
+  // Scouting — designar olheiro a jogador
+  assignScoutMission: (scoutId: string, targetId: string, weeks: number) => boolean;
+  getScoutKnowledge: (playerId: string) => number;
 }
 
 export type GameStore = GameState & GameActions;

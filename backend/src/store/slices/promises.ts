@@ -16,7 +16,8 @@ export const createPromisesSlice = (set: Set, get: Get) => ({
     const updatedSquad = updatedTeam.squad.map(player => {
       const updatedPromises = player.promises.map(promise => {
         if (!promise.fulfilled && promise.deadline > 0) {
-          return { ...promise, deadline: promise.deadline - 1 };
+          const originalDeadline = promise.originalDeadline ?? promise.deadline;
+          return { ...promise, deadline: promise.deadline - 1, originalDeadline };
         }
         return promise;
       });
@@ -41,7 +42,7 @@ export const createPromisesSlice = (set: Set, get: Get) => ({
     const activePromises: { player: Player; promise: PlayerPromise; weeksLeft: number }[] = [];
     team.squad.forEach(player => {
       player.promises.forEach(promise => {
-        if (!promise.fulfilled) {
+        if (!promise.fulfilled && promise.deadline > 0) {
           activePromises.push({ player, promise, weeksLeft: promise.deadline });
         }
       });

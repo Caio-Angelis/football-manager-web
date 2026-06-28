@@ -1,13 +1,16 @@
 import type { GameStore, Team, InboxMessage } from '../../types/game';
 import { generateTeam, generateYouthIntake } from '../../utils/playerGenerator';
+import { loadTeamsFromDatabase } from '../../utils/dataLoader';
 import {
-  simulateMatchResult, calculatePlayerMatchRatings, generateWeekMatches,
-  applyMatchResultToTeams,
+  simulateFullMatch, simulateMinute, calculatePlayerMatchRatings,
+  generateWeekMatches, applyMatchResultToTeams,
 } from '../helpers/matchEngine';
+import type { MatchStats, MatchEvent } from '../../types/game';
 import { calculateLeagueStandings } from '../helpers/league';
 import { generateInboxMessage } from '../helpers/inbox';
 import { calculatePlayerInjuryRisk, getRiskLevel } from '../helpers/injury';
 import { maybeGenerateIncomingTransfer, recalcWageBill } from '../helpers/transfer';
+import { processScoutMissions, generateDefaultScouts, getBestScout } from '../helpers/scouting';
 
 type Set = (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void;
 type Get = () => GameStore;
@@ -19,21 +22,36 @@ export const createCoreSlice = (set: Set, get: Get) => ({
   selectTeam: (teamId: string) => set({ selectedTeam: teamId }),
 
   initGame: () => {
-    const teams: Team[] = [];
-    for (let i = 0; i < 8; i++) {
-      const reputation = 30 + Math.floor(Math.random() * 60);
-      const team = generateTeam({
-        division: i < 4 ? 'Série A' : 'Série B',
-        league: 'Brasileirão',
-        reputation,
+    let teams: Team[] = loadTeamsFromDatabase();
+
+    if (teams.length === 0) {
+      console.warn('[initGame] No teams loaded from database, falling back to procedural generation');
+      teams = [];
+      for (let i = 0; i < 8; i++) {
+        const reputation = 30 + Math.floor(Math.random() * 60);
+        const team = generateTeam({
+          division: i < 4 ? 'Série A' : 'Série B',
+          league: 'Brasileirão',
+          reputation,
+        });
+        team.wageBill = recalcWageBill(team);
+        teams.push(team);
+      }
+    } else {
+      teams.forEach(team => {
+        team.wageBill = recalcWageBill(team);
+        if (!team.scouts || team.scouts.length === 0) {
+          team.scouts = generateDefaultScouts(team.id);
+        }
       });
-      team.wageBill = recalcWageBill(team);
-      teams.push(team);
     }
+
+    const initialMatches = generateWeekMatches(teams, 1);
+    const initialStandings = calculateLeagueStandings(teams, initialMatches, 0);
 
     set({
       teams,
-      matches: generateWeekMatches(teams, 1),
+      matches: initialMatches,
       currentWeek: 0,
       currentSeason: 1,
       selectedTeam: null,
@@ -50,6 +68,9 @@ export const createCoreSlice = (set: Set, get: Get) => ({
       injuryHistory: [],
       preventionSessions: [],
       saveSlots: [],
+      leagueTable: initialStandings,
+      scoutKnowledge: {},
+      scoutMissions: [],
     });
   },
 
@@ -69,11 +90,16 @@ export const createCoreSlice = (set: Set, get: Get) => ({
 
     if (championshipEnded) {
       // Campeonato encerrado após 38 rodadas - não gerar novas partidas
-      const inboxMessage = generateInboxMessage(0);
+      const inboxMessage = generateInboxMessage(0, {
+        teams: state.teams,
+        selectedTeamId: state.selectedTeam,
+        hasIncomingTransfer: false,
+      });
       let updatedTeams = [...state.teams];
 
       // Manter partidas existentes sem gerar novas
       const updatedMatches = [...state.matches];
+      const leagueStandings = calculateLeagueStandings(updatedTeams, updatedMatches, 38);
 
       // Atualizar orçamento das equipes
       if (state.selectedTeam) {
@@ -84,7 +110,7 @@ export const createCoreSlice = (set: Set, get: Get) => ({
           const sponsorship = (team.reputation / 100) * 0.3;
           updatedTeams[teamIdx] = {
             ...team,
-            budget: Math.max(0, team.budget + ticketRevenue + sponsorship - team.wageBill * 0.01),
+            budget: Math.max(0, team.budget + ticketRevenue + sponsorship - team.wageBill * (12 / 52)),
           };
         }
       }
@@ -114,25 +140,78 @@ export const createCoreSlice = (set: Set, get: Get) => ({
         teams: updatedTeams,
         youthIntakeCompleted: false,
         inbox: [...(state.inbox || []), inboxMessage],
+        leagueTable: leagueStandings,
       });
       return;
     }
 
     // Comportamento normal - campeonato em andamento
-    const newMatches = generateWeekMatches(state.teams, newWeek);
     let updatedTeams = [...state.teams];
 
-    const updatedMatches = newMatches.map(m => {
+    // Auto-finaliza partida pendente do usuário da rodada anterior (mantém a
+    // classificação justa caso ele avance a semana sem jogá-la ao vivo).
+    let previousMatches = [...state.matches];
+    if (state.selectedTeam) {
+      const pendingIdx = previousMatches.findIndex(
+        pm => !pm.completed && (pm.homeTeam === state.selectedTeam || pm.awayTeam === state.selectedTeam),
+      );
+      if (pendingIdx !== -1) {
+        const pending = previousMatches[pendingIdx];
+        const ph = updatedTeams.find(t => t.id === pending.homeTeam);
+        const pa = updatedTeams.find(t => t.id === pending.awayTeam);
+        if (ph && pa) {
+          let result;
+          if (pending.isLive && pending.liveMatchState) {
+            // Continua simulação do estado atual até o minuto 90
+            let liveState = pending.liveMatchState;
+            for (let m = pending.liveMinute + 1; m <= 90; m++) {
+              liveState = simulateMinute(ph, pa, liveState, m);
+            }
+            const events: MatchEvent[] = liveState.events.sort((a, b) => a.minute - b.minute);
+            const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+            const stats: MatchStats = {
+              ...liveState.stats,
+              homePossession: clamp(liveState.stats.homePossession, 25, 75),
+              awayPossession: 100 - clamp(liveState.stats.homePossession, 25, 75),
+            };
+            result = {
+              homeGoals: liveState.homeGoals,
+              awayGoals: liveState.awayGoals,
+              events,
+              stats,
+              goalDetails: liveState.goalDetails,
+            };
+          } else {
+            // Partida não iniciada — simula do zero
+            result = simulateFullMatch(ph, pa);
+          }
+          updatedTeams = applyMatchResultToTeams(updatedTeams, pending.homeTeam, pending.awayTeam, result);
+          // Marcar a partida como finalizada para que entre na classificação
+          previousMatches[pendingIdx] = {
+            ...pending,
+            completed: true,
+            isLive: false,
+            homeGoals: result.homeGoals,
+            awayGoals: result.awayGoals,
+            events: result.events,
+            stats: result.stats,
+          };
+        }
+      }
+    }
+
+    // Acumular partidas completadas de semanas anteriores para que a
+    // classificação reflita toda a temporada, não apenas a rodada atual.
+    const previousCompleted = previousMatches.filter(m => m.completed);
+    const newMatches = generateWeekMatches(updatedTeams, newWeek);
+
+    const updatedMatches = [...previousCompleted, ...newMatches.map(m => {
       const match = { ...m };
       const isUserMatch = m.homeTeam === state.selectedTeam || m.awayTeam === state.selectedTeam;
       if (!isUserMatch) {
-        const result = calculatePlayerMatchRatings(
+        const result = simulateFullMatch(
           updatedTeams.find(t => t.id === m.homeTeam)!,
           updatedTeams.find(t => t.id === m.awayTeam)!,
-          simulateMatchResult(
-            updatedTeams.find(t => t.id === m.homeTeam)!,
-            updatedTeams.find(t => t.id === m.awayTeam)!,
-          ),
         );
         match.homeGoals = result.homeGoals;
         match.awayGoals = result.awayGoals;
@@ -143,28 +222,14 @@ export const createCoreSlice = (set: Set, get: Get) => ({
         match.bestPlayer = result.bestPlayer;
         updatedTeams = applyMatchResultToTeams(updatedTeams, m.homeTeam, m.awayTeam, result);
       } else {
-        // User match: simulate automatically if they haven't played it manually yet
-        const result = calculatePlayerMatchRatings(
-          updatedTeams.find(t => t.id === m.homeTeam)!,
-          updatedTeams.find(t => t.id === m.awayTeam)!,
-          simulateMatchResult(
-            updatedTeams.find(t => t.id === m.homeTeam)!,
-            updatedTeams.find(t => t.id === m.awayTeam)!,
-          ),
-        );
-        match.homeGoals = result.homeGoals;
-        match.awayGoals = result.awayGoals;
-        match.completed = true;
-        match.events = result.events;
-        match.stats = result.stats;
-        match.playerRatings = result.playerRatings;
-        match.bestPlayer = result.bestPlayer;
-        updatedTeams = applyMatchResultToTeams(updatedTeams, m.homeTeam, m.awayTeam, result);
+        // Partida do usuário: fica PENDENTE para ser jogada ao vivo no Centro de Partidas.
+        // Será auto-finalizada na próxima rodada se não for jogada.
+        match.completed = false;
+        match.isLive = false;
       }
       return match;
-    });
+    })];
 
-    const inboxMessage = generateInboxMessage(newWeek);
     let youthIntakeCompleted = youthReset;
 
     if (newWeek === 1 && !youthIntakeCompleted && state.selectedTeam) {
@@ -193,20 +258,42 @@ export const createCoreSlice = (set: Set, get: Get) => ({
         const sponsorship = (team.reputation / 100) * 0.3;
         updatedTeams[teamIdx] = {
           ...team,
-          budget: Math.max(0, team.budget + ticketRevenue + sponsorship - team.wageBill * 0.01),
+          budget: Math.max(0, team.budget + ticketRevenue + sponsorship - team.wageBill * (12 / 52)),
         };
       }
     }
 
+    // Generate incoming transfer BEFORE inbox message so context can be passed
     const newIncoming = state.selectedTeam
       ? maybeGenerateIncomingTransfer(updatedTeams, state.selectedTeam)
       : null;
 
-    // Attach relatedPlayerId to transfer inbox messages so actions work
-    let inboxToSend = inboxMessage;
-    if (newIncoming && inboxMessage.type === 'transfer') {
-      inboxToSend = { ...inboxMessage, relatedPlayerId: newIncoming.playerId };
+    // Generate context-aware inbox message with proper relatedPlayerId
+    const inboxMessage = generateInboxMessage(newWeek, {
+      teams: updatedTeams,
+      selectedTeamId: state.selectedTeam,
+      hasIncomingTransfer: !!newIncoming,
+      incomingTransferPlayerId: newIncoming?.playerId,
+    });
+
+    // Apply injury to the player if the message is an injury type
+    if (inboxMessage.type === 'injury' && inboxMessage.relatedPlayerId && state.selectedTeam) {
+      const teamIdx = updatedTeams.findIndex(t => t.id === state.selectedTeam);
+      if (teamIdx !== -1) {
+        const team = updatedTeams[teamIdx];
+        const injuryDays = 7 + Math.floor(Math.random() * 28);
+        updatedTeams[teamIdx] = {
+          ...team,
+          squad: team.squad.map(p =>
+            p.id === inboxMessage.relatedPlayerId
+              ? { ...p, injury: { active: true, days: injuryDays }, lastInjuryWeek: newWeek }
+              : p
+          ),
+        };
+      }
     }
+
+    let inboxToSend = inboxMessage;
 
     // ============================================================
     // PROCESSAMENTO DE FADIGA E RECOMENDAÇÕES (AVANCE WEEK)
@@ -379,11 +466,55 @@ export const createCoreSlice = (set: Set, get: Get) => ({
     // ============================================================
     // ATUALIZAR TABELA DE CLASSIFICAÇÃO (P1.1)
     // ============================================================
-    const leagueStandings = calculateLeagueStandings(updatedTeams, updatedMatches);
+    const leagueStandings = calculateLeagueStandings(updatedTeams, updatedMatches, newWeek);
 
-    // Build final inbox: all new messages (injury, installment, bonus) + weekly message + existing
+    // ============================================================
+    // PROCESSAMENTO DE MISSÕES DE SCOUTING
+    // ============================================================
+    let updatedScoutKnowledge = state.scoutKnowledge;
+    let updatedScoutMissions = state.scoutMissions;
+    const scoutInboxMessages: InboxMessage[] = [];
+    let updatedScoutReports = state.scoutReports;
+
+    if (state.scoutMissions.length > 0) {
+      const scoutResult = processScoutMissions(
+        state.scoutMissions,
+        state.scoutKnowledge,
+        updatedTeams,
+        state.selectedTeam,
+        newWeek,
+      );
+      updatedScoutKnowledge = scoutResult.updatedKnowledge;
+      updatedScoutMissions = scoutResult.updatedMissions;
+      scoutInboxMessages.push(...scoutResult.newInboxMessages);
+
+      // Merge new scout reports (replace existing for same player)
+      const reportIds = new Set(scoutResult.newScoutReports.map(r => r.playerId));
+      updatedScoutReports = [
+        ...scoutResult.newScoutReports,
+        ...state.scoutReports.filter(r => !reportIds.has(r.playerId)),
+      ];
+
+      // Liberar olheiros cujas missões terminaram
+      if (state.selectedTeam) {
+        const activeScoutIds = new Set(updatedScoutMissions.map(m => m.scoutId));
+        const teamIdx3 = updatedTeams.findIndex(t => t.id === state.selectedTeam);
+        if (teamIdx3 !== -1 && updatedTeams[teamIdx3].scouts) {
+          updatedTeams[teamIdx3] = {
+            ...updatedTeams[teamIdx3],
+            scouts: updatedTeams[teamIdx3].scouts.map(s => ({
+              ...s,
+              assigned: activeScoutIds.has(s.id),
+            })),
+          };
+        }
+      }
+    }
+
+    // Build final inbox: all new messages (injury, installment, bonus, scout) + weekly message + existing
     const finalInbox = [
       ...newInboxMessages,
+      ...scoutInboxMessages,
       inboxToSend,
       ...state.inbox,
     ];
@@ -400,6 +531,9 @@ export const createCoreSlice = (set: Set, get: Get) => ({
         : state.incomingTransfers,
       leagueTable: leagueStandings,
       pendingInstallments: updatedPendingInstallments,
+      scoutKnowledge: updatedScoutKnowledge,
+      scoutMissions: updatedScoutMissions,
+      scoutReports: updatedScoutReports,
     });
 
     get().updatePromiseCountdown();

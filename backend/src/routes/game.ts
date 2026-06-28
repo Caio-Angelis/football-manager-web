@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import { useGameStore } from '../store/gameStore.js';
-import type { GameState, Team } from '../types/game.js';
+import type { GameState, Team, Player } from '../types/game.js';
 import { actionSchemas } from '../validation/schemas.js';
 import { AppError, ValidationError } from '../utils/errors.js';
+import { maskPlayerAttributes, getBestScout } from '../store/helpers/scouting.js';
 
 export const gameRouter = Router();
 
@@ -14,6 +15,28 @@ function extractState(): GameState {
       result[key] = state[key];
     }
   }
+
+  // ============================================================
+  // MÁSCARA DE ATRIBUTOS: Jogadores de outros times têm atributos
+  // mascarados baseado no scoutKnowledge do GameState.
+  // ============================================================
+  if (result.selectedTeam && result.teams) {
+    const userTeam: Team | undefined = result.teams.find((t: Team) => t.id === result.selectedTeam);
+    const bestScout = userTeam ? getBestScout(userTeam) : null;
+    const judgingAbility = bestScout?.judgingAbility ?? 10;
+
+    result.teams = result.teams.map((team: Team) => {
+      if (team.id === result.selectedTeam) return team;
+      return {
+        ...team,
+        squad: team.squad.map((player: Player) => {
+          const knowledge = result.scoutKnowledge?.[player.id] ?? 0;
+          return maskPlayerAttributes(player, knowledge, judgingAbility);
+        }),
+      };
+    });
+  }
+
   return result as GameState;
 }
 

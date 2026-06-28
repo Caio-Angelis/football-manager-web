@@ -82,7 +82,7 @@ export const PlayerDetailPanel: React.FC<PlayerDetailPanelProps> = ({
         </div>
       </div>
 
-      {player.injury && (
+      {player.injury?.active && (
         <div className="fm-player-detail-panel__injury">
           <span>🏥 Lesão: {player.injury.days} dias restantes</span>
         </div>
@@ -109,9 +109,9 @@ export const PlayerDetailPanel: React.FC<PlayerDetailPanelProps> = ({
               <StatBar label="Técnica" value={player.technical.technique} maxValue={20} />
               <StatBar label="Passe" value={player.technical.passing} maxValue={20} />
               <StatBar label="Finalização" value={player.technical.finishing} maxValue={20} />
-              <StatBar label="Cabeceamento" value={player.technical.heading ?? 0} maxValue={20} />
-              <StatBar label="Cruzamentos" value={player.technical.crossing ?? 0} maxValue={20} />
-              <StatBar label="Drible" value={player.technical.dribbling ?? 0} maxValue={20} />
+              <StatBar label="Cabeceamento" value={player.technical.heading ?? null} maxValue={20} />
+              <StatBar label="Cruzamentos" value={player.technical.crossing ?? null} maxValue={20} />
+              <StatBar label="Drible" value={player.technical.dribbling ?? null} maxValue={20} />
             </div>
           </section>
         )}
@@ -120,12 +120,12 @@ export const PlayerDetailPanel: React.FC<PlayerDetailPanelProps> = ({
           <section className="fm-player-detail-panel__group">
             <h4 className="fm-player-detail-panel__group-title">Mental</h4>
             <div className="fm-player-detail-panel__stats-grid">
-              <StatBar label="Visão" value={player.mental.vision ?? 0} maxValue={20} />
-              <StatBar label="Decisões" value={player.mental.decisions ?? 0} maxValue={20} />
-              <StatBar label="Composure" value={player.mental.composure ?? 0} maxValue={20} />
-              <StatBar label="Liderança" value={player.mental.leadership ?? 0} maxValue={20} />
-              <StatBar label="Posicionamento" value={player.mental.positioning ?? 0} maxValue={20} />
-              <StatBar label="Trabalho de Bola" value={player.mental.workRate ?? 0} maxValue={20} />
+              <StatBar label="Visão" value={player.mental.vision ?? null} maxValue={20} />
+              <StatBar label="Decisões" value={player.mental.decisions ?? null} maxValue={20} />
+              <StatBar label="Compostura" value={player.mental.composure ?? null} maxValue={20} />
+              <StatBar label="Liderança" value={player.mental.leadership ?? null} maxValue={20} />
+              <StatBar label="Posicionamento" value={player.mental.positioning ?? null} maxValue={20} />
+              <StatBar label="Trabalho de Bola" value={player.mental.workRate ?? null} maxValue={20} />
             </div>
           </section>
         )}
@@ -134,12 +134,12 @@ export const PlayerDetailPanel: React.FC<PlayerDetailPanelProps> = ({
           <section className="fm-player-detail-panel__group">
             <h4 className="fm-player-detail-panel__group-title">Físico</h4>
             <div className="fm-player-detail-panel__stats-grid">
-              <StatBar label="Velocidade" value={player.physical.speed ?? 0} maxValue={20} />
-              <StatBar label="Força" value={player.physical.strength ?? 0} maxValue={20} />
-              <StatBar label="Resistência" value={player.physical.stamina ?? 0} maxValue={20} />
-              <StatBar label="Aceleração" value={player.physical.acceleration ?? 0} maxValue={20} />
-              <StatBar label="Agilidade" value={player.physical.agility ?? 0} maxValue={20} />
-              <StatBar label="Salto" value={player.physical.jumping ?? 0} maxValue={20} />
+              <StatBar label="Velocidade" value={player.physical.speed ?? null} maxValue={20} />
+              <StatBar label="Força" value={player.physical.strength ?? null} maxValue={20} />
+              <StatBar label="Resistência" value={player.physical.stamina ?? null} maxValue={20} />
+              <StatBar label="Aceleração" value={player.physical.acceleration ?? null} maxValue={20} />
+              <StatBar label="Agilidade" value={player.physical.agility ?? null} maxValue={20} />
+              <StatBar label="Salto" value={player.physical.jumping ?? null} maxValue={20} />
             </div>
           </section>
         )}
@@ -149,11 +149,11 @@ export const PlayerDetailPanel: React.FC<PlayerDetailPanelProps> = ({
         <h3 className="fm-player-detail-panel__section-title">Contrato</h3>
         <div className="fm-player-detail-panel__contract-row">
           <span className="fm-player-detail-panel__contract-label">Valor de Mercado:</span>
-          <span className="fm-player-detail-panel__contract-value">{player.marketValue >= 1000 ? `€${(player.marketValue / 1000).toFixed(1)}M` : `€${player.marketValue}K`}</span>
+          <span className="fm-player-detail-panel__contract-value">R$ {player.marketValue.toFixed(1)}M</span>
         </div>
         <div className="fm-player-detail-panel__contract-row">
           <span className="fm-player-detail-panel__contract-label">Salário:</span>
-          <span className="fm-player-detail-panel__contract-value">€{(player.salary / 1000).toFixed(1)}K/semana</span>
+          <span className="fm-player-detail-panel__contract-value">R$ {(player.salary / 1000).toFixed(1)}K/semana</span>
         </div>
         <div className="fm-player-detail-panel__contract-row">
           <span className="fm-player-detail-panel__contract-label">Fim do Contrato:</span>
@@ -162,7 +162,7 @@ export const PlayerDetailPanel: React.FC<PlayerDetailPanelProps> = ({
         {player.contractClause > 0 && (
           <div className="fm-player-detail-panel__contract-row">
             <span className="fm-player-detail-panel__contract-label">Cláusula de Rescisão:</span>
-            <span className="fm-player-detail-panel__contract-value">€{player.contractClause}K</span>
+            <span className="fm-player-detail-panel__contract-value">R$ {player.contractClause.toFixed(1)}M</span>
           </div>
         )}
       </div>

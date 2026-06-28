@@ -37,23 +37,152 @@ const LeagueTableWrapper: React.FC = () => {
   return <LeagueTable standings={leagueTable} userTeamId={selectedTeam} />;
 };
 
-const ClubView: React.FC<{ team?: Team }> = ({ team }) => (
-  <div className="fm-club-view">
-    <h1>Visão do Clube</h1>
-    {team && (
+const EXPECTATION_LABELS: Record<string, string> = {
+  relegation: 'Evitar rebaixamento',
+  midtable: 'Meio da tabela',
+  top4: 'G4',
+  title: 'Título',
+};
+
+const FORM_LABELS: Record<string, string> = {
+  W: 'V',
+  D: 'E',
+  L: 'D',
+};
+
+const ClubView: React.FC<{ team?: Team }> = ({ team }) => {
+  if (!team) {
+    return (
+      <div className="fm-club-view">
+        <h1>Visão do Clube</h1>
+        <div className="fm-empty">Selecione um time para ver a visão do clube</div>
+      </div>
+    );
+  }
+
+  const squadCount = team.squad?.length ?? 0;
+  const expectationLabel = EXPECTATION_LABELS[team.boardExpectation] ?? team.boardExpectation;
+  const goalDifference = team.goalsFor - team.goalsAgainst;
+  const formItems = (team.leagueForm ?? []).map(f => FORM_LABELS[f] ?? f);
+
+  return (
+    <div className="fm-club-view">
+      <h1>Visão do Clube</h1>
       <div className="fm-club-view__info">
         <h2>{team.name}</h2>
         <p>{team.division} — {team.league}</p>
         <p>Reputação: {team.reputation}/100</p>
-        <p>Expectativa da diretoria: {team.boardExpectation}</p>
-        <p>Instalações: nível {team.facilitiesLevel}</p>
-        <p>Base juvenil: nível {team.youthFacilitiesLevel}</p>
-        <p>Scouting: nível {team.scoutingLevel}</p>
-        <p>Elenco: {team.squad.length} jogadores</p>
+        <p>Expectativa da diretoria: {expectationLabel}</p>
       </div>
-    )}
-  </div>
-);
+
+      <div className="fm-club-view__section">
+        <h3 className="fm-club-view__section-title">Estrutura</h3>
+        <div className="fm-club-view__grid">
+          <div className="fm-club-view__stat">
+            <span className="fm-club-view__stat-label">Instalações</span>
+            <span className="fm-club-view__stat-value">Nível {team.facilitiesLevel}</span>
+          </div>
+          <div className="fm-club-view__stat">
+            <span className="fm-club-view__stat-label">Base Juvenil</span>
+            <span className="fm-club-view__stat-value">Nível {team.youthFacilitiesLevel}</span>
+          </div>
+          <div className="fm-club-view__stat">
+            <span className="fm-club-view__stat-label">Scouting</span>
+            <span className="fm-club-view__stat-value">Nível {team.scoutingLevel}</span>
+          </div>
+          <div className="fm-club-view__stat">
+            <span className="fm-club-view__stat-label">Equipa Técnica</span>
+            <span className="fm-club-view__stat-value">Nível {team.staffLevel}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="fm-club-view__section">
+        <h3 className="fm-club-view__section-title">Finanças</h3>
+        <div className="fm-club-view__grid">
+          <div className="fm-club-view__stat">
+            <span className="fm-club-view__stat-label">Orçamento</span>
+            <span className="fm-club-view__stat-value">R$ {team.budget.toFixed(1)}M</span>
+          </div>
+          <div className="fm-club-view__stat">
+            <span className="fm-club-view__stat-label">Orçamento de Transferências</span>
+            <span className="fm-club-view__stat-value">R$ {team.transferBudget.toFixed(1)}M</span>
+          </div>
+          <div className="fm-club-view__stat">
+            <span className="fm-club-view__stat-label">Folha Salarial</span>
+            <span className="fm-club-view__stat-value">R$ {team.wageBill.toFixed(1)}M</span>
+          </div>
+          <div className="fm-club-view__stat">
+            <span className="fm-club-view__stat-label">Jogadores</span>
+            <span className="fm-club-view__stat-value">{squadCount}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="fm-club-view__section">
+        <h3 className="fm-club-view__section-title">Desempenho</h3>
+        <div className="fm-club-view__grid">
+          <div className="fm-club-view__stat">
+            <span className="fm-club-view__stat-label">Posição</span>
+            <span className="fm-club-view__stat-value">{team.leaguePosition}º</span>
+          </div>
+          <div className="fm-club-view__stat">
+            <span className="fm-club-view__stat-label">Pontos</span>
+            <span className="fm-club-view__stat-value">{team.points}</span>
+          </div>
+          <div className="fm-club-view__stat">
+            <span className="fm-club-view__stat-label">Jogos</span>
+            <span className="fm-club-view__stat-value">{team.played}</span>
+          </div>
+          <div className="fm-club-view__stat">
+            <span className="fm-club-view__stat-label">V / E / D</span>
+            <span className="fm-club-view__stat-value">{team.won} / {team.drawn} / {team.lost}</span>
+          </div>
+          <div className="fm-club-view__stat">
+            <span className="fm-club-view__stat-label">Gols Marcados</span>
+            <span className="fm-club-view__stat-value">{team.goalsFor}</span>
+          </div>
+          <div className="fm-club-view__stat">
+            <span className="fm-club-view__stat-label">Gols Sofridos</span>
+            <span className="fm-club-view__stat-value">{team.goalsAgainst}</span>
+          </div>
+          <div className="fm-club-view__stat">
+            <span className="fm-club-view__stat-label">Saldo de Gols</span>
+            <span className="fm-club-view__stat-value">{goalDifference >= 0 ? '+' : ''}{goalDifference}</span>
+          </div>
+        </div>
+        {formItems.length > 0 && (
+          <div className="fm-club-view__form">
+            <span className="fm-club-view__stat-label">Últimos jogos:</span>
+            <div className="fm-club-view__form-badges">
+              {formItems.map((f, i) => (
+                <span key={i} className={`fm-club-view__form-badge fm-club-view__form-badge--${(team.leagueForm ?? [])[i]?.toLowerCase() ?? ''}`}>
+                  {f}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {team.boardPromises && team.boardPromises.length > 0 && (
+        <div className="fm-club-view__section">
+          <h3 className="fm-club-view__section-title">Promessas da Diretoria</h3>
+          <div className="fm-club-view__promises">
+            {team.boardPromises.map((p, i) => (
+              <div key={i} className={`fm-club-view__promise ${p.fulfilled ? 'fm-club-view__promise--done' : ''}`}>
+                <span className="fm-club-view__promise-goal">{p.goal}</span>
+                <span className="fm-club-view__promise-deadline">
+                  {p.fulfilled ? 'Cumprida' : `Prazo: ${p.deadline} sem.`}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const App: React.FC = () => {
   const { selectedTeam, inbox, teams, currentWeek, currentSeason, advanceWeek } = useGameStore();
@@ -179,6 +308,10 @@ export const App: React.FC = () => {
         </div>
         <div className="fm-sidebar__footer">
           <ThemeToggle compact className="fm-sidebar__theme" />
+        </div>
+      </nav>
+      <main className="fm-main">
+        <div className="fm-main__actionbar">
           <Button
             className="fm-button--back"
             onClick={() => {
@@ -210,8 +343,7 @@ export const App: React.FC = () => {
             💾 Save 2
           </Button>
         </div>
-      </nav>
-      <main className="fm-main">
+        <div className="fm-main__content">
         <Routes>
           <Route path="/" element={<Navigate to="/elenco" replace />} />
           <Route path="/elenco" element={<SquadView />} />
@@ -226,6 +358,7 @@ export const App: React.FC = () => {
           <Route path="/clube" element={<ClubView team={team} />} />
           <Route path="*" element={<Navigate to="/elenco" replace />} />
         </Routes>
+        </div>
       </main>
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>

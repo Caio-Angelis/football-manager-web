@@ -75,7 +75,6 @@
 
   .fm-main {
     padding-bottom: 120px; /* space for bottom nav */
-    overflow-y: auto;
   }
 
   .fm-squad-view,
@@ -86,6 +85,12 @@
 
 /* ===== Squad Table Mobile ===== */
 @media (max-width: 768px) {
+  .fm-main__actionbar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+
   .fm-squad-table__wrapper {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;

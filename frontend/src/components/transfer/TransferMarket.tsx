@@ -257,6 +257,8 @@ export const TransferMarket: React.FC<{
   const [offerAmount, setOfferAmount] = useState('');
   const [negotiationResult, setNegotiationResult] = useState<NegotiationResult | null>(null);
   const [negotiationLoading, setNegotiationLoading] = useState(false);
+  const [negotiationRound, setNegotiationRound] = useState(1);
+  const [negotiationHistory, setNegotiationHistory] = useState<{ round: number; offerPrice: number; result: NegotiationResult }[]>([]);
 
   // Item 8: Debounce de 300ms na busca de jogadores
   const filterRef = useRef(debouncedFilter);
@@ -272,9 +274,11 @@ export const TransferMarket: React.FC<{
   }, [filter]);
 
   // Item 7: Ordenação para listas de transferências/parcelas/bónus
-  const sortByDateDesc = <T extends { deferredAt?: number; agreementDate?: string }>(a: T, b: T) =>
-    ((b as any).deferredAt ?? b.agreementDate ?? '') < ((a as any).deferredAt ?? a.agreementDate ?? '')
-      ? 1 : -1;
+  const sortByDateDesc = <T extends { deferredAt?: number; agreementDate?: string }>(a: T, b: T) => {
+    const aDate = (a as any).deferredAt ?? a.agreementDate ?? 0;
+    const bDate = (b as any).deferredAt ?? b.agreementDate ?? 0;
+    return bDate - aDate;
+  };
 
   const sortByActivationDesc = (a: PlayerBonus, b: PlayerBonus) =>
     (a.triggered ? 0 : 1) - (b.triggered ? 0 : 1);
@@ -336,6 +340,8 @@ export const TransferMarket: React.FC<{
     });
     setOfferAmount(String(player.marketValue));
     setNegotiationResult(null);
+    setNegotiationRound(1);
+    setNegotiationHistory([]);
   };
 
   const handleMakeOffer = async () => {
@@ -347,14 +353,21 @@ export const TransferMarket: React.FC<{
     }
     setNegotiationLoading(true);
     try {
-      const result = await makeOffer(negotiationModal.playerId, negotiationModal.sellerTeamId, price);
+      const result = await makeOffer(negotiationModal.playerId, negotiationModal.sellerTeamId, price, negotiationRound);
       setNegotiationResult(result);
-      addToast?.(result.message, result.status === 'rejected' ? 'warning' : 'info');
+      setNegotiationHistory(prev => [...prev, { round: negotiationRound, offerPrice: price, result }]);
+      addToast?.(result.message, result.status === 'rejected' || result.status === 'walked_away' ? 'warning' : 'info');
     } catch {
       addToast?.('Erro ao enviar proposta.', 'error');
     } finally {
       setNegotiationLoading(false);
     }
+  };
+
+  const handleQuickOffer = (percentage: number) => {
+    if (!negotiationModal) return;
+    const value = Math.round(negotiationModal.marketValue * percentage * 10) / 10;
+    setOfferAmount(String(value));
   };
 
   const handleAcceptCounter = async () => {
@@ -372,6 +385,7 @@ export const TransferMarket: React.FC<{
         addToast?.('Jogador contratado com sucesso!', 'success');
         setNegotiationModal(null);
         setNegotiationResult(null);
+        setNegotiationHistory([]);
       } else {
         addToast?.('Orçamento insuficiente para esta contratação.', 'warning');
       }
@@ -398,6 +412,7 @@ export const TransferMarket: React.FC<{
         addToast?.('Jogador contratado com sucesso!', 'success');
         setNegotiationModal(null);
         setNegotiationResult(null);
+        setNegotiationHistory([]);
       } else {
         addToast?.('Orçamento insuficiente para esta contratação.', 'warning');
       }
@@ -412,6 +427,8 @@ export const TransferMarket: React.FC<{
     setNegotiationModal(null);
     setNegotiationResult(null);
     setOfferAmount('');
+    setNegotiationRound(1);
+    setNegotiationHistory([]);
   };
 
   const handleNegotiate = async (playerId: string) => {
@@ -562,9 +579,6 @@ export const TransferMarket: React.FC<{
                   const scouted = !!report;
                   return (
                     <div key={player.id} className="fm-transfer-player-wrap">
-                      {!scouted && (
-                        <div className="fm-transfer-fog">🔍 Atribua olheiro para ver atributos</div>
-                      )}
                       {scouted ? (
                         <PlayerCard
                           player={player}
@@ -573,18 +587,23 @@ export const TransferMarket: React.FC<{
                         />
                       ) : (
                         <div className="fm-transfer-fog-card">
-                          <h3>??? Jogador</h3>
-                          <p>{player.position} — {teamName}</p>
-                          <p>Idade: {player.age} | {player.nationality}</p>
-                          <Button onClick={() => {
-                            if (selectedPlayerId === player.id) {
-                              setSelectedPlayerId(null);
-                            } else {
-                              setSelectedPlayerId(player.id);
-                            }
-                          }}>
-                            {selectedPlayerId === player.id ? 'Deselecionar' : 'Atribuir Olheiro'}
-                          </Button>
+                          <div className="fm-transfer-fog-card__blurred">
+                            <h3>??? Jogador</h3>
+                            <p>{player.position} — {teamName}</p>
+                            <p>Idade: {player.age} | {player.nationality}</p>
+                          </div>
+                          <div className="fm-transfer-fog-card__overlay">
+                            <span className="fm-transfer-fog-card__hint">🔍 Atribua um olheiro para ver atributos</span>
+                            <Button onClick={() => {
+                              if (selectedPlayerId === player.id) {
+                                setSelectedPlayerId(null);
+                              } else {
+                                setSelectedPlayerId(player.id);
+                              }
+                            }}>
+                              {selectedPlayerId === player.id ? 'Deselecionar' : 'Atribuir Olheiro'}
+                            </Button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -677,9 +696,9 @@ export const TransferMarket: React.FC<{
                   offer={offer}
                   playerName={getPlayerName(offer.playerId)}
                   fromTeamName={teams.find(t => t.id === offer.fromTeam)?.name ?? offer.fromTeam}
-                  onAccept={() => reinstateDeferredTransfer(offer.playerId)}
+                  onAccept={() => handleAcceptTransfer(offer.playerId)}
                   onReject={() => rejectDeferredTransfer(offer.playerId)}
-                  onDefer={() => {}}
+                  onDefer={() => reinstateDeferredTransfer(offer.playerId)}
                   onNegotiate={() => handleNegotiate(offer.playerId)}
                 />
               ))}
@@ -701,12 +720,12 @@ export const TransferMarket: React.FC<{
             <div className="fm-empty">Nenhum pagamento parcelado pendente.</div>
           ) : (
             <div className="fm-installments-list">
-              {pendingInstallments.slice().sort(sortByNextPaymentAsc).map((clause) => {
+              {pendingInstallments.slice().sort(sortByNextPaymentAsc).map((clause, index) => {
                 const unpaidPayments = clause.payments.filter(p => !p.paid);
                 const totalUnpaid = unpaidPayments.reduce((sum, p) => sum + p.amount, 0);
                 const nextDue = unpaidPayments.sort((a, b) => a.dueWeek - b.dueWeek)[0];
                 return (
-                  <div key={clause.totalAmount + clause.status} className="fm-installment-clause-card">
+                  <div key={clause.id || `ic_${index}`} className="fm-installment-clause-card">
                     <div className="fm-installment-clause-card__header">
                       <span className="fm-installment-clause-card__total">R$ {clause.totalAmount}M</span>
                       <span className={`fm-installment-clause-card__status fm-installment-clause-card__status--${clause.status}`}>
@@ -729,7 +748,7 @@ export const TransferMarket: React.FC<{
                           // Pay next pending installment
                           const nextPending = clause.payments.find(p => !p.paid);
                           if (nextPending) {
-                            const success = payInstallment(nextPending.installmentNumber.toString());
+                            const success = payInstallment(`${clause.id || ''}:${nextPending.installmentNumber}`);
                             if (success) {
                               setInstallmentFeedback(`Parcela ${nextPending.installmentNumber} paga com sucesso!`);
                             } else {
@@ -795,7 +814,7 @@ export const TransferMarket: React.FC<{
                     {bonus.triggered && !bonus.claimed && (
                       <div className="fm-bonus-card__actions">
                         <Button variant="success" onClick={() => {
-                          claimBonus(bonus.playerId);
+                          claimBonus(bonus.id || bonus.playerId);
                           setBonusFeedback('Bónus reclamado!');
                           setTimeout(() => setBonusFeedback(null), 2000);
                         }}>Reclamar Bónus</Button>
@@ -919,11 +938,56 @@ export const TransferMarket: React.FC<{
                 <h3>{negotiationModal.playerName}</h3>
                 <p>Time vendedor: {negotiationModal.sellerTeamName}</p>
                 <p>Valor de mercado: R$ {negotiationModal.marketValue}M</p>
+                {team && (
+                  <p>Seu orçamento: <span className={team.budget < parseFloat(offerAmount || '0') ? 'fm-negotiation-modal__budget-warning' : ''}>R$ {team.budget.toFixed(1)}M</span></p>
+                )}
               </div>
+
+              {negotiationHistory.length > 0 && (
+                <div className="fm-negotiation-modal__history">
+                  <h4>Histórico de Negociação</h4>
+                  {negotiationHistory.map((h, i) => (
+                    <div key={i} className="fm-negotiation-modal__history-item">
+                      <span className="fm-negotiation-modal__history-round">R{h.round}</span>
+                      <span className="fm-negotiation-modal__history-price">R$ {h.offerPrice}M</span>
+                      <span className={`fm-negotiation-modal__history-status fm-negotiation-modal__history-status--${h.result.status}`}>
+                        {h.result.status === 'accepted' ? '✅' : h.result.status === 'rejected' ? '❌' : h.result.status === 'countered' ? `🔄 R$ ${h.result.counterPrice}M` : '🚫'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {negotiationResult?.playerWillingness != null && (
+                <div className="fm-negotiation-modal__willingness">
+                  <div className="fm-negotiation-modal__willingness-header">
+                    <span>Vontade do jogador: </span>
+                    <span className="fm-negotiation-modal__willingness-label">{negotiationResult.willingnessLabel}</span>
+                  </div>
+                  <div className="fm-negotiation-modal__willingness-bar">
+                    <div
+                      className="fm-negotiation-modal__willingness-fill"
+                      style={{ width: `${negotiationResult.playerWillingness}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {negotiationResult?.maxRounds != null && (
+                <div className="fm-negotiation-modal__rounds">
+                  Ronda {negotiationResult.negotiationRound} de {negotiationResult.maxRounds}
+                </div>
+              )}
 
               {!negotiationResult && (
                 <div className="fm-negotiation-modal__offer-form">
                   <label htmlFor="offer-amount">Sua proposta (R$ milhões):</label>
+                  <div className="fm-negotiation-modal__quick-offers">
+                    <button className="fm-negotiation-modal__quick-offer" onClick={() => handleQuickOffer(0.8)}>80%</button>
+                    <button className="fm-negotiation-modal__quick-offer" onClick={() => handleQuickOffer(0.9)}>90%</button>
+                    <button className="fm-negotiation-modal__quick-offer" onClick={() => handleQuickOffer(1.0)}>100%</button>
+                    <button className="fm-negotiation-modal__quick-offer" onClick={() => handleQuickOffer(1.1)}>110%</button>
+                  </div>
                   <input
                     id="offer-amount"
                     type="number"
@@ -933,6 +997,9 @@ export const TransferMarket: React.FC<{
                     onChange={(e) => setOfferAmount(e.target.value)}
                     disabled={negotiationLoading}
                   />
+                  {team && parseFloat(offerAmount) > team.budget && (
+                    <p className="fm-negotiation-modal__budget-warning-text">⚠ Valor acima do seu orçamento!</p>
+                  )}
                   <Button
                     variant="primary"
                     onClick={handleMakeOffer}
@@ -949,8 +1016,20 @@ export const TransferMarket: React.FC<{
                     {negotiationResult.status === 'accepted' && '✅ Proposta Aceita!'}
                     {negotiationResult.status === 'rejected' && '❌ Proposta Recusada'}
                     {negotiationResult.status === 'countered' && '🔄 Contra-oferta Recebida'}
+                    {negotiationResult.status === 'walked_away' && '🚫 Negociação Encerrada'}
                   </div>
                   <p className="fm-negotiation-modal__result-message">{negotiationResult.message}</p>
+
+                  {negotiationResult.status === 'accepted' && negotiationResult.contractPreview && (
+                    <div className="fm-negotiation-modal__contract-preview">
+                      <h4>Prévia de Contrato</h4>
+                      <div className="fm-negotiation-modal__contract-details">
+                        <div><span>Salário estimado:</span><span>R$ {negotiationResult.contractPreview.estimatedSalary}K/sem</span></div>
+                        <div><span>Duração:</span><span>{Math.floor(negotiationResult.contractPreview.estimatedWeeks / 52)} ano(s) e {negotiationResult.contractPreview.estimatedWeeks % 52} sem</span></div>
+                        <div><span>Cláusula de rescisão:</span><span>R$ {negotiationResult.contractPreview.estimatedReleaseClause}M</span></div>
+                      </div>
+                    </div>
+                  )}
 
                   {negotiationResult.status === 'accepted' && (
                     <Button
@@ -973,7 +1052,11 @@ export const TransferMarket: React.FC<{
                       </Button>
                       <Button
                         variant="secondary"
-                        onClick={() => { setNegotiationResult(null); setOfferAmount(String(negotiationResult.counterPrice)); }}
+                        onClick={() => {
+                          setNegotiationResult(null);
+                          setOfferAmount(String(negotiationResult.counterPrice));
+                          setNegotiationRound(prev => prev + 1);
+                        }}
                         disabled={negotiationLoading}
                       >
                         Renegociar
@@ -984,10 +1067,20 @@ export const TransferMarket: React.FC<{
                   {negotiationResult.status === 'rejected' && (
                     <Button
                       variant="secondary"
-                      onClick={() => { setNegotiationResult(null); }}
+                      onClick={() => { setNegotiationResult(null); setNegotiationRound(prev => prev + 1); }}
                       disabled={negotiationLoading}
                     >
                       Fazer Nova Proposta
+                    </Button>
+                  )}
+
+                  {negotiationResult.status === 'walked_away' && (
+                    <Button
+                      variant="secondary"
+                      onClick={closeNegotiation}
+                      disabled={negotiationLoading}
+                    >
+                      Fechar
                     </Button>
                   )}
                 </div>

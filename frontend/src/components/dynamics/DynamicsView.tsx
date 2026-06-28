@@ -3,16 +3,23 @@ import { useGameStore } from '../../store/gameStore';
 import type { Player } from '../../types/game';
 
 const HIERARCHY_LEVELS = [
-  { key: 'Key Player', label: 'Líderes de Equipa', minLeadership: 15 },
-  { key: 'Regular Starter', label: 'Altamente Influentes', minLeadership: 12 },
-  { key: 'Rotation', label: 'Influentes', minLeadership: 0 },
-  { key: 'Young Talent', label: 'Jovens Promessas', minLeadership: -1 },
-  { key: 'Excess', label: 'Outros', minLeadership: -1 },
+  { key: 'Key Player', label: 'Líderes de Equipa' },
+  { key: 'Regular Starter', label: 'Altamente Influentes' },
+  { key: 'Rotation', label: 'Influentes' },
+  { key: 'Young Talent', label: 'Jovens Promessas' },
+  { key: 'Excess', label: 'Outros' },
 ];
 
 function getSatisfaction(player: Player) {
-  const playingTime = player.squadStatus === 'Key Player' ? 90 : player.squadStatus === 'Regular Starter' ? 75 : 50;
-  const contract = player.salary > 100 ? 80 : 60;
+  const playingTime =
+    player.squadStatus === 'Key Player' ? 90 :
+    player.squadStatus === 'Regular Starter' ? 75 :
+    player.squadStatus === 'Rotation' ? 50 :
+    player.squadStatus === 'Young Talent' ? 30 : 15;
+  const contract =
+    player.contractEnd > 52 ? 85 :
+    player.contractEnd > 26 ? 70 :
+    player.contractEnd > 10 ? 55 : 40;
   const morale = player.morale;
   const performance = player.form;
   return { playingTime, contract, morale, performance };
@@ -280,9 +287,18 @@ export const DynamicsView: React.FC = () => {
                     <div className="fm-social-tree__node-connections">
                       {node.connections.map(connId => {
                         const connectedNode = socialTree.nodes.find(n => n.playerId === connId);
+                        const edge = socialTree.edges.find(e =>
+                          (e.from === node.playerId && e.to === connId) ||
+                          (e.from === connId && e.to === node.playerId)
+                        );
+                        const strength = edge?.strength ?? 0;
+                        const strengthClass =
+                          strength >= 0.8 ? 'fm-social-tree__connection--strong' :
+                          strength >= 0.6 ? 'fm-social-tree__connection--medium' :
+                          'fm-social-tree__connection--weak';
                         return connectedNode ? (
-                          <span key={connId} className="fm-social-tree__connection">
-                            {connectedNode.playerName}
+                          <span key={connId} className={`fm-social-tree__connection ${strengthClass}`}>
+                            {connectedNode.playerName} ({Math.round(strength * 100)}%)
                           </span>
                         ) : null;
                       })}
@@ -332,7 +348,7 @@ export const DynamicsView: React.FC = () => {
                   <div
                     className="fm-promise-bar__fill"
                     style={{
-                      width: `${Math.max(0, Math.min(100, (weeksLeft / Math.max(promise.deadline + weeksLeft, 1)) * 100))}%`,
+                      width: `${Math.max(0, Math.min(100, (weeksLeft / Math.max(promise.originalDeadline ?? weeksLeft, 1)) * 100))}%`,
                       backgroundColor: weeksLeft <= 2 ? '#ef4444' : weeksLeft <= 5 ? '#eab308' : '#22c32a',
                     }}
                   />

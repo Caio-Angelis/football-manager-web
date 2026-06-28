@@ -11,10 +11,10 @@ export const FinanceView: React.FC = () => {
     return <div className="fm-empty">Selecione um time para ver finanças</div>;
   }
 
-  const ticketRevenue = (team.reputation / 100) * 0.5 * team.played;
-  const sponsorship = (team.reputation / 100) * 0.3 * Math.max(1, currentWeek);
+  const ticketRevenue = (team.reputation / 100) * 0.5;
+  const sponsorship = (team.reputation / 100) * 0.3;
   const facilityCosts = team.facilitiesLevel * 0.1;
-  const weeklyWages = team.wageBill;
+  const weeklyWages = team.wageBill * (12 / 52);
   const totalIncome = ticketRevenue + sponsorship;
   const totalExpenses = weeklyWages + facilityCosts;
   const balance = totalIncome - totalExpenses;
@@ -22,9 +22,8 @@ export const FinanceView: React.FC = () => {
 
   const projection = Array.from({ length: 6 }, (_, i) => {
     const week = currentWeek + i + 1;
-    const income = sponsorship / Math.max(currentWeek, 1) * week + ticketRevenue;
-    const expenses = weeklyWages * (week / Math.max(currentWeek, 1));
-    return { week, balance: team.budget + income - expenses };
+    const cumulativeNet = balance * (i + 1);
+    return { week, balance: team.budget + cumulativeNet };
   });
 
   const startEditing = (playerId: string, salary: number) => {
@@ -55,7 +54,7 @@ export const FinanceView: React.FC = () => {
         </div>
         <div className="fm-finance-card">
           <span className="fm-finance-card__label">Folha Salarial</span>
-          <span className="fm-finance-card__value">R$ {team.wageBill.toFixed(1)}M/sem</span>
+          <span className="fm-finance-card__value">R$ {team.wageBill.toFixed(1)}M/mês</span>
         </div>
         <div className="fm-finance-card">
           <span className="fm-finance-card__label">Balanço Semanal</span>
@@ -70,7 +69,7 @@ export const FinanceView: React.FC = () => {
         <div className="fm-wage-control">
           <div className="fm-wage-control__meter">
             <div className="fm-wage-control__meter-labels">
-              <span>Folha atual: R$ {team.wageBill.toFixed(1)}M/sem</span>
+              <span>Folha atual: R$ {team.wageBill.toFixed(1)}M/mês</span>
               <span>Limite sugerido: R$ {wageBudgetLimit.toFixed(1)}M</span>
             </div>
             <div className="fm-wage-control__track">
@@ -90,19 +89,19 @@ export const FinanceView: React.FC = () => {
         <h2>Receitas e Despesas</h2>
         <div className="fm-finance-ledger">
           <div className="fm-finance-ledger__row fm-finance-ledger__row--income">
-            <span>Bilheteira (acumulado)</span>
+            <span>Bilheteira (semanal)</span>
             <span>+ R$ {ticketRevenue.toFixed(2)}M</span>
           </div>
           <div className="fm-finance-ledger__row fm-finance-ledger__row--income">
-            <span>Patrocínio</span>
+            <span>Patrocínio (semanal)</span>
             <span>+ R$ {sponsorship.toFixed(2)}M</span>
           </div>
           <div className="fm-finance-ledger__row fm-finance-ledger__row--expense">
-            <span>Salários</span>
+            <span>Salários (semanal)</span>
             <span>- R$ {weeklyWages.toFixed(2)}M</span>
           </div>
           <div className="fm-finance-ledger__row fm-finance-ledger__row--expense">
-            <span>Infraestruturas</span>
+            <span>Infraestruturas (semanal)</span>
             <span>- R$ {facilityCosts.toFixed(2)}M</span>
           </div>
         </div>

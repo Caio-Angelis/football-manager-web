@@ -35,7 +35,7 @@ export const actionSchemas: Record<string, z.ZodTypeAny> = {
 
   // Transfer
   buyPlayer: z.union([z.tuple([zString, zString]), z.tuple([zString, zString, z.boolean()])]),
-  makeOffer: z.tuple([zString, zString, zNumberNonNeg]),
+  makeOffer: z.union([z.tuple([zString, zString, zNumberNonNeg]), z.tuple([zString, zString, zNumberNonNeg, zNumber.int().positive()])]),
   acceptOffer: z.tuple([zString, zString, zNumberNonNeg]),
   acceptIncomingTransfer: z.tuple([zString]),
   rejectIncomingTransfer: z.tuple([zString]),
@@ -54,6 +54,8 @@ export const actionSchemas: Record<string, z.ZodTypeAny> = {
   getCompletedTransfers: zEmpty,
 
   // Scouting & Youth
+  assignScoutMission: z.tuple([zString, zString, zNumber.int().positive()]),
+  getScoutKnowledge: z.tuple([zString]),
   completeYouthIntake: zEmpty,
   generateYouthPlayers: zEmpty,
   promoteYouthPlayer: z.tuple([zString]),

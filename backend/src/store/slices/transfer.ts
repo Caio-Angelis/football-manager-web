@@ -45,6 +45,7 @@ export const createTransferSlice = (set: Set, get: Get) => ({
       buyer.budget -= downPayment;
 
       installmentClause = {
+        id: `ic_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         totalAmount: remaining,
         installmentCount,
         installmentAmount,
@@ -146,7 +147,7 @@ export const createTransferSlice = (set: Set, get: Get) => ({
     return true;
   },
 
-  makeOffer: (playerId: string, sellerTeamId: string, offerPrice: number): NegotiationResult => {
+  makeOffer: (playerId: string, sellerTeamId: string, offerPrice: number, negotiationRound = 1): NegotiationResult => {
     const state = get();
     if (!state.selectedTeam) {
       return { status: 'rejected', marketValue: 0, offerPrice, message: 'Nenhum time selecionado.' };
@@ -163,115 +164,157 @@ export const createTransferSlice = (set: Set, get: Get) => ({
       return { status: 'rejected', marketValue: 0, offerPrice, message: 'Jogador não encontrado.' };
     }
 
+    const buyer = state.teams.find(t => t.id === state.selectedTeam);
     const marketValue = player.marketValue;
     const ratio = offerPrice / marketValue;
 
-    // Times com maior reputação são mais teimosos na negociação
+    // === VONTADE DO JOGADOR (0-100) ===
+    // Fatores: idade, status no plantel, moral, diferença de reputação entre clubes
+    let willingness = 50;
+    if (player.age < 21) willingness -= 15; // Jovens preferem ficar
+    else if (player.age > 29) willingness += 20; // Veteranos querem rotação
+    if (player.squadStatus === 'Excess') willingness += 25;
+    else if (player.squadStatus === 'Rotation') willingness += 10;
+    else if (player.squadStatus === 'Key Player') willingness -= 15;
+    if (player.morale < 40) willingness += 20;
+    else if (player.morale > 75) willingness -= 10;
+    if (buyer) {
+      const repDiff = buyer.reputation - seller.reputation;
+      willingness += repDiff * 0.3; // Mais vontade se for para um clube maior
+    }
+    willingness = Math.max(5, Math.min(95, Math.round(willingness)));
+
+    const willingnessLabel = willingness >= 75 ? 'Muito interessado em sair'
+      : willingness >= 55 ? 'Interessado em sair'
+      : willingness >= 35 ? 'Neutro'
+      : willingness >= 15 ? 'Relutante em sair'
+      : 'Não quer sair';
+
+    // === TEIMOSIA DO VENDEDOR ===
     const stubbornness = seller.reputation / 100; // 0.01 - 1.0
+
+    // === FADIGA DE NEGOCIAÇÃO ===
+    // A cada ronda após a 1ª, o vendedor fica 5% menos flexível
+    // Após 4 rondas, pode desistir da negociação
+    const maxRounds = 4;
+    const fatigueFactor = Math.max(0, (negotiationRound - 1) * 0.05);
+    const walkAwayChance = negotiationRound >= 3 ? (negotiationRound - 2) * 0.12 : 0;
+
     const roll = Math.random();
 
-    // Oferta >= valor de mercado: quase sempre aceita, mas há pequena chance
-    // de o time tentar conseguir mais (especialmente times grandes)
-    if (ratio >= 1.0) {
-      const acceptChance = 0.92 - stubbornness * 0.07; // 85% a 92%
-      if (roll < acceptChance) {
-        return {
-          status: 'accepted',
-          marketValue,
-          offerPrice,
-          message: `O ${seller.name} aceitou a sua proposta de R$ ${offerPrice}M!`,
-        };
-      }
-      // Contra-oferta acima do valor de mercado (tentando sorte)
-      const counterPrice = Math.round(marketValue * (1.05 + Math.random() * 0.1) * 10) / 10;
+    // Verificar se o vendedor desiste da negociação
+    if (negotiationRound > 1 && roll < walkAwayChance) {
+      return {
+        status: 'walked_away',
+        marketValue,
+        offerPrice,
+        message: `O ${seller.name} encerrou as negociações. Eles não estão mais interessados em vender ${player.name} ${player.surname} neste momento.`,
+        playerWillingness: willingness,
+        willingnessLabel,
+        negotiationRound,
+        maxRounds,
+      };
+    }
+
+    // === PRÉVIA DE CONTRATO ===
+    const contractPreview = {
+      estimatedSalary: Math.round(player.salary * (1.0 + Math.random() * 0.5)),
+      estimatedWeeks: 52 + Math.floor(Math.random() * 156),
+      estimatedReleaseClause: Math.round(offerPrice * (1.2 + Math.random() * 0.3) * 10) / 10,
+    };
+
+    // Helper para construir resultado aceito
+    const acceptedResult = (): NegotiationResult => ({
+      status: 'accepted',
+      marketValue,
+      offerPrice,
+      message: `O ${seller.name} aceitou a sua proposta de R$ ${offerPrice}M por ${player.name} ${player.surname}!`,
+      playerWillingness: willingness,
+      willingnessLabel,
+      negotiationRound,
+      maxRounds,
+      contractPreview,
+    });
+
+    // Helper para contra-oferta
+    const counteredResult = (mult: number, msg: string): NegotiationResult => {
+      const counterPrice = Math.round(marketValue * mult * 10) / 10;
       return {
         status: 'countered',
         marketValue,
         offerPrice,
         counterPrice,
-        message: `O ${seller.name} reconhece o valor mas contra-propôs R$ ${counterPrice}M pelo ${player.name} ${player.surname}.`,
+        message: msg,
+        playerWillingness: willingness,
+        willingnessLabel,
+        negotiationRound,
+        maxRounds,
+        contractPreview,
       };
-    }
+    };
 
-    // Oferta entre 90% e 100%: boa chance de aceitar ou contra-propor
-    if (ratio >= 0.9) {
-      const acceptChance = 0.55 - stubbornness * 0.2; // 35% a 55%
-      const counterChance = acceptChance + 0.35; // +35% chance de contra-oferta
-      if (roll < acceptChance) {
-        return {
-          status: 'accepted',
-          marketValue,
-          offerPrice,
-          message: `O ${seller.name} aceitou a sua proposta de R$ ${offerPrice}M!`,
-        };
-      }
-      if (roll < counterChance) {
-        const counterPrice = Math.round(marketValue * (0.95 + Math.random() * 0.1) * 10) / 10;
-        return {
-          status: 'countered',
-          marketValue,
-          offerPrice,
-          counterPrice,
-          message: `O ${seller.name} contra-propôs R$ ${counterPrice}M pelo ${player.name} ${player.surname}.`,
-        };
-      }
-      return {
-        status: 'rejected',
-        marketValue,
-        offerPrice,
-        message: `O ${seller.name} recusou a proposta de R$ ${offerPrice}M. Valor de mercado: R$ ${marketValue}M.`,
-      };
-    }
-
-    // Oferta entre 75% e 90%: pode contra-propor ou recusar
-    if (ratio >= 0.75) {
-      const counterChance = 0.5 - stubbornness * 0.2; // 30% a 50%
-      if (roll < counterChance) {
-        const counterPrice = Math.round(marketValue * (0.95 + Math.random() * 0.1) * 10) / 10;
-        return {
-          status: 'countered',
-          marketValue,
-          offerPrice,
-          counterPrice,
-          message: `O ${seller.name} contra-propôs R$ ${counterPrice}M pelo ${player.name} ${player.surname}.`,
-        };
-      }
-      return {
-        status: 'rejected',
-        marketValue,
-        offerPrice,
-        message: `O ${seller.name} recusou a proposta de R$ ${offerPrice}M. Valor de mercado: R$ ${marketValue}M.`,
-      };
-    }
-
-    // Oferta entre 60% e 75%: pequena chance de contra-oferta, maior de recusar
-    if (ratio >= 0.6) {
-      const counterChance = 0.2 - stubbornness * 0.1; // 10% a 20%
-      if (roll < counterChance) {
-        const counterPrice = Math.round(marketValue * (0.9 + Math.random() * 0.1) * 10) / 10;
-        return {
-          status: 'countered',
-          marketValue,
-          offerPrice,
-          counterPrice,
-          message: `O ${seller.name} achou a proposta baixa, mas contra-propôs R$ ${counterPrice}M pelo ${player.name} ${player.surname}.`,
-        };
-      }
-      return {
-        status: 'rejected',
-        marketValue,
-        offerPrice,
-        message: `O ${seller.name} recusou a proposta de R$ ${offerPrice}M. Valor de mercado: R$ ${marketValue}M.`,
-      };
-    }
-
-    // Oferta muito baixa (< 60%): quase sempre recusada
-    return {
+    // Helper para recusa
+    const rejectedResult = (msg: string): NegotiationResult => ({
       status: 'rejected',
       marketValue,
       offerPrice,
-      message: `O ${seller.name} recusou categoricamente a proposta de R$ ${offerPrice}M. Valor de mercado: R$ ${marketValue}M.`,
-    };
+      message: msg,
+      playerWillingness: willingness,
+      willingnessLabel,
+      negotiationRound,
+      maxRounds,
+    });
+
+    // === LÓGICA DE ACEITAÇÃO ===
+    // A vontade do jogador reduz a teimosia do vendedor
+    const effectiveStubbornness = stubbornness * (1 - (willingness - 50) * 0.004);
+
+    // Oferta >= valor de mercado
+    if (ratio >= 1.0) {
+      const acceptChance = (0.92 - effectiveStubbornness * 0.07) - fatigueFactor;
+      if (roll < acceptChance) return acceptedResult();
+      const counterPrice = Math.round(marketValue * (1.05 + Math.random() * 0.1) * 10) / 10;
+      return counteredResult(1.05 + Math.random() * 0.1,
+        `O ${seller.name} reconhece o valor mas contra-propôs R$ ${counterPrice}M pelo ${player.name} ${player.surname}.`);
+    }
+
+    // Oferta entre 90% e 100%
+    if (ratio >= 0.9) {
+      const acceptChance = (0.55 - effectiveStubbornness * 0.2) - fatigueFactor;
+      const counterChance = acceptChance + 0.35;
+      if (roll < acceptChance) return acceptedResult();
+      if (roll < counterChance) {
+        const counterPrice = Math.round(marketValue * (0.95 + Math.random() * 0.1) * 10) / 10;
+        return counteredResult(0.95 + Math.random() * 0.1,
+          `O ${seller.name} contra-propôs R$ ${counterPrice}M pelo ${player.name} ${player.surname}.`);
+      }
+      return rejectedResult(`O ${seller.name} recusou a proposta de R$ ${offerPrice}M. Valor de mercado: R$ ${marketValue}M.`);
+    }
+
+    // Oferta entre 75% e 90%
+    if (ratio >= 0.75) {
+      const counterChance = (0.5 - effectiveStubbornness * 0.2) - fatigueFactor;
+      if (roll < counterChance) {
+        const counterPrice = Math.round(marketValue * (0.95 + Math.random() * 0.1) * 10) / 10;
+        return counteredResult(0.95 + Math.random() * 0.1,
+          `O ${seller.name} contra-propôs R$ ${counterPrice}M pelo ${player.name} ${player.surname}.`);
+      }
+      return rejectedResult(`O ${seller.name} recusou a proposta de R$ ${offerPrice}M. Valor de mercado: R$ ${marketValue}M.`);
+    }
+
+    // Oferta entre 60% e 75%
+    if (ratio >= 0.6) {
+      const counterChance = (0.2 - effectiveStubbornness * 0.1) - fatigueFactor;
+      if (roll < counterChance) {
+        const counterPrice = Math.round(marketValue * (0.9 + Math.random() * 0.1) * 10) / 10;
+        return counteredResult(0.9 + Math.random() * 0.1,
+          `O ${seller.name} achou a proposta baixa, mas contra-propôs R$ ${counterPrice}M pelo ${player.name} ${player.surname}.`);
+      }
+      return rejectedResult(`O ${seller.name} recusou a proposta de R$ ${offerPrice}M. Valor de mercado: R$ ${marketValue}M.`);
+    }
+
+    // Oferta muito baixa (< 60%)
+    return rejectedResult(`O ${seller.name} recusou categoricamente a proposta de R$ ${offerPrice}M. Valor de mercado: R$ ${marketValue}M.`);
   },
 
   acceptOffer: (playerId: string, sellerTeamId: string, offerPrice: number): boolean => {
@@ -369,7 +412,8 @@ export const createTransferSlice = (set: Set, get: Get) => ({
 
   acceptIncomingTransfer: (playerId: string) => {
     const state = get();
-    const offer = state.incomingTransfers.find(o => o.playerId === playerId);
+    const offer = state.incomingTransfers.find(o => o.playerId === playerId)
+      || state.deferredTransfers.find(o => o.playerId === playerId);
     if (!offer || !state.selectedTeam) return;
 
     const teamIdx = state.teams.findIndex(t => t.id === state.selectedTeam);
@@ -402,16 +446,24 @@ export const createTransferSlice = (set: Set, get: Get) => ({
       let buyerBudget = buyer.budget;
 
       if (offer.paymentMethod === 'installments' && offer.installmentClause) {
-        buyerBudget -= offer.installmentClause.payments[0].amount;
+        const firstPaymentAmount = offer.installmentClause.payments[0].amount;
+        buyerBudget -= firstPaymentAmount;
         const remainingPayments = offer.installmentClause.payments.slice(1).map(p => ({
           ...p,
           dueWeek: p.dueWeek + state.currentWeek,
         }));
+        const remainingTotal = remainingPayments.reduce((sum, p) => sum + p.amount, 0);
         newPendingInstallments = [...state.pendingInstallments, {
           ...offer.installmentClause,
+          id: offer.installmentClause.id || `ic_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          totalAmount: remainingTotal,
+          installmentCount: remainingPayments.length,
           payments: remainingPayments,
           status: 'active' as const,
         }];
+        // Seller receives only the first installment upfront
+        updatedUserTeam.budget -= offer.offerPrice; // undo full price
+        updatedUserTeam.budget += firstPaymentAmount; // add only first installment
       } else {
         buyerBudget -= offer.offerPrice;
       }
@@ -451,6 +503,7 @@ export const createTransferSlice = (set: Set, get: Get) => ({
     set({
       teams: updatedTeams,
       incomingTransfers: state.incomingTransfers.filter(o => o.playerId !== playerId),
+      deferredTransfers: state.deferredTransfers.filter(o => o.playerId !== playerId),
       pendingInstallments: newPendingInstallments,
       incomingBonuses: newIncomingBonuses,
       completedTransfers: [...state.completedTransfers, completedTransfer],
@@ -498,7 +551,8 @@ export const createTransferSlice = (set: Set, get: Get) => ({
 
   negotiateCounterOffer: (playerId: string) => {
     const state = get();
-    const offer = state.incomingTransfers.find(o => o.playerId === playerId);
+    const offer = state.incomingTransfers.find(o => o.playerId === playerId)
+      || state.deferredTransfers.find(o => o.playerId === playerId);
     if (!offer || !state.selectedTeam) return false;
 
     const team = state.teams.find(t => t.id === state.selectedTeam);
@@ -518,6 +572,7 @@ export const createTransferSlice = (set: Set, get: Get) => ({
       const installmentAmount = Math.round(counterPrice / installmentCount * 10) / 10;
 
       installmentClause = {
+        id: `ic_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         totalAmount: counterPrice,
         installmentCount,
         installmentAmount,
@@ -542,6 +597,7 @@ export const createTransferSlice = (set: Set, get: Get) => ({
       const bonusTypes: PlayerBonus['type'][] = ['goals', 'appearances', 'assists'];
       for (let i = 0; i < Math.floor(Math.random() * 2) + 1; i++) {
         bonuses.push({
+          id: `bonus_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${i}`,
           playerId: offer.playerId,
           type: bonusTypes[Math.floor(Math.random() * bonusTypes.length)],
           threshold: Math.floor(Math.random() * 30) + 10,
@@ -579,6 +635,7 @@ export const createTransferSlice = (set: Set, get: Get) => ({
     set({
       counterOffers: [...state.counterOffers, newCounterOffer],
       incomingTransfers: state.incomingTransfers.filter(o => o.playerId !== playerId),
+      deferredTransfers: state.deferredTransfers.filter(o => o.playerId !== playerId),
       inbox: [counterMessage, ...state.inbox],
     });
 
@@ -603,6 +660,7 @@ export const createTransferSlice = (set: Set, get: Get) => ({
     }
 
     return {
+      id: `ic_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       totalAmount,
       installmentCount: count,
       installmentAmount,
@@ -621,13 +679,23 @@ export const createTransferSlice = (set: Set, get: Get) => ({
 
   payInstallment: (installmentId: string) => {
     const state = get();
+    // installmentId format: "<clauseId>:<installmentNumber>" or fallback to installmentNumber only
+    const sepIdx = installmentId.indexOf(':');
+    let clauseId: string | null = null;
+    let payNum: string = installmentId;
+    if (sepIdx !== -1) {
+      clauseId = installmentId.substring(0, sepIdx);
+      payNum = installmentId.substring(sepIdx + 1);
+    }
+
     const instIdx = state.pendingInstallments.findIndex(inst =>
-      inst.payments.some(p => p.installmentNumber.toString() === installmentId),
+      (clauseId ? inst.id === clauseId : true) &&
+      inst.payments.some(p => p.installmentNumber.toString() === payNum),
     );
     if (instIdx === -1) return false;
 
     const installment = state.pendingInstallments[instIdx];
-    const paymentIdx = installment.payments.findIndex(p => p.installmentNumber.toString() === installmentId);
+    const paymentIdx = installment.payments.findIndex(p => p.installmentNumber.toString() === payNum);
     if (paymentIdx === -1) return false;
     const payment = installment.payments[paymentIdx];
     if (payment.paid) return false;
@@ -686,7 +754,7 @@ export const createTransferSlice = (set: Set, get: Get) => ({
 
   claimBonus: (bonusId: string) => {
     const state = get();
-    const bonus = state.incomingBonuses.find(b => b.playerId === bonusId && b.triggered && !b.claimed);
+    const bonus = state.incomingBonuses.find(b => (b.id === bonusId || b.playerId === bonusId) && b.triggered && !b.claimed);
     if (!bonus) return;
 
     const bonusAmountM = bonus.bonusAmount / 1000;

@@ -153,7 +153,7 @@ export const MessageCard: React.FC<MessageCardProps> = ({
             </span>
           </div>
         </div>
-        <div className="fm-inbox-message__unread-dot" />
+        {!message.read && <div className="fm-inbox-message__unread-dot" />}
       </div>
 
       <div className="fm-inbox-message__body" onClick={() => onOpenDetail(message)}>
@@ -195,52 +195,7 @@ export const MessageDetailModal: React.FC<MessageDetailModalProps> = ({
   onClose,
   onActionClick,
 }) => {
-  const noMessage = !message;
-
-  // Estado vazio — sem mensagem selecionada
-  if (noMessage) {
-    return (
-      <div className="fm-modal-overlay" onClick={onClose}>
-        <div className="fm-modal fm-modal--large" onClick={(e) => e.stopPropagation()}>
-          <div className="fm-modal__header">
-            <div className="fm-modal__title-area">
-              <span className="fm-modal__icon">📬</span>
-              <h2 className="fm-modal__title">Detalhes da Mensagem</h2>
-            </div>
-            <button className="fm-modal__close" onClick={onClose}>×</button>
-          </div>
-
-          <div className="fm-modal__body fm-modal__body--empty">
-            <div className="fm-empty-message">
-              <span className="fm-empty-message__icon">📭</span>
-              <p className="fm-empty-message__text">
-                Selecione uma mensagem para ver detalhes e ações.
-              </p>
-              <p className="fm-empty-message__hint">
-                Clique em qualquer mensagem na lista ao lado.
-              </p>
-            </div>
-          </div>
-
-          <div className="fm-modal__footer">
-            <div className="fm-modal__actions">
-              {/* Botões visíveis mas desabilitados */}
-              {['Ver Detalhes', 'Arquivar', 'Marcar como Lido'].map((label) => (
-                <Button
-                  key={label}
-                  variant="secondary"
-                  disabled={true}
-                  onClick={() => {}}
-                >
-                  {label}
-                </Button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (!message) return null;
 
   // Com mensagem — renderização normal
   const actions = ACTION_MAP[message.type] || {
@@ -288,7 +243,7 @@ export const MessageDetailModal: React.FC<MessageDetailModalProps> = ({
                 variant={btn.variant}
                 onClick={() => {
                   onActionClick(btn, message);
-                  onClose();
+                  if (btn.label !== 'Ver Detalhes') onClose();
                 }}
               >
                 {btn.label}
@@ -441,9 +396,12 @@ export const FinancialReportModal: React.FC<FinancialReportModalProps> = ({ repo
   const profitStatus = report.profit > 0 ? 'positive' : report.profit < 0 ? 'negative' : 'neutral';
 
   const formatCurrency = (value: number) => {
-    const isMillions = Math.abs(value) >= 1;
-    const displayValue = isMillions ? value : value * 1000;
-    return `R$ ${displayValue.toFixed(2)}M`;
+    const sign = value < 0 ? '-' : '';
+    const abs = Math.abs(value);
+    if (abs >= 1) {
+      return `${sign}R$ ${abs.toFixed(2)}M`;
+    }
+    return `${sign}R$ ${(abs * 1000).toFixed(0)}K`;
   };
 
   return (
@@ -516,13 +474,13 @@ export const FinancialReportModal: React.FC<FinancialReportModalProps> = ({ repo
               <h3 className="fm-financial-report__section-title">Despesas</h3>
               <div className="fm-financial-report__grid">
                 <div className="fm-financial-report__field">
-                  <span className="fm-financial-report__label">Salários:</span>
-                  <span className="fm-financial-report__value">{formatCurrency(report.wageBill)}</span>
+                  <span className="fm-financial-report__label">Salários (semanal):</span>
+                  <span className="fm-financial-report__value">{formatCurrency(report.wageBill * (12 / 52))}</span>
                 </div>
                 <div className="fm-financial-report__field">
                   <span className="fm-financial-report__label">Outras:</span>
                   <span className="fm-financial-report__value">
-                    {formatCurrency(report.totalExpenses - report.wageBill * 0.01)}
+                    {formatCurrency(Math.max(0, report.totalExpenses - report.wageBill * (12 / 52)))}
                   </span>
                 </div>
                 <div className="fm-financial-report__field fm-financial-report__field--total">
@@ -564,7 +522,7 @@ export const FinancialReportModal: React.FC<FinancialReportModalProps> = ({ repo
                 <div
                   className="fm-financial-report__profit-fill"
                   style={{
-                    width: `${Math.min(100, Math.max(0, 50 + report.profit * 200))}%`,
+                    width: `${Math.min(100, Math.max(0, 50 + (report.profit / Math.max(report.totalIncome, 0.01)) * 50))}%`,
                     backgroundColor: PROFIT_COLORS[profitStatus],
                   }}
                 />
@@ -591,7 +549,7 @@ export const FinancialReportModal: React.FC<FinancialReportModalProps> = ({ repo
 // ============================================================
 
 export const InboxView: React.FC = () => {
-  const { inbox, selectedTeam, teams, handleInboxAction, getInjuryReport, handleBoardReply, boardSatisfaction, getFinancialReport } = useGameStore();
+  const { inbox, selectedTeam, teams, handleInboxAction, getInjuryReport, handleBoardReply, boardSatisfaction, getFinancialReport, deferTransfer } = useGameStore();
   const [activeFilter, setActiveFilter] = React.useState<string>('all');
   const [activePriority, setActivePriority] = React.useState<string>('all');
   const [selectedMessage, setSelectedMessage] = React.useState<InboxMessage | null>(null);
@@ -609,19 +567,27 @@ export const InboxView: React.FC = () => {
 
   const userTeam = teams.find(t => t.id === selectedTeam);
 
-  // Filtrar mensagens
-  const filteredMessages = inbox.filter((msg) => {
-    const typeMatch = activeFilter === 'all' || msg.type === activeFilter;
-    const priorityMatch = activePriority === 'all' || msg.priority === activePriority;
-    return typeMatch && priorityMatch;
-  });
+  // Filtrar e ordenar mensagens (não lidas primeiro, depois por data)
+  const filteredMessages = inbox
+    .filter((msg) => {
+      const typeMatch = activeFilter === 'all' || msg.type === activeFilter;
+      const priorityMatch = activePriority === 'all' || msg.priority === activePriority;
+      return typeMatch && priorityMatch;
+    })
+    .sort((a, b) => {
+      if (a.read !== b.read) return a.read ? 1 : -1;
+      return b.timestamp - a.timestamp;
+    });
 
   // Contar mensagens não lidas
   const unreadCount = inbox.filter(m => !m.read).length;
 
-  // Abrir detalhe da mensagem
+  // Abrir detalhe da mensagem e marcar como lida
   const handleOpenDetail = (message: InboxMessage) => {
     setSelectedMessage(message);
+    if (!message.read) {
+      handleInboxAction(message.id, 'Marcar como Lido');
+    }
   };
 
   // Fechar detalhe
@@ -640,6 +606,8 @@ export const InboxView: React.FC = () => {
         setInjuryReport(report);
         setShowInjuryReport(true);
       }
+      handleInboxAction(message.id, action.label);
+      return;
     }
 
     // Item 9.8.3 - Diretoria: Responder - abre modal de resposta
@@ -647,6 +615,9 @@ export const InboxView: React.FC = () => {
       setBoardReplyMessage(message);
       setShowBoardReply(true);
       setReplyText('');
+      if (!message.read) {
+        handleInboxAction(message.id, 'Marcar como Lido');
+      }
       return;
     }
 
@@ -657,6 +628,26 @@ export const InboxView: React.FC = () => {
         setFinancialReport(report);
         setShowFinancialReport(true);
       }
+      handleInboxAction(message.id, action.label);
+      return;
+    }
+
+    // Adiar transferência
+    if (action.label === 'Adiar' && message.type === 'transfer' && message.relatedPlayerId) {
+      deferTransfer(message.relatedPlayerId);
+      handleInboxAction(message.id, action.label);
+      setActionFeedback('Transferência adiada!');
+      setTimeout(() => setActionFeedback(null), 3000);
+      return;
+    }
+
+    // Treino: Ver Detalhes — abre o modal de detalhe da mensagem
+    if (action.label === 'Ver Detalhes') {
+      setSelectedMessage(message);
+      if (!message.read) {
+        handleInboxAction(message.id, action.label);
+      }
+      return;
     }
 
     handleInboxAction(message.id, action.label);
@@ -774,11 +765,13 @@ export const InboxView: React.FC = () => {
       )}
 
       {/* Modal de detalhe */}
-      <MessageDetailModal
-        message={selectedMessage}
-        onClose={handleCloseDetail}
-        onActionClick={handleActionClick}
-      />
+      {selectedMessage && (
+        <MessageDetailModal
+          message={selectedMessage}
+          onClose={handleCloseDetail}
+          onActionClick={handleActionClick}
+        />
+      )}
 
       {/* Modal de relatório de lesão (Item 9.8.2) */}
       {showInjuryReport && injuryReport && (
@@ -869,7 +862,7 @@ export const InboxView: React.FC = () => {
                     <div
                       className="fm-board-reply__satisfaction-fill"
                       style={{
-                        width: `${Math.max(0, Math.min(100, boardSatisfaction + 100))}%`,
+                        width: `${Math.max(0, Math.min(100, (boardSatisfaction + 100) / 2))}%`,
                         backgroundColor: boardSatisfaction >= 50 ? '#4caf50' : boardSatisfaction >= 0 ? '#ff9800' : '#d93025',
                       }}
                     />

@@ -51,6 +51,7 @@ export function maybeGenerateIncomingTransfer(teams: Team[], selectedTeamId: str
     const installmentAmount = Math.round(offerPrice / installmentCount * 10) / 10;
 
     installmentClause = {
+      id: `ic_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       totalAmount: offerPrice,
       installmentCount,
       installmentAmount,
@@ -75,6 +76,7 @@ export function maybeGenerateIncomingTransfer(teams: Team[], selectedTeamId: str
     const bonusTypes: PlayerBonus['type'][] = ['goals', 'appearances', 'assists', 'titles'];
     for (let i = 0; i < Math.floor(Math.random() * 2) + 1; i++) {
       bonuses.push({
+        id: `bonus_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${i}`,
         playerId: player.id,
         type: bonusTypes[Math.floor(Math.random() * bonusTypes.length)],
         threshold: Math.floor(Math.random() * 30) + 10,

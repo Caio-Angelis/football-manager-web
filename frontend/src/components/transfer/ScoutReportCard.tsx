@@ -10,11 +10,26 @@ export const ScoutReportCard: React.FC<ScoutReportCardProps> = ({ report, onBuy 
   const stars = '★'.repeat(report.stars) + '☆'.repeat(5 - report.stars);
   const reliability = '●'.repeat(report.reliability) + '○'.repeat(5 - report.reliability);
 
+  const gradeColors: Record<string, string> = {
+    A: '#4CAF50',
+    B: '#8BC34A',
+    C: '#FFC107',
+    D: '#FF9800',
+    E: '#FF5722',
+    F: '#F44336',
+  };
+  const gradeColor = report.grade ? gradeColors[report.grade] : '#9E9E9E';
+
   return (
     <div className="fm-scout-report">
       <div className="fm-scout-report__header">
         <h3>{report.playerName}</h3>
         <span className="fm-scout-report__position">{report.position}</span>
+        {report.grade && (
+          <span className="fm-scout-report__grade" style={{ backgroundColor: gradeColor, color: '#fff', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
+            {report.grade}
+          </span>
+        )}
       </div>
 
       <div className="fm-scout-report__meta">

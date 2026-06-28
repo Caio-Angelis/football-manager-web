@@ -79,7 +79,8 @@ export interface HiddenAttributes {
 // Promessas ao jogador
 export interface Promise {
   goal: string;
-  deadline: number; // em semanas
+  deadline: number; // em semanas restantes
+  originalDeadline?: number; // prazo original (para barra de progresso)
   fulfilled: boolean;
 }
 

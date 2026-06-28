@@ -27,6 +27,34 @@ export interface MatchStats {
   awayPassAccuracy: number;
 }
 
+// Ação individual durante a partida (cada passe, drible, chute, etc.)
+export interface MatchAction {
+  minute: number;
+  type: 'pass' | 'dribble' | 'shot' | 'tackle' | 'interception' | 'clearance' | 'cross' | 'foul' | 'kickoff' | 'goalKick' | 'throwIn';
+  team: 'home' | 'away';
+  playerId: string;
+  playerName: string;
+  success: boolean;
+  description: string;
+  ballPos: number; // 0-1 (0 = gol de casa, 1 = gol de fora)
+}
+
+// Estado da partida ao vivo — simulação passo a passo
+export interface LiveMatchState {
+  possession: 'home' | 'away';
+  ballPos: number;        // 0 = home goal, 1 = away goal (casa ataca rumo a 1)
+  ballHolderId: string;
+  passChain: number;      // passes consecutivos bem-sucedidos na posse atual
+  pressure: number;       // 0-1, pressão defensiva sobre o portador da bola
+  homeGoals: number;
+  awayGoals: number;
+  stats: MatchStats;
+  events: MatchEvent[];
+  actions: MatchAction[];
+  goalDetails: { team: 'home' | 'away'; minute: number; scorerId: string; scorerName: string; assistId?: string; assistName?: string }[];
+  interventionBoost?: { team: 'home' | 'away'; type: string; untilMinute: number };
+}
+
 // ============================================================
 // RATING DE JOGADORES POR PARTIDA (Tarefa 2.2)
 // ============================================================
@@ -60,6 +88,8 @@ export interface Match {
   liveMinute: number; // 0-90
   liveEvents: MatchEvent[];
   liveStats: MatchStats;
+  liveActions: MatchAction[]; // cada ação individual (passes, dribles, chutes, etc.)
+  liveMatchState?: LiveMatchState; // estado da simulação passo a passo
   // Substitution limits (5 per team)
   homeSubstitutions: number;
   awaySubstitutions: number;
