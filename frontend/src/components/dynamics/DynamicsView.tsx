@@ -64,9 +64,9 @@ export const DynamicsView: React.FC = () => {
     return <div className="fm-empty">Selecione um time para ver dinâmicas</div>;
   }
 
-  const leaders = team.squad.filter(p => (p.mental?.leadership ?? 0) >= 15);
+  const leaders = team.squad.filter(p => Number(p.mental?.leadership ?? 0) >= 15);
   const influential = team.squad.filter(p => {
-    const l = p.mental?.leadership ?? 0;
+    const l = Number(p.mental?.leadership ?? 0);
     return l >= 12 && l < 15;
   });
 

@@ -8,8 +8,8 @@ import { maskPlayerAttributes, getBestScout } from '../store/helpers/scouting.js
 export const gameRouter = Router();
 
 function extractState(): GameState {
-  const state = useGameStore.getState() as any;
-  const result: any = {};
+  const state = useGameStore.getState() as unknown as Record<string, unknown>;
+  const result: Record<string, unknown> = {};
   for (const key in state) {
     if (typeof state[key] !== 'function') {
       result[key] = state[key];
@@ -21,28 +21,31 @@ function extractState(): GameState {
   // mascarados baseado no scoutKnowledge do GameState.
   // ============================================================
   if (result.selectedTeam && result.teams) {
-    const userTeam: Team | undefined = result.teams.find((t: Team) => t.id === result.selectedTeam);
+    const teams = result.teams as Team[];
+    const selectedTeam = result.selectedTeam as string;
+    const scoutKnowledge = result.scoutKnowledge as Record<string, number> | undefined;
+    const userTeam: Team | undefined = teams.find((t: Team) => t.id === selectedTeam);
     const bestScout = userTeam ? getBestScout(userTeam) : null;
     const judgingAbility = bestScout?.judgingAbility ?? 10;
 
-    result.teams = result.teams.map((team: Team) => {
-      if (team.id === result.selectedTeam) return team;
+    result.teams = teams.map((team: Team) => {
+      if (team.id === selectedTeam) return team;
       return {
         ...team,
         squad: team.squad.map((player: Player) => {
-          const knowledge = result.scoutKnowledge?.[player.id] ?? 0;
+          const knowledge = scoutKnowledge?.[player.id] ?? 0;
           return maskPlayerAttributes(player, knowledge, judgingAbility);
         }),
       };
     });
   }
 
-  return result as GameState;
+  return result as unknown as GameState;
 }
 
 // Auto-discover all action names from the store (functions only)
 function getActionNames(): Set<string> {
-  const state = useGameStore.getState() as any;
+  const state = useGameStore.getState() as unknown as Record<string, unknown>;
   const names = new Set<string>();
   for (const key in state) {
     if (typeof state[key] === 'function') {
@@ -57,7 +60,7 @@ gameRouter.get('/state', (_req, res) => {
 });
 
 gameRouter.post('/action', (req, res) => {
-  const { action, args } = req.body as { action: string; args: any[] };
+  const { action, args } = req.body as { action: string; args: unknown[] };
 
   const actionNames = getActionNames();
   if (!actionNames.has(action)) {
@@ -76,7 +79,7 @@ gameRouter.post('/action', (req, res) => {
     return;
   }
 
-  const fn = (useGameStore.getState() as any)[action];
+  const fn = (useGameStore.getState() as unknown as Record<string, unknown>)[action];
   if (typeof fn !== 'function') {
     throw new AppError('ACTION_NOT_FOUND', `Action not found: ${action}`, 400);
   }

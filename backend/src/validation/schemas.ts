@@ -54,9 +54,33 @@ export const actionSchemas: Record<string, z.ZodTypeAny> = {
   getTransferAgreements: z.union([z.tuple([zString.optional()]), zEmpty]),
   getCompletedTransfers: zEmpty,
 
+  // Loans
+  loanPlayer: z.union([
+    z.tuple([zString, zString, zNumber.int().positive(), zNumberNonNeg]),
+    z.tuple([zString, zString, zNumber.int().positive(), zNumberNonNeg, zNumberNonNeg]),
+    z.tuple([zString, zString, zNumber.int().positive(), zNumberNonNeg, zNumberNonNeg, z.boolean()]),
+  ]),
+  recallLoanedPlayer: z.tuple([zString]),
+  buyLoanedPlayer: z.tuple([zString]),
+
+  // Release Clause
+  activateReleaseClause: z.tuple([zString, zString]),
+
+  // Bidding Wars
+  raiseBid: z.tuple([zString, zNumberNonNeg]),
+  withdrawBid: z.tuple([zString]),
+
   // Scouting & Youth
   assignScoutMission: z.tuple([zString, zString, zNumber.int().positive()]),
   getScoutKnowledge: z.tuple([zString]),
+  addToShortlist: z.union([
+    z.tuple([zString]),
+    z.tuple([zString, z.enum(['high', 'medium', 'low'])]),
+    z.tuple([zString, z.enum(['high', 'medium', 'low']), zString]),
+  ]),
+  removeFromShortlist: z.tuple([zString]),
+  getShortlist: zEmpty,
+  dismissScoutRecommendation: z.tuple([zString]),
   completeYouthIntake: zEmpty,
   generateYouthPlayers: zEmpty,
   promoteYouthPlayer: z.tuple([zString]),

@@ -1,0 +1,103 @@
+======================================================================
+BALANCE REPORT — Football Manager Web
+Simulações: 30 runs × 3 temporadas = 90 campeonatos
+======================================================================
+
+1. WIN-RATE POR TÁTICA (CAMPEÕES)
+----------------------------------------
+  balanced         50/90    55.6%  ███████████████████████████
+  attacking        33/90    36.7%  ██████████████████
+  defensive         7/90     7.8%  ███
+
+2. REBAIXAMENTOS POR TÁTICA
+----------------------------------------
+  attacking       127/90   141.1%  ██████████████████████████████████████████████████████████████████████
+  defensive        89/90    98.9%  █████████████████████████████████████████████████
+  balanced         54/90    60.0%  ██████████████████████████████
+
+3. CAMPEÕES POR TIME
+----------------------------------------
+  Palmeiras                  18/90    20.0%  ██████████
+  Flamengo                    8/90     8.9%  ████
+  Corinthians                 8/90     8.9%  ████
+  Internacional               8/90     8.9%  ████
+  Santos                      7/90     7.8%  ███
+  Atlético Mineiro            7/90     7.8%  ███
+  Fortaleza                   5/90     5.6%  ██
+  Ceará                       5/90     5.6%  ██
+  São Paulo                   5/90     5.6%  ██
+  Botafogo                    4/90     4.4%  ██
+  Cruzeiro                    4/90     4.4%  ██
+  Fluminense                  3/90     3.3%  █
+  Red Bull Bragantino         3/90     3.3%  █
+  Grêmio                      2/90     2.2%  █
+  Vitória                     1/90     1.1%  
+  Vasco da Gama               1/90     1.1%  
+  Bahia                       1/90     1.1%  
+
+4. REBAIXAMENTOS POR TIME
+----------------------------------------
+  Sport Recife               60/90    66.7%  █████████████████████████████████
+  Juventude                  37/90    41.1%  ████████████████████
+  Vasco da Gama              21/90    23.3%  ███████████
+  Red Bull Bragantino        17/90    18.9%  █████████
+  Mirassol                   17/90    18.9%  █████████
+  Vitória                    15/90    16.7%  ████████
+  Fluminense                 14/90    15.6%  ███████
+  Santos                     11/90    12.2%  ██████
+  Cruzeiro                   10/90    11.1%  █████
+  São Paulo                  10/90    11.1%  █████
+  Fortaleza                   9/90    10.0%  █████
+  Grêmio                      9/90    10.0%  █████
+  Ceará                       7/90     7.8%  ███
+  Internacional               7/90     7.8%  ███
+  Botafogo                    7/90     7.8%  ███
+  Atlético Mineiro            6/90     6.7%  ███
+  Flamengo                    5/90     5.6%  ██
+  Corinthians                 4/90     4.4%  ██
+  Bahia                       3/90     3.3%  █
+  Palmeiras                   1/90     1.1%  
+
+5. MÉDIA DE GOLS POR PARTIDA
+----------------------------------------
+  Média:    1.40
+  Desvio:   ±0.04
+  Mín:      1.32
+  Máx:      1.46
+
+6. SALDO FINANCEIRO FINAL (MÉDIA)
+----------------------------------------
+  Top 4 (média):     93520.24
+  Bottom 4 (média):  89152.46
+  Gap:               4367.78
+  Razão T4/B4:       1.05x
+
+7. MAIOR CA — JOGADORES SUB-21
+----------------------------------------
+  CA médio (max/run): 167.1
+  Desvio:             ±9.7
+  Mín:                151.6
+  Máx:                193
+
+  Jogadores mais frequentes como maior CA sub-21:
+    Estêvão                        17x
+    Vitor Roque                    5x
+    Giay                           3x
+    Vinícius Tobias                3x
+    JP Chermont                    1x
+  Times mais frequentes:
+    Palmeiras                      13x
+    Juventude                      4x
+    Sport Recife                   2x
+    Santos                         2x
+    Vasco da Gama                  2x
+
+8. ANOMALIAS DETECTADAS
+----------------------------------------
+  [DOMINÂNCIA] Tática 'balanced' venceu 50/90 (55.6%) dos campeonatos — dominação excessiva.
+  [REBAIXAMENTO CRÔNICO] 'Sport Recife' foi rebaixado 60/90 (66.7%) das temporadas — time persistentemente fraco.
+  [REBAIXAMENTO CRÔNICO] 'Juventude' foi rebaixado 37/90 (41.1%) das temporadas — time persistentemente fraco.
+
+======================================================================
+Fim do relatório
+======================================================================

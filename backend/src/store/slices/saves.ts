@@ -1,5 +1,5 @@
 import type { GameStore, SaveSlot } from '../../types/game';
-import { persistSave, loadSaveFromDisk, deleteSaveFromDisk, listSaveSlotsFromDisk } from '../../services/saveService';
+import { persistSave, loadSaveFromDisk, deleteSaveFromDisk } from '../../services/saveService';
 import { useGameStore } from '../gameStore';
 
 type Set = (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void;
@@ -56,6 +56,10 @@ export const createSavesSlice = (set: Set, get: Get) => ({
         completedTransfers: state.completedTransfers,
         scoutKnowledge: state.scoutKnowledge,
         scoutMissions: state.scoutMissions,
+        shortlist: state.shortlist ?? [],
+        scoutRecommendations: state.scoutRecommendations ?? [],
+        activeLoans: state.activeLoans ?? [],
+        biddingWars: state.biddingWars ?? [],
         seasonSummary: state.seasonSummary,
         gameOver: state.gameOver,
       },
@@ -112,6 +116,10 @@ export const createSavesSlice = (set: Set, get: Get) => ({
       completedTransfers: gameState.completedTransfers ?? [],
       scoutKnowledge: gameState.scoutKnowledge ?? {},
       scoutMissions: gameState.scoutMissions ?? [],
+      shortlist: gameState.shortlist ?? [],
+      scoutRecommendations: gameState.scoutRecommendations ?? [],
+      activeLoans: gameState.activeLoans ?? [],
+      biddingWars: gameState.biddingWars ?? [],
       seasonSummary: gameState.seasonSummary ?? null,
       gameOver: gameState.gameOver ?? false,
       saveSlots: state.saveSlots,
@@ -137,7 +145,6 @@ export const createSavesSlice = (set: Set, get: Get) => ({
 
 // Call this on server startup to load saves from disk into the store
 export async function hydrateSavesFromDisk(): Promise<void> {
-  const slots = await listSaveSlotsFromDisk();
   const fullSlots: SaveSlot[] = [];
   for (const slotNumber of [1, 2] as const) {
     const save = await loadSaveFromDisk(slotNumber);

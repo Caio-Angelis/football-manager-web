@@ -196,3 +196,80 @@ export interface ActiveScoutMission {
   weeksAssigned: number;  // semanas restantes na missão
   weeksTotal: number;     // total de semanas designadas
 }
+
+// ============================================================
+// SISTEMA DE EMPRÉSTIMOS (LOANS)
+// ============================================================
+
+export interface LoanDeal {
+  id: string;
+  playerId: string;
+  playerName: string;
+  fromTeamId: string;
+  fromTeamName: string;
+  toTeamId: string;
+  toTeamName: string;
+  loanFee: number;          // taxa de empréstimo em milhões (paga upfront)
+  weeklyWageContribution: number; // % do salário pago pelo clube cedente (0-100)
+  durationWeeks: number;    // duração em semanas
+  remainingWeeks: number;   // semanas restantes
+  buyOptionFee?: number;    // cláusula de compra opcional em milhões
+  buyOptionMandatory: boolean; // se a compra é obrigatória ao fim do empréstimo
+  startDate: number;        // timestamp
+  startWeek: number;        // semana do início
+  status: 'active' | 'completed' | 'recalled' | 'bought';
+}
+
+// ============================================================
+// SISTEMA DE SHORTLIST
+// ============================================================
+
+export interface ShortlistEntry {
+  playerId: string;
+  addedAt: number;          // timestamp
+  addedWeek: number;        // semana em que foi adicionado
+  notes?: string;           // notas do usuário
+  priority: 'high' | 'medium' | 'low';
+}
+
+// ============================================================
+// RECOMENDAÇÕES DE SCOUTS
+// ============================================================
+
+export interface ScoutRecommendation {
+  id: string;
+  scoutId: string;
+  scoutName: string;
+  playerId: string;
+  playerName: string;
+  position: string;
+  age: number;
+  estimatedCA: number;
+  estimatedPA: number;
+  currentTeamName: string;
+  estimatedValue: number;
+  reason: string;           // por que o scout recomenda este jogador
+  grade: 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
+  week: number;             // semana da recomendação
+  dismissed: boolean;       // se o usuário dispensou a recomendação
+}
+
+// ============================================================
+// GUERRA DE OFERTAS (BIDDING WARS)
+// ============================================================
+
+export interface BiddingWar {
+  id: string;
+  playerId: string;
+  playerName: string;
+  sellerTeamId: string;
+  sellerTeamName: string;
+  userOffer: number;        // oferta atual do usuário
+  aiOffers: { teamId: string; teamName: string; offerPrice: number }[];
+  highestOffer: number;     // maior oferta entre todas
+  isUserWinning: boolean;   // se o usuário está liderando
+  round: number;            // rodada atual de lances
+  maxRounds: number;        // máximo de rodadas
+  status: 'active' | 'won' | 'lost' | 'withdrawn';
+  week: number;             // semana em que começou
+}

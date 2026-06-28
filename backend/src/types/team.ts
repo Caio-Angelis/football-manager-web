@@ -12,6 +12,8 @@ export interface Scout {
   judgingAbility: number;    // 1-20 — capacidade de avaliar atributos atuais
   judgingPotential: number;  // 1-20 — capacidade de avaliar potencial
   assigned: boolean;         // se está em missão ativa
+  experience: number;        // 0-100 — experiência acumulada (ganha ao completar missões)
+  missionsCompleted: number; // total de missões concluídas
 }
 
 // ============================================================

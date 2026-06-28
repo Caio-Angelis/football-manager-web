@@ -941,9 +941,7 @@
 }
 
 .fm-transfer-market__players {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
+  display: block;
 }
 
 .fm-transfer-market__load-more {
@@ -4625,9 +4623,7 @@
 
 /* --- Player grid in market --- */
 .fm-transfer-market__players {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
+  display: block;
 }
 
 .fm-transfer-player-wrap {
@@ -5500,4 +5496,555 @@
 
 .fm-season-modal__btn--primary:hover {
   opacity: 0.9;
+}
+
+/* ===== Transfer Market: New Tabs (Loans, Shortlist, Recommendations, Bidding) ===== */
+
+/* Section layout for new tabs */
+.fm-loans-section,
+.fm-shortlist-section,
+.fm-recommendations-section,
+.fm-bidding-section {
+  animation: fm-slide-up var(--motion-normal) ease-out;
+}
+
+.fm-loans-section h2,
+.fm-shortlist-section h2,
+.fm-recommendations-section h2,
+.fm-bidding-section h2 {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 20px 0;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--color-border);
+}
+
+.fm-loans-list,
+.fm-shortlist-list,
+.fm-recommendations-list,
+.fm-bidding-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* --- Loan Card --- */
+.fm-loan-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  box-shadow: var(--shadow-surface);
+  transition: all var(--motion-normal) ease-out;
+}
+
+.fm-loan-card:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-elevated);
+}
+
+.fm-loan-card--completed,
+.fm-loan-card--recalled,
+.fm-loan-card--bought {
+  opacity: 0.65;
+}
+
+.fm-loan-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.fm-loan-card__player-name {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.fm-loan-card__status {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+}
+
+.fm-loan-card__status--active { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+.fm-loan-card__status--completed { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+.fm-loan-card__status--recalled { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
+.fm-loan-card__status--bought { background: rgba(234, 179, 8, 0.15); color: #facc15; }
+
+.fm-loan-card__details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.fm-loan-card__detail {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.fm-loan-card__detail-label {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  min-width: 80px;
+}
+
+.fm-loan-card__detail-value {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.fm-loan-card__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+/* --- Shortlist Card --- */
+.fm-shortlist-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  box-shadow: var(--shadow-surface);
+  transition: all var(--motion-normal) ease-out;
+  border-left: 4px solid var(--color-border);
+}
+
+.fm-shortlist-card:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-elevated);
+}
+
+.fm-shortlist-card--high { border-left-color: #ef4444; }
+.fm-shortlist-card--medium { border-left-color: #f59e0b; }
+.fm-shortlist-card--low { border-left-color: #22c55e; }
+
+.fm-shortlist-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.fm-shortlist-card__player-name {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.fm-shortlist-card__priority {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+}
+
+.fm-shortlist-card__priority--high { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+.fm-shortlist-card__priority--medium { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+.fm-shortlist-card__priority--low { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+
+.fm-shortlist-card__details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.fm-shortlist-card__detail {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.fm-shortlist-card__detail-label {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  min-width: 70px;
+}
+
+.fm-shortlist-card__detail-value {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.fm-shortlist-card__notes {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  font-style: italic;
+  padding: 8px 12px;
+  background: var(--color-background);
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+}
+
+.fm-shortlist-card__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+/* --- Recommendation Card --- */
+.fm-recommendation-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  box-shadow: var(--shadow-surface);
+  transition: all var(--motion-normal) ease-out;
+}
+
+.fm-recommendation-card:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-elevated);
+}
+
+.fm-recommendation-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.fm-recommendation-card__player-name {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.fm-recommendation-card__grade {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+}
+
+.fm-recommendation-card__grade--A { background: rgba(34, 197, 94, 0.2); color: #4ade80; }
+.fm-recommendation-card__grade--B { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+.fm-recommendation-card__grade--C { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+.fm-recommendation-card__grade--D { background: rgba(168, 85, 247, 0.2); color: #c084fc; }
+.fm-recommendation-card__grade--E { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+.fm-recommendation-card__grade--F { background: rgba(107, 114, 128, 0.2); color: #9ca3af; }
+
+.fm-recommendation-card__details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 12px;
+}
+
+.fm-recommendation-card__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fm-recommendation-card__detail-label {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+}
+
+.fm-recommendation-card__detail-value {
+  font-weight: 600;
+}
+
+.fm-recommendation-card__reason {
+  display: flex;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--color-background);
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+  font-size: var(--font-size-sm);
+}
+
+.fm-recommendation-card__reason-label {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.fm-recommendation-card__reason-text {
+  color: var(--color-text);
+}
+
+.fm-recommendation-card__meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border);
+  margin-bottom: 12px;
+}
+
+.fm-recommendation-card__actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* --- Bidding War Card --- */
+.fm-bidding-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  box-shadow: var(--shadow-surface);
+  transition: all var(--motion-normal) ease-out;
+}
+
+.fm-bidding-card:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-elevated);
+}
+
+.fm-bidding-card--won { border-left: 4px solid #22c55e; }
+.fm-bidding-card--lost { border-left: 4px solid #ef4444; }
+.fm-bidding-card--withdrawn { border-left: 4px solid #6b7280; opacity: 0.65; }
+
+.fm-bidding-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.fm-bidding-card__player-name {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.fm-bidding-card__status {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+}
+
+.fm-bidding-card__status--active { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+.fm-bidding-card__status--won { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+.fm-bidding-card__status--lost { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+.fm-bidding-card__status--withdrawn { background: rgba(107, 114, 128, 0.15); color: #9ca3af; }
+
+.fm-bidding-card__details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 12px;
+}
+
+.fm-bidding-card__detail {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.fm-bidding-card__detail-label {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  min-width: 90px;
+}
+
+.fm-bidding-card__detail-value {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.fm-bidding-card__competitors {
+  padding: 12px 14px;
+  background: var(--color-background);
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+}
+
+.fm-bidding-card__competitors-label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  display: block;
+  margin-bottom: 8px;
+}
+
+.fm-bidding-card__competitor {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-size-sm);
+  padding: 4px 0;
+}
+
+.fm-bidding-card__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+.fm-bidding-card__actions input {
+  width: 120px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font-size: var(--font-size-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.fm-bidding-card__actions input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+/* --- Extra actions on market player cards --- */
+.fm-transfer-player-wrap__extra-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+}
+
+/* --- Scouts Panel --- */
+.fm-scouts-panel {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.fm-scouts-panel__title {
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-secondary);
+  margin: 0 0 12px 0;
+}
+
+.fm-scouts-panel__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.fm-scout-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 14px;
+  transition: all 0.15s ease-out;
+}
+
+.fm-scout-card--assigned {
+  border-color: var(--color-primary);
+  background: rgba(26, 115, 232, 0.04);
+}
+
+.fm-scout-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.fm-scout-card__name {
+  font-weight: 600;
+  font-size: var(--font-size-base);
+}
+
+.fm-scout-card__badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.fm-scout-card__stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.fm-scout-card__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fm-scout-card__stat-label {
+  font-size: 10px;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+}
+
+.fm-scout-card__stat-value {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.fm-scout-card__progress {
+  height: 4px;
+  background: var(--color-background);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+.fm-scout-card__progress-bar {
+  height: 100%;
+  background: var(--gradient-primary);
+  border-radius: 2px;
+  transition: width var(--motion-normal) ease-out;
+}
+
+/* Responsive for new tabs */
+@media (max-width: 768px) {
+  .fm-loan-card__details,
+  .fm-shortlist-card__details,
+  .fm-recommendation-card__details,
+  .fm-bidding-card__details {
+    grid-template-columns: 1fr;
+  }
+
+  .fm-scouts-panel__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fm-bidding-card__actions input {
+    width: 100%;
+  }
 }

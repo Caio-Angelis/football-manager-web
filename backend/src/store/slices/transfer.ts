@@ -1,11 +1,11 @@
 import type {
-  GameStore, Team, Player,
-  IncomingTransfer, InstallmentClause, InstallmentPayment, PlayerBonus,
+  GameStore, Team,
+  InstallmentClause, InstallmentPayment, PlayerBonus,
   ContractClause, TransferAgreement, CompletedTransfer,
   CounterOffer, InboxMessage, DeferredTransfer, NegotiationResult,
-  ContractNegotiationResult,
+  ContractNegotiationResult, LoanDeal, BiddingWar,
 } from '../../types/game';
-import { recalcWageBill } from '../helpers/transfer';
+import { recalcWageBill, maybeGenerateBiddingWar } from '../helpers/transfer';
 import { getFullName } from '../../utils/playerName';
 
 type Set = (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void;
@@ -736,7 +736,7 @@ export const createTransferSlice = (set: Set, get: Get) => ({
     const counterPrice = Math.round(offer.offerPrice * (1 - reduction) * 10) / 10;
 
     // Determine payment method
-    let paymentMethod: 'cash' | 'installments' = Math.random() < 0.6 ? 'cash' : 'installments';
+    const paymentMethod: 'cash' | 'installments' = Math.random() < 0.6 ? 'cash' : 'installments';
     let installmentClause: InstallmentClause | undefined;
     let bonuses: PlayerBonus[] | undefined;
 
@@ -981,5 +981,245 @@ export const createTransferSlice = (set: Set, get: Get) => ({
   getCompletedTransfers: () => {
     const state = get();
     return state.completedTransfers;
+  },
+
+  // ============================================================
+  // SISTEMA DE EMPRÉSTIMOS (LOANS)
+  // ============================================================
+
+  loanPlayer: (playerId: string, sellerTeamId: string, durationWeeks: number, loanFee: number, buyOptionFee?: number, buyOptionMandatory = false) => {
+    const state = get();
+    if (!state.selectedTeam) return false;
+
+    const buyerIdx = state.teams.findIndex(t => t.id === state.selectedTeam);
+    const sellerIdx = state.teams.findIndex(t => t.id === sellerTeamId);
+    if (buyerIdx === -1 || sellerIdx === -1) return false;
+
+    const buyer = { ...state.teams[buyerIdx] };
+    const seller = { ...state.teams[sellerIdx] };
+    const playerIdx = seller.squad.findIndex(p => p.id === playerId);
+    if (playerIdx === -1) return false;
+
+    const player = seller.squad[playerIdx];
+
+    if (buyer.budget < loanFee) return false;
+
+    buyer.budget -= loanFee;
+    seller.budget += loanFee * 0.8;
+
+    const loanDeal: LoanDeal = {
+      id: `loan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      playerId,
+      playerName: getFullName(player),
+      fromTeamId: sellerTeamId,
+      fromTeamName: seller.name,
+      toTeamId: state.selectedTeam,
+      toTeamName: buyer.name,
+      loanFee,
+      weeklyWageContribution: 100,
+      durationWeeks,
+      remainingWeeks: durationWeeks,
+      buyOptionFee,
+      buyOptionMandatory,
+      startDate: Date.now(),
+      startWeek: state.currentWeek,
+      status: 'active',
+    };
+
+    buyer.squad = [...buyer.squad, { ...player, squadStatus: 'Rotation' }];
+    buyer.wageBill = recalcWageBill(buyer);
+    seller.squad = seller.squad.filter(p => p.id !== playerId);
+    seller.wageBill = recalcWageBill(seller);
+
+    const updatedTeams = [...state.teams];
+    updatedTeams[buyerIdx] = buyer;
+    updatedTeams[sellerIdx] = seller;
+
+    set({
+      teams: updatedTeams,
+      activeLoans: [...(state.activeLoans ?? []), loanDeal],
+    });
+
+    return true;
+  },
+
+  recallLoanedPlayer: (loanId: string) => {
+    const state = get();
+    const loan = (state.activeLoans ?? []).find(l => l.id === loanId);
+    if (!loan || loan.status !== 'active') return;
+
+    const fromIdx = state.teams.findIndex(t => t.id === loan.fromTeamId);
+    const toIdx = state.teams.findIndex(t => t.id === loan.toTeamId);
+    if (fromIdx === -1 || toIdx === -1) return;
+
+    const player = state.teams[toIdx].squad.find(p => p.id === loan.playerId);
+    if (!player) return;
+
+    const fromTeam = { ...state.teams[fromIdx] };
+    fromTeam.squad = [...fromTeam.squad, player];
+    fromTeam.wageBill = recalcWageBill(fromTeam);
+
+    const toTeam = { ...state.teams[toIdx] };
+    toTeam.squad = toTeam.squad.filter(p => p.id !== loan.playerId);
+    toTeam.wageBill = recalcWageBill(toTeam);
+
+    const updatedTeams = [...state.teams];
+    updatedTeams[fromIdx] = fromTeam;
+    updatedTeams[toIdx] = toTeam;
+
+    set({
+      teams: updatedTeams,
+      activeLoans: (state.activeLoans ?? []).map(l =>
+        l.id === loanId ? { ...l, status: 'recalled' as const, remainingWeeks: 0 } : l,
+      ),
+    });
+  },
+
+  buyLoanedPlayer: (loanId: string) => {
+    const state = get();
+    const loan = (state.activeLoans ?? []).find(l => l.id === loanId);
+    if (!loan || loan.status !== 'active' || !loan.buyOptionFee) return false;
+
+    const buyerIdx = state.teams.findIndex(t => t.id === loan.toTeamId);
+    const sellerIdx = state.teams.findIndex(t => t.id === loan.fromTeamId);
+    if (buyerIdx === -1 || sellerIdx === -1) return false;
+
+    const buyer = { ...state.teams[buyerIdx] };
+    if (buyer.budget < loan.buyOptionFee) return false;
+
+    const seller = { ...state.teams[sellerIdx] };
+    buyer.budget -= loan.buyOptionFee;
+    seller.budget += loan.buyOptionFee * 0.8;
+
+    const player = buyer.squad.find(p => p.id === loan.playerId);
+    if (player) {
+      buyer.squad = buyer.squad.map(p =>
+        p.id === loan.playerId ? { ...p, squadStatus: 'Rotation' } : p,
+      );
+    }
+    buyer.wageBill = recalcWageBill(buyer);
+    seller.wageBill = recalcWageBill(seller);
+
+    const updatedTeams = [...state.teams];
+    updatedTeams[buyerIdx] = buyer;
+    updatedTeams[sellerIdx] = seller;
+
+    set({
+      teams: updatedTeams,
+      activeLoans: (state.activeLoans ?? []).map(l =>
+        l.id === loanId ? { ...l, status: 'bought' as const, remainingWeeks: 0 } : l,
+      ),
+    });
+
+    return true;
+  },
+
+  // ============================================================
+  // CLÁUSULA DE RESCISÃO (RELEASE CLAUSE)
+  // ============================================================
+
+  activateReleaseClause: (playerId: string, sellerTeamId: string) => {
+    const state = get();
+    if (!state.selectedTeam) return false;
+
+    const buyerIdx = state.teams.findIndex(t => t.id === state.selectedTeam);
+    const sellerIdx = state.teams.findIndex(t => t.id === sellerTeamId);
+    if (buyerIdx === -1 || sellerIdx === -1) return false;
+
+    const seller = state.teams[sellerIdx];
+    const player = seller.squad.find(p => p.id === playerId);
+    if (!player) return false;
+
+    const releaseClause = player.contractClause;
+    if (!releaseClause || releaseClause <= 0) return false;
+
+    const buyer = state.teams[buyerIdx];
+    if (buyer.budget < releaseClause) return false;
+
+    const updatedBuyer = { ...buyer };
+    updatedBuyer.budget -= releaseClause;
+    updatedBuyer.squad = [...updatedBuyer.squad, { ...player, squadStatus: 'Rotation' }];
+    updatedBuyer.wageBill = recalcWageBill(updatedBuyer);
+
+    const updatedSeller = { ...seller };
+    updatedSeller.squad = updatedSeller.squad.filter(p => p.id !== playerId);
+    updatedSeller.budget += releaseClause * 0.8;
+    updatedSeller.wageBill = recalcWageBill(updatedSeller);
+
+    const updatedTeams = [...state.teams];
+    updatedTeams[buyerIdx] = updatedBuyer;
+    updatedTeams[sellerIdx] = updatedSeller;
+
+    const completedTransfer: CompletedTransfer = {
+      id: `ct_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      playerId,
+      playerName: getFullName(player),
+      position: player.position,
+      age: player.age,
+      nationality: player.nationality,
+      fromTeamId: sellerTeamId,
+      fromTeamName: seller.name,
+      transferFee: releaseClause,
+      paymentMethod: 'cash',
+      contractWeeks: 52 + Math.floor(Math.random() * 156),
+      weeklySalary: player.salary,
+      transferDate: Date.now(),
+      transferWeek: state.currentWeek,
+    };
+
+    set({
+      teams: updatedTeams,
+      completedTransfers: [...state.completedTransfers, completedTransfer],
+    });
+
+    return true;
+  },
+
+  // ============================================================
+  // GUERRA DE OFERTAS (BIDDING WARS)
+  // ============================================================
+
+  raiseBid: (biddingWarId: string, newOffer: number) => {
+    const state = get();
+    const war = (state.biddingWars ?? []).find(w => w.id === biddingWarId);
+    if (!war || war.status !== 'active') return false;
+
+    if (newOffer <= war.userOffer) return false;
+
+    const team = state.teams.find(t => t.id === state.selectedTeam);
+    if (!team || team.budget < newOffer) return false;
+
+    const highestAIOffer = war.aiOffers.length > 0
+      ? Math.max(...war.aiOffers.map(o => o.offerPrice))
+      : 0;
+
+    set({
+      biddingWars: (state.biddingWars ?? []).map(w =>
+        w.id === biddingWarId
+          ? {
+              ...w,
+              userOffer: newOffer,
+              highestOffer: Math.max(newOffer, highestAIOffer),
+              isUserWinning: newOffer >= highestAIOffer,
+            }
+          : w,
+      ),
+    });
+
+    return true;
+  },
+
+  withdrawBid: (biddingWarId: string) => {
+    const state = get();
+    const war = (state.biddingWars ?? []).find(w => w.id === biddingWarId);
+    if (!war || war.status !== 'active') return;
+
+    set({
+      biddingWars: (state.biddingWars ?? []).map(w =>
+        w.id === biddingWarId
+          ? { ...w, status: 'withdrawn' as const }
+          : w,
+      ),
+    });
   },
 });

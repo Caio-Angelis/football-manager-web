@@ -6,6 +6,8 @@ export function updatePlayerAttributes(player: Player, trainingType: string): Pl
   const updated = { ...player };
   const improvement = Math.random() * 0.8 + 0.2;
 
+  const beforeCA = updated.currentAbility;
+
   if (trainingType === 'physical') {
     if (updated.physical) {
       updated.physical.stamina = Math.min(20, (updated.physical.stamina ?? 0) + improvement);
@@ -59,6 +61,11 @@ export function updatePlayerAttributes(player: Player, trainingType: string): Pl
     updated.cumulativeLoad = Math.max(0, (updated.cumulativeLoad || 0) - 5);
     updated.consecutivePhysicalDays = 0;
   }
+
+  // Recalcular Current Ability baseado nos atributos atualizados
+  const ageFactor = updated.age < 21 ? 1.5 : updated.age < 24 ? 1.2 : updated.age < 28 ? 0.8 : updated.age < 31 ? 0.4 : 0.1;
+  const caGrowth = (improvement * 0.5) * ageFactor;
+  updated.currentAbility = Math.min(200, Math.round((beforeCA + caGrowth) * 10) / 10);
 
   return updated;
 }

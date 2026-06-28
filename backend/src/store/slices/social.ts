@@ -76,14 +76,14 @@ export const createSocialSlice = (set: Set, get: Get) => ({
     const state = get();
     if (!state.socialTree) return;
 
-    const tree = { ...state.socialTree };
-    const existingEdgeA = tree.edges.find(e => e.from === playerIdA && e.to === playerIdB);
-    const existingEdgeB = tree.edges.find(e => e.from === playerIdB && e.to === playerIdA);
+    const tree = { ...state.socialTree, edges: [...state.socialTree.edges] };
+    const edgeIdxA = tree.edges.findIndex(e => e.from === playerIdA && e.to === playerIdB);
+    const edgeIdxB = tree.edges.findIndex(e => e.from === playerIdB && e.to === playerIdA);
 
-    if (existingEdgeA) {
-      existingEdgeA.strength = strength;
-    } else if (existingEdgeB) {
-      existingEdgeB.strength = strength;
+    if (edgeIdxA !== -1) {
+      tree.edges[edgeIdxA] = { ...tree.edges[edgeIdxA], strength };
+    } else if (edgeIdxB !== -1) {
+      tree.edges[edgeIdxB] = { ...tree.edges[edgeIdxB], strength };
     } else {
       tree.edges.push({ from: playerIdA, to: playerIdB, strength });
     }

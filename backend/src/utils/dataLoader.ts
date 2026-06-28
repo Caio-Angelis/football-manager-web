@@ -369,6 +369,7 @@ function convertTeam(json: JsonTeam, teamId: string): Team {
     boardExpectation: reputation > 70 ? 'title' : reputation > 50 ? 'top4' : 'midtable',
     transferBudget: reputation * 3 + Math.random() * 100,
     staffLevel: Math.floor(reputation / 10),
+    scouts: [],
     boardPromises: [],
     tacticsConfig: createDefaultTacticsConfig(),
     leaguePosition: Math.floor(Math.random() * 20) + 1,

@@ -75,7 +75,7 @@ export function calculateLeagueStandings(
     s.form = (teamFormMap[s.teamId] || []).slice(-5);
   });
 
-  let standings = Object.values(standingsMap);
+  const standings = Object.values(standingsMap);
 
   standings.sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;

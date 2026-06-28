@@ -1,7 +1,6 @@
-import type { GameStore, Player } from '../../types/game';
+import type { GameStore, Player, ShortlistEntry } from '../../types/game';
 import { generateScoutReport, recalcWageBill } from '../helpers/transfer';
 import { generateYouthIntake } from '../../utils/playerGenerator';
-import { generateDefaultScouts } from '../helpers/scouting';
 
 type Set = (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void;
 type Get = () => GameStore;
@@ -35,12 +34,18 @@ export const createScoutingSlice = (set: Set, get: Get) => ({
     const candidates = state.teams
       .filter(t => t.id !== state.selectedTeam)
       .flatMap(t => t.squad)
-      .filter(p => !state.scoutReports.some(r => r.playerId === p.id))
-      .slice(0, 3);
+      .filter(p => !state.scoutReports.some(r => r.playerId === p.id));
 
-    if (candidates.length === 0) return false;
+    for (let i = candidates.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+    }
 
-    const newReports = candidates.map(generateScoutReport);
+    const selected = candidates.slice(0, 3);
+
+    if (selected.length === 0) return false;
+
+    const newReports = selected.map(generateScoutReport);
     set({ scoutReports: [...state.scoutReports, ...newReports] });
     return true;
   },
@@ -87,6 +92,50 @@ export const createScoutingSlice = (set: Set, get: Get) => ({
   getScoutKnowledge: (playerId: string) => {
     const state = get();
     return state.scoutKnowledge[playerId] ?? 0;
+  },
+
+  // ============================================================
+  // SHORTLIST
+  // ============================================================
+
+  addToShortlist: (playerId: string, priority: 'high' | 'medium' | 'low' = 'medium', notes?: string) => {
+    const state = get();
+    const shortlist = state.shortlist ?? [];
+    if (shortlist.some(e => e.playerId === playerId)) return false;
+
+    const entry: ShortlistEntry = {
+      playerId,
+      addedAt: Date.now(),
+      addedWeek: state.currentWeek,
+      notes,
+      priority,
+    };
+
+    set({ shortlist: [...shortlist, entry] });
+    return true;
+  },
+
+  removeFromShortlist: (playerId: string) => {
+    const state = get();
+    set({ shortlist: (state.shortlist ?? []).filter(e => e.playerId !== playerId) });
+  },
+
+  getShortlist: () => {
+    const state = get();
+    return state.shortlist ?? [];
+  },
+
+  // ============================================================
+  // RECOMENDAÇÕES DE SCOUTS
+  // ============================================================
+
+  dismissScoutRecommendation: (recommendationId: string) => {
+    const state = get();
+    set({
+      scoutRecommendations: (state.scoutRecommendations ?? []).map(r =>
+        r.id === recommendationId ? { ...r, dismissed: true } : r,
+      ),
+    });
   },
 
   completeYouthIntake: () => {

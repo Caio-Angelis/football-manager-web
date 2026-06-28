@@ -79,7 +79,7 @@ function processAITransfers(
     return { teams, completedTransfers: [], inboxMessages: [] };
   }
 
-  let updatedTeams = [...teams];
+  const updatedTeams = [...teams];
   const newTransfers: CompletedTransfer[] = [];
   const inboxMessages: InboxMessage[] = [];
   const standingsMap = new Map(standings.map(s => [s.teamId, s]));
@@ -150,7 +150,7 @@ function processAITransfers(
     // Vendedor decide se aceita: se tem profundidade no elenco ou se a oferta é muito boa
     const sellerDepth = seller.squad.filter(p => p.position === need.position).length;
     const sellerKeyPlayer = player.currentAbility > 140;
-    let sellerAccepts = false;
+    let sellerAccepts: boolean;
 
     if (sellerKeyPlayer && sellerDepth <= 3) {
       // Não vende craque se não tem reposição — a menos que a oferta seja 150%+ do valor
@@ -236,7 +236,7 @@ function processAITactics(
     return { teams, inboxMessages: [] };
   }
 
-  let updatedTeams = [...teams];
+  const updatedTeams = [...teams];
   const inboxMessages: InboxMessage[] = [];
   const standingsMap = new Map(standings.map(s => [s.teamId, s]));
 
@@ -262,28 +262,55 @@ function processAITactics(
     // ZONA DE REBAIXAMENTO — Mentalidade ofensiva, pressão alta
     // ============================================================
     if (position >= totalTeams - 3 && standing.played >= 5) {
-      if (team.teamMentality !== 'offensive' && team.teamMentality !== 'very offensive') {
-        team.teamMentality = Math.random() < 0.3 ? 'very offensive' : 'offensive';
-        team.tactic = 'attacking';
-        team.pressIntensity = 'high';
-        team.engagementLine = 'high';
-        team.defensiveLine = 'high';
-        team.tempo = 'fast';
-        team.takeMoreRisks = true;
+      if (team.teamMentality !== 'offensive' && team.teamMentality !== 'very offensive' && team.tactic !== 'defensive') {
+        // Times em luta contra rebaixamento: 50% attacking, 30% balanced, 20% defensive
+        const roll = Math.random();
+        if (roll < 0.5) {
+          team.teamMentality = 'offensive';
+          team.tactic = 'attacking';
+          team.pressIntensity = 'high';
+          team.engagementLine = 'high';
+          team.defensiveLine = 'high';
+          team.tempo = 'fast';
+          team.takeMoreRisks = true;
+          changeDescription = `${team.name} adota postura ofensiva na luta contra o rebaixamento`;
+        } else if (roll < 0.8) {
+          team.teamMentality = 'balanced';
+          team.tactic = 'balanced';
+          team.pressIntensity = 'medium';
+          team.engagementLine = 'medium';
+          team.defensiveLine = 'medium';
+          team.tempo = 'normal';
+          changeDescription = `${team.name} mantém postura equilibrada na luta contra o rebaixamento`;
+        } else {
+          team.teamMentality = 'cautious';
+          team.tactic = 'defensive';
+          team.defensiveLine = 'low';
+          team.engagementLine = 'low';
+          team.pressIntensity = 'low';
+          team.tempo = 'slow';
+          changeDescription = `${team.name} adota postura defensiva para segurar resultado na luta contra o rebaixamento`;
+        }
         changed = true;
-        changeDescription = `${team.name} adota postura ofensiva na luta contra o rebaixamento`;
       }
 
       // Demissão do técnico virtual: 5 derrotas nos últimos 5 jogos
       if (recentLosses >= 5 && Math.random() < 0.4) {
         const newFormation = formations[Math.floor(Math.random() * formations.length)];
         team.formation = newFormation;
-        team.teamMentality = 'positive';
-        team.tactic = 'attacking';
-        team.pressIntensity = 'high';
-        team.tempo = 'fast';
+        const tacticRoll = Math.random();
+        if (tacticRoll < 0.4) {
+          team.teamMentality = 'positive';
+          team.tactic = 'attacking';
+          team.pressIntensity = 'high';
+          team.tempo = 'fast';
+          changeDescription = `${team.name} DEMITE o técnico e contrata novo treinador — muda para ${newFormation}`;
+        } else {
+          team.teamMentality = 'balanced';
+          team.tactic = 'balanced';
+          changeDescription = `${team.name} DEMITE o técnico e contrata novo treinador — muda para ${newFormation} com postura equilibrada`;
+        }
         changed = true;
-        changeDescription = `${team.name} DEMITE o técnico e contrata novo treinador — muda para ${newFormation}`;
       }
     }
 
@@ -291,11 +318,14 @@ function processAITactics(
     // ZONA DE TÍTULO — Mantém equilíbrio, mas pode ser mais ofensivo em casa
     // ============================================================
     else if (position <= 4 && standing.played >= 5) {
-      if (recentWins >= 4 && team.teamMentality !== 'offensive') {
-        team.teamMentality = 'positive';
-        team.tactic = 'attacking';
-        changed = true;
-        changeDescription = `${team.name} em grande fase — adota mentalidade positiva`;
+      if (recentWins >= 4 && team.teamMentality !== 'offensive' && team.tactic === 'balanced') {
+        // Top teams in good form: 60% stay balanced, 40% go attacking
+        if (Math.random() < 0.4) {
+          team.teamMentality = 'positive';
+          team.tactic = 'attacking';
+          changed = true;
+          changeDescription = `${team.name} em grande fase — adota mentalidade positiva`;
+        }
       } else if (recentLosses >= 3 && team.teamMentality === 'offensive') {
         // Recua um pouco após má sequência
         team.teamMentality = 'balanced';
@@ -309,7 +339,7 @@ function processAITactics(
     // ZONA INTERMEDIÁRIA — Ajustes baseados em forma
     // ============================================================
     else if (standing.played >= 8) {
-      if (recentLosses >= 4 && Math.random() < 0.3) {
+      if (recentLosses >= 4 && Math.random() < 0.5) {
         // Má forma → muda para algo mais defensivo
         team.teamMentality = 'cautious';
         team.tactic = 'defensive';
@@ -378,7 +408,7 @@ function processAIContracts(
   currentWeek: number,
   selectedTeamId: string | null,
 ): { teams: Team[]; inboxMessages: InboxMessage[] } {
-  let updatedTeams = [...teams];
+  const updatedTeams = [...teams];
   const inboxMessages: InboxMessage[] = [];
 
   for (let i = 0; i < updatedTeams.length; i++) {
@@ -392,10 +422,9 @@ function processAIContracts(
     if (playersToRenew.length === 0) continue;
 
     let squadChanged = false;
-    let renewedSquad = team.squad.map(player => {
+    const renewedSquad = team.squad.map(player => {
       if (player.contractEnd > 10 || player.contractEnd <= 0) return player;
 
-      // Jogadores importantes têm maior chance de renovação
       const isKey = player.squadStatus === 'Key Player' || player.squadStatus === 'Regular Starter';
       const teamPerformingWell = team.leaguePosition <= 8;
       const renewChance = isKey ? 0.85 : teamPerformingWell ? 0.6 : 0.35;
@@ -425,6 +454,254 @@ function processAIContracts(
 }
 
 // ============================================================
+// ATIVAÇÃO DE CLÁUSULAS DE RESCISÃO PELA IA
+// ============================================================
+
+function processAIReleaseClauses(
+  teams: Team[],
+  currentWeek: number,
+  selectedTeamId: string | null,
+): { teams: Team[]; completedTransfers: CompletedTransfer[]; inboxMessages: InboxMessage[] } {
+  if (!isTransferWindow(currentWeek)) {
+    return { teams, completedTransfers: [], inboxMessages: [] };
+  }
+
+  const updatedTeams = [...teams];
+  const newTransfers: CompletedTransfer[] = [];
+  const inboxMessages: InboxMessage[] = [];
+
+  // Cada time AI tem uma pequena chance de ativar cláusula de um jogador
+  for (let i = 0; i < updatedTeams.length; i++) {
+    const buyer = updatedTeams[i];
+    if (buyer.id === selectedTeamId) continue;
+
+    // 5% de chance por semana de tentar ativar cláusula
+    if (Math.random() > 0.05) continue;
+
+    const need = getWeakestPosition(buyer);
+    if (!need) continue;
+
+    // Procurar jogadores em outros times com cláusula de rescisão acessível
+    const targets: { teamIdx: number; player: Player; playerIdx: number }[] = [];
+    for (let j = 0; j < updatedTeams.length; j++) {
+      if (j === i) continue;
+      const seller = updatedTeams[j];
+
+      for (let idx = 0; idx < seller.squad.length; idx++) {
+        const player = seller.squad[idx];
+        if (player.position !== need.position) continue;
+        if (player.injury?.active) continue;
+
+        // Cláusula de rescisão deve existir e ser acessível
+        if (player.contractClause > 0 && player.contractClause <= buyer.budget) {
+          // O jogador deve ser um upgrade
+          if (player.currentAbility > need.avgCA + 5) {
+            // Cláusula não deve ser absurdamente alta vs valor de mercado
+            if (player.contractClause <= player.marketValue * 1.5) {
+              targets.push({ teamIdx: j, player, playerIdx: idx });
+            }
+          }
+        }
+      }
+    }
+
+    if (targets.length === 0) continue;
+
+    // Escolher o melhor alvo
+    targets.sort((a, b) => b.player.currentAbility - a.player.currentAbility);
+    const target = targets[0];
+
+    const seller = updatedTeams[target.teamIdx];
+    const player = target.player;
+    const fee = player.contractClause;
+
+    // Verificar orçamento
+    if (buyer.budget < fee) continue;
+
+    // Vontade do jogador
+    const repDiff = buyer.reputation - seller.reputation;
+    const playerWilling = Math.random() < (0.5 + repDiff / 200);
+    if (!playerWilling) continue;
+
+    // Executar transferência via cláusula
+    const buyerTeam = { ...updatedTeams[i] };
+    const sellerTeam = { ...updatedTeams[target.teamIdx] };
+
+    buyerTeam.budget -= fee;
+    buyerTeam.squad = [...buyerTeam.squad, { ...player, squadStatus: 'Rotation' }];
+    buyerTeam.wageBill = recalcWageBill(buyerTeam);
+
+    sellerTeam.squad = sellerTeam.squad.filter(p => p.id !== player.id);
+    sellerTeam.budget += fee * 0.8;
+    sellerTeam.wageBill = recalcWageBill(sellerTeam);
+
+    updatedTeams[i] = buyerTeam;
+    updatedTeams[target.teamIdx] = sellerTeam;
+
+    const transfer: CompletedTransfer = {
+      id: `ai_rc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      playerId: player.id,
+      playerName: getFullName(player),
+      position: player.position,
+      age: player.age,
+      nationality: player.nationality,
+      fromTeamId: sellerTeam.id,
+      fromTeamName: sellerTeam.name,
+      transferFee: fee,
+      paymentMethod: 'cash',
+      contractWeeks: 52 + Math.floor(Math.random() * 104),
+      weeklySalary: Math.round(player.salary * (1.0 + Math.random() * 0.3)),
+      transferDate: Date.now(),
+      transferWeek: currentWeek,
+    };
+    newTransfers.push(transfer);
+
+    // Notificar usuário se for jogador do seu time ou transferência notável
+    const isUserPlayer = sellerTeam.id === selectedTeamId;
+    const isNotable = player.currentAbility > 130;
+
+    if (isUserPlayer || isNotable) {
+      inboxMessages.push({
+        id: `ai_rc_msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        type: 'transfer',
+        subject: isUserPlayer
+          ? `💸 Cláusula ativada: ${getFullName(player)} saiu do seu time!`
+          : `📰 ${buyerTeam.name} ativou cláusula de ${getFullName(player)}`,
+        body: isUserPlayer
+          ? `${buyerTeam.name} pagou R$ ${fee}M pela cláusula de rescisão de ${getFullName(player)}. O jogador deixou o ${sellerTeam.name} contra a sua vontade.`
+          : `${buyerTeam.name} pagou R$ ${fee}M pela cláusula de rescisão de ${getFullName(player)} (${player.position}, ${player.age} anos) do ${sellerTeam.name}.`,
+        timestamp: Date.now(),
+        read: false,
+        priority: isUserPlayer ? 'high' : 'medium',
+        relatedTeamId: buyerTeam.id,
+        relatedPlayerId: isUserPlayer ? player.id : undefined,
+      });
+    }
+  }
+
+  return { teams: updatedTeams, completedTransfers: newTransfers, inboxMessages };
+}
+
+// ============================================================
+// EMPRÉSTIMOS AI-vs-AI
+// ============================================================
+
+function processAILoans(
+  teams: Team[],
+  currentWeek: number,
+  selectedTeamId: string | null,
+): { teams: Team[]; inboxMessages: InboxMessage[]; newLoans: import('../../types/game').LoanDeal[] } {
+  if (!isTransferWindow(currentWeek)) {
+    return { teams, inboxMessages: [], newLoans: [] };
+  }
+
+  const updatedTeams = [...teams];
+  const inboxMessages: InboxMessage[] = [];
+  const newLoans: import('../../types/game').LoanDeal[] = [];
+
+  for (let i = 0; i < updatedTeams.length; i++) {
+    const borrower = updatedTeams[i];
+    if (borrower.id === selectedTeamId) continue;
+
+    // 8% de chance de tentar empréstimo
+    if (Math.random() > 0.08) continue;
+
+    const need = getWeakestPosition(borrower);
+    if (!need) continue;
+
+    // Procurar jogadores "Excess" ou "Young Talent" em outros times para emprestar
+    const targets: { teamIdx: number; player: Player }[] = [];
+    for (let j = 0; j < updatedTeams.length; j++) {
+      if (j === i) continue;
+      const lender = updatedTeams[j];
+      if (lender.id === selectedTeamId) continue;
+
+      for (const player of lender.squad) {
+        if (player.position !== need.position) continue;
+        if (player.injury?.active) continue;
+        // Emprestar jogadores excedentes ou jovens talentos
+        if (player.squadStatus === 'Excess' || player.squadStatus === 'Young Talent') {
+          if (player.currentAbility >= need.avgCA - 5) {
+            targets.push({ teamIdx: j, player });
+          }
+        }
+      }
+    }
+
+    if (targets.length === 0) continue;
+
+    const target = targets[Math.floor(Math.random() * targets.length)];
+    const lender = updatedTeams[target.teamIdx];
+    const player = target.player;
+
+    // Taxa de empréstimo: 5-15% do valor de mercado
+    const loanFee = Math.round(player.marketValue * (0.05 + Math.random() * 0.1) * 10) / 10;
+    if (borrower.budget < loanFee) continue;
+
+    // Duração: 16-26 semanas (resto da temporada ou metade)
+    const durationWeeks = 16 + Math.floor(Math.random() * 10);
+
+    // Cláusula de compra opcional: 50% de chance, 110-130% do valor de mercado
+    const hasBuyOption = Math.random() < 0.5;
+    const buyOptionFee = hasBuyOption
+      ? Math.round(player.marketValue * (1.1 + Math.random() * 0.2) * 10) / 10
+      : undefined;
+
+    const loanDeal: import('../../types/game').LoanDeal = {
+      id: `ai_loan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      playerId: player.id,
+      playerName: getFullName(player),
+      fromTeamId: lender.id,
+      fromTeamName: lender.name,
+      toTeamId: borrower.id,
+      toTeamName: borrower.name,
+      loanFee,
+      weeklyWageContribution: 50 + Math.floor(Math.random() * 50), // 50-100%
+      durationWeeks,
+      remainingWeeks: durationWeeks,
+      buyOptionFee,
+      buyOptionMandatory: false,
+      startDate: Date.now(),
+      startWeek: currentWeek,
+      status: 'active',
+    };
+
+    // Executar empréstimo
+    const borrowerTeam = { ...updatedTeams[i] };
+    const lenderTeam = { ...updatedTeams[target.teamIdx] };
+
+    borrowerTeam.budget -= loanFee;
+    borrowerTeam.squad = [...borrowerTeam.squad, { ...player, squadStatus: 'Rotation' }];
+    borrowerTeam.wageBill = recalcWageBill(borrowerTeam);
+
+    lenderTeam.squad = lenderTeam.squad.filter(p => p.id !== player.id);
+    lenderTeam.budget += loanFee;
+    lenderTeam.wageBill = recalcWageBill(lenderTeam);
+
+    updatedTeams[i] = borrowerTeam;
+    updatedTeams[target.teamIdx] = lenderTeam;
+
+    newLoans.push(loanDeal);
+
+    // Notificar se for notável
+    if (player.currentAbility > 120) {
+      inboxMessages.push({
+        id: `ai_loan_msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        type: 'transfer',
+        subject: `📋 ${borrowerTeam.name} empresta ${getFullName(player)}`,
+        body: `${borrowerTeam.name} contratou ${getFullName(player)} (${player.position}, ${player.age} anos) por empréstimo de ${lenderTeam.name}. Taxa: R$ ${loanFee}M. Duração: ${durationWeeks} semanas.${hasBuyOption ? ` Cláusula de compra: R$ ${buyOptionFee}M.` : ''}`,
+        timestamp: Date.now(),
+        read: false,
+        priority: 'low',
+        relatedTeamId: borrowerTeam.id,
+      });
+    }
+  }
+
+  return { teams: updatedTeams, inboxMessages, newLoans };
+}
+
+// ============================================================
 // PONTO DE ENTRADA — Rotina semanal completa da IA
 // ============================================================
 
@@ -444,12 +721,23 @@ export function processAIWeeklyDecisions(
   allInboxMessages.push(...transferResult.inboxMessages);
   allCompletedTransfers.push(...transferResult.completedTransfers);
 
-  // 2. Ajustes táticos baseados na tabela
+  // 2. Ativação de cláusulas de rescisão pela IA
+  const rcResult = processAIReleaseClauses(workingTeams, currentWeek, selectedTeamId);
+  workingTeams = rcResult.teams;
+  allInboxMessages.push(...rcResult.inboxMessages);
+  allCompletedTransfers.push(...rcResult.completedTransfers);
+
+  // 3. Empréstimos AI-vs-AI
+  const loanResult = processAILoans(workingTeams, currentWeek, selectedTeamId);
+  workingTeams = loanResult.teams;
+  allInboxMessages.push(...loanResult.inboxMessages);
+
+  // 4. Ajustes táticos baseados na tabela
   const tacticsResult = processAITactics(workingTeams, standings, currentWeek, selectedTeamId);
   workingTeams = tacticsResult.teams;
   allInboxMessages.push(...tacticsResult.inboxMessages);
 
-  // 3. Renovações de contrato
+  // 5. Renovações de contrato
   const contractResult = processAIContracts(workingTeams, currentWeek, selectedTeamId);
   workingTeams = contractResult.teams;
   allInboxMessages.push(...contractResult.inboxMessages);

@@ -93,6 +93,10 @@ const INITIAL_STATE = {
   completedTransfers: [] as CompletedTransfer[],
   scoutKnowledge: {} as Record<string, number>,
   scoutMissions: [] as any[],
+  shortlist: [] as any[],
+  scoutRecommendations: [] as any[],
+  activeLoans: [] as any[],
+  biddingWars: [] as any[],
   seasonSummary: null as any,
   gameOver: false,
 };
@@ -590,6 +594,70 @@ export const useGameStore = create<GameStore>()((set, get) => ({
 
   getScoutKnowledge: (playerId: string) => {
     return get().scoutKnowledge[playerId] ?? 0;
+  },
+
+  // Shortlist
+  addToShortlist: (playerId: string, priority?: 'high' | 'medium' | 'low', notes?: string) => {
+    const args = priority ? (notes ? [playerId, priority, notes] : [playerId, priority]) : [playerId];
+    return apiAction('addToShortlist', args).then(data => {
+      syncFromResponse(data);
+      return data.result as boolean;
+    }) as any;
+  },
+
+  removeFromShortlist: (playerId: string) => {
+    apiAction('removeFromShortlist', [playerId]).then(syncFromResponse);
+  },
+
+  getShortlist: () => {
+    return get().shortlist ?? [];
+  },
+
+  // Empréstimos
+  loanPlayer: (playerId: string, sellerTeamId: string, durationWeeks: number, loanFee: number, buyOptionFee?: number, buyOptionMandatory?: boolean) => {
+    const args = buyOptionFee !== undefined
+      ? (buyOptionMandatory !== undefined ? [playerId, sellerTeamId, durationWeeks, loanFee, buyOptionFee, buyOptionMandatory] : [playerId, sellerTeamId, durationWeeks, loanFee, buyOptionFee])
+      : [playerId, sellerTeamId, durationWeeks, loanFee];
+    return apiAction('loanPlayer', args).then(data => {
+      syncFromResponse(data);
+      return data.result as boolean;
+    }) as any;
+  },
+
+  recallLoanedPlayer: (loanId: string) => {
+    apiAction('recallLoanedPlayer', [loanId]).then(syncFromResponse);
+  },
+
+  buyLoanedPlayer: (loanId: string) => {
+    return apiAction('buyLoanedPlayer', [loanId]).then(data => {
+      syncFromResponse(data);
+      return data.result as boolean;
+    }) as any;
+  },
+
+  // Cláusula de rescisão
+  activateReleaseClause: (playerId: string, sellerTeamId: string) => {
+    return apiAction('activateReleaseClause', [playerId, sellerTeamId]).then(data => {
+      syncFromResponse(data);
+      return data.result as boolean;
+    }) as any;
+  },
+
+  // Guerra de ofertas
+  raiseBid: (biddingWarId: string, newOffer: number) => {
+    return apiAction('raiseBid', [biddingWarId, newOffer]).then(data => {
+      syncFromResponse(data);
+      return data.result as boolean;
+    }) as any;
+  },
+
+  withdrawBid: (biddingWarId: string) => {
+    apiAction('withdrawBid', [biddingWarId]).then(syncFromResponse);
+  },
+
+  // Recomendações de scouts
+  dismissScoutRecommendation: (recommendationId: string) => {
+    apiAction('dismissScoutRecommendation', [recommendationId]).then(syncFromResponse);
   },
 
   startNextSeason: () => {

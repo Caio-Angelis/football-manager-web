@@ -44,16 +44,24 @@ Todas as partidas — tanto as do usuário quanto as dos times AI — usam o mes
 5. **Faltas e cartões:** Após um desarme, há 25% de chance de falta. 15% de chance de cartão amarelo se houver falta.
 6. **Escanteios:** 4% de chance por minuto de escanteio aleatório.
 
-### Bônus Tático
+### Bônus Tático e Multiplicadores de Tática
 
-As configurações táticas do time afetam diretamente a simulação:
+As configurações táticas do time afetam diretamente a simulação em duas camadas:
 
-- **Mentalidade ofensiva:** +5% de bônus de força; mentalidade defensiva: +4%
-- **Contra-pressionamento:** +3% de bônus; contra-ataque: +4%
+**Bônus tático base (getTacticalBonus):**
+- Tática `attacking`: +4% de bônus base
+- Tática `defensive`: +8% de bônus base
+- **Mentalidade ofensiva:** +5%; mentalidade defensiva: +4%
+- **Contra-pressionamento:** +3%; contra-ataque: +4%
 - **Linha alta/linha de engajamento alta:** +2% a +3%
 - **Pressão alta:** +3%; desarme agressivo: +2%
 - **Ritmo rápido:** +3%; passes curtos: +2%
 - **Levar bola à área:** +2%; armadilha de impedimento: +1%
+
+**Multiplicadores de força por tática (aplicados após o bônus):**
+- **Attacking:** Ataque ×1.12, Defesa ×0.85 — forte ofensivamente, fraco defensivamente
+- **Balanced:** Ataque ×0.88, Defesa ×0.88 — penalidade em ambos para compensar flexibilidade
+- **Defensive:** Ataque ×0.88, Defesa ×1.20 — fraco ofensivamente, forte defensivamente
 
 A pressão defensiva sobre o portador também é afetada pela intensidade de pressão, contra-pressionamento e linha de engajamento do time defensor.
 
@@ -116,10 +124,10 @@ Os 19 clubes controlados pela IA tomam **decisões ativas** a cada avanço de se
 ### Ajustes Táticos
 
 - A cada 4 semanas, os times AI ajustam táticas com base na posição na tabela e forma recente:
-  - **Zona de rebaixamento:** Mentalidade ofensiva, pressão alta, linha alta, ritmo rápido, assumir riscos.
-  - **Zona de título:** Mantém equilíbrio, mas pode adotar mentalidade positiva em boa fase ou recuar após má sequência.
-  - **Zona intermediária:** Ajustes defensivos após sequência de derrotas; volta ao equilíbrio em boa fase.
-- **Demissão de técnico:** Se um time AI tiver 5 derrotas consecutivas, há 40% de chance de demitir o técnico e contratar um novo com formação e mentalidade diferentes (gera notícia no inbox).
+  - **Zona de rebaixamento:** 50% attacking (mentalidade ofensiva, pressão alta, linha alta, ritmo rápido), 30% balanced (postura equilibrada), 20% defensive (postura cautelosa para segurar resultado).
+  - **Zona de título:** Mantém equilíbrio; em boa fase, 40% de chance de adotar mentalidade positiva; em má sequência, recua para balanced.
+  - **Zona intermediária:** 50% de chance de mudar para defensivo após sequência de derrotas; volta ao equilíbrio em boa forma.
+- **Demissão de técnico:** Se um time AI tiver 5 derrotas consecutivas, há 40% de chance de demitir o técnico. O novo técnico pode adotar attacking (40%) ou balanced (60%), com nova formação.
 - Ajuste ocasional de formação com base no elenco disponível (a cada 8 semanas).
 
 ### Renovação de Contrato
@@ -209,6 +217,32 @@ Cada transferência gera um **acordo contratual** completo com:
 
 Todas as transferências concluídas são registradas com: jogador, time de origem, valor, método de pagamento, duração do contrato, salário e semana da transferência.
 
+### Empréstimos
+
+O sistema suporta empréstimos de jogadores entre clubes:
+
+- **`loanPlayer`:** Empresta um jogador de outro clube. Define taxa de empréstimo, contribuição salarial semanal, duração em semanas e opção de compra (opcional ou obrigatória).
+- **`recallLoanedPlayer`:** Recalla um jogador emprestado antes do fim do contrato.
+- **`buyLoanedPlayer`:** Ativa a opção de compra de um jogador emprestado, pagando a taxa acordada.
+- O empréstimo reduz as semanas restantes a cada `advanceWeek()`. Quando chega a zero, o empréstimo é concluído automaticamente.
+- O jogador emprestado entra no elenco do time destinatário durante o período do empréstimo.
+
+### Cláusulas de Rescisão
+
+- **`activateReleaseClause`:** Permite contratar um jogador pagando diretamente sua cláusula de rescisão (`contractClause`), desde que o orçamento do clube seja suficiente.
+- A cláusula bypassa a negociação normal — o jogador é transferido imediatamente.
+- Disponível como botão nos cards de jogadores no Mercado.
+
+### Guerra de Ofertas (Bidding Wars)
+
+Quando o usuário faz uma oferta por um jogador, outros clubes podem competir:
+
+- **`raiseBid`:** Aumenta a oferta do usuário em uma guerra de ofertas ativa.
+- **`withdrawBid`:** Retira a oferta do usuário da guerra.
+- Cada guerra tem um número máximo de rodadas. O usuário pode aumentar ou retirar a qualquer momento.
+- As ofertas dos clubes AI são visíveis na aba "Guerra de Ofertas".
+- O status pode ser: ativo, vencido (won), perdido (lost) ou retirado (withdrawn).
+
 ---
 
 ## Sistema de Scouting (Olheiros)
@@ -234,6 +268,7 @@ O CA (habilidade atual) é arredondado em blocos de 20 até 50% de conhecimento.
 - Quando o conhecimento cruza **50%**, um relatório parcial é gerado e enviado ao inbox.
 - Quando o conhecimento cruza **100%**, um relatório final é gerado com nota de recomendação (A a F).
 - A missão termina quando o conhecimento chega a 100 ou as semanas acabam.
+- **Scout sem alvo:** Quando chamado sem `playerId`, o sistema embaralha todos os candidatos disponíveis (sem relatório existente) e seleciona 3 aleatoriamente, evitando que os mesmos jogadores sejam sempre observados.
 
 ### Relatórios de Scout
 
@@ -249,6 +284,34 @@ Os relatórios incluem:
   - **D:** Contratação de risco (≥ 85%)
   - **E:** Não recomendado (≥ 70%)
   - **F:** Não contratar (< 70%)
+
+### Shortlist
+
+O usuário pode manter uma lista de jogadores observados para acompanhamento:
+
+- **`addToShortlist(playerId, priority?, notes?)`:** Adiciona um jogador à shortlist com prioridade (alta, média, baixa) e notas opcionais.
+- **`removeFromShortlist(playerId)`:** Remove um jogador da shortlist.
+- **`getShortlist()`:** Retorna a lista atual.
+- A shortlist é exibida na aba "Shortlist" do Mercado de Transferências, ordenada por prioridade.
+- Cada entrada mostra dados do jogador (posição, idade, valor, clube) e botão para negociar diretamente.
+- Botão ☆/★ disponível nos cards do Mercado para adicionar/remover da shortlist.
+
+### Recomendações de Scouts
+
+Scouts podem gerar recomendações automáticas de jogadores:
+
+- **`ScoutRecommendation`:** Inclui jogador, posição, idade, CA/PA estimados, clube atual, valor estimado, nota (A-F), motivo da recomendação, scout responsável e semana.
+- **`dismissScoutRecommendation(recommendationId)`:** Dispensa uma recomendação (marca como `dismissed`).
+- Exibidas na aba "Recomendações" do Mercado de Transferências.
+
+### Experiência de Scouts
+
+Cada scout possui campos de experiência que evoluem ao longo do jogo:
+
+- **`experience`:** Pontos de experiência acumulados. A cada missão concluída, o scout ganha experiência.
+- **`missionsCompleted`:** Número total de missões concluídas.
+- O painel de olheiros na aba Scouting mostra esses valores com barra de progresso.
+- Scouts com mais experiência tendem a gerar relatórios mais precisos.
 
 ---
 
@@ -302,11 +365,18 @@ O usuário define um plano de treino semanal em uma grade de 7 dias × 3 períod
 - **Médico/Recuperação:** Restaura condição física (+10), reduz carga acumulada, acelera recuperação de lesão (-2 dias).
 - **Leve:** Recuperação leve (+3 de condição, reduz carga).
 
-### Progressão de Atributos
+### Progressão de Atributos e CA
 
-A cada semana, o treino é aplicado a todos os jogadores não-lesionados:
-- O foco do treino (físico, técnico, coesão) determina quais atributos progridem.
+A cada semana, o treino é aplicado a todos os jogadores não-lesionados **após o `set()` final de `advanceWeek`**, garantindo que as alterações de treino não sejam sobrescritas pelo estado local:
+- O foco do treino (físico, técnico, coesão, médico/recuperação, leve) é passado diretamente para `updatePlayerAttributes` — cada tipo aplica seus efeitos corretamente (ex: médico restaura condição e acelera recuperação de lesão, leve faz recuperação leve).
 - A melhoria é aleatória (0.2 a 1.0 por semana), limitada a 20 (teto da escala).
+- **Current Ability (CA):** Após cada sessão de treino, o CA é recalculado com base no ganho de atributos, modulado por um **fator de idade**:
+  - < 21 anos: ×1.5 (jovens evoluem 50% mais rápido)
+  - 21-23 anos: ×1.2
+  - 24-27 anos: ×0.8
+  - 28-30 anos: ×0.4
+  - 31+ anos: ×0.1 (praticamente estagnado)
+  - Fórmula: `CA_novo = min(200, CA_anterior + (improvement × 0.5) × ageFactor)`
 - Snapshots semanais registram a progressão de atributos para visualização.
 
 ### Fadiga e Carga
@@ -378,11 +448,18 @@ A classificação é recalculada após cada rodada, considerando todas as partid
 
 A cada avanço de semana, o orçamento do clube é atualizado:
 
-- **Receitas:**
-  - Bilheteira: Baseada na reputação do clube (reputação/100 × 0.5)
-  - Patrocínio: Baseada na reputação (reputação/100 × 0.3)
+- **Receitas (simulação headless):**
+  - Bilheteira: `(reputação/100) × 700`
+  - Patrocínio: `(reputação/100) × 500`
+  - Direitos de TV: `(reputação/100) × 400`
+  - Total: `(reputação/100) × 1600` por semana
+- **Receitas (frontend/advanceWeek normal):**
+  - Bilheteira: `(reputação/100) × 0.5`
+  - Patrocínio: `(reputação/100) × 0.3`
 - **Despesas:**
-  - Folha salarial: wageBill × (12/52) — equivalente mensal prorrateado
+  - Folha salarial: `wageBill × (12/52)` — equivalente mensal prorrateado
+
+> **Nota:** As receitas da simulação headless são escaladas para corresponder à unidade do wageBill (milhares). O advanceWeek normal ainda usa os valores antigos. Ver `headless_sim.ts` para detalhes.
 
 ### Gestão Financeira
 
@@ -405,7 +482,7 @@ O plantel tem uma hierarquia visualizada em pirâmide:
 
 ### Grupos Sociais
 
-Cada jogador pertence a um grupo social baseado em afinidade (nacionalidade, idade, posição). A árvore social mostra as conexões entre jogadores e influencia a moral do grupo.
+Cada jogador pertence a um grupo social baseado em afinidade (nacionalidade, idade, posição). A árvore social mostra as conexões entre jogadores e influencia a moral do grupo. As conexões entre jogadores são atualizadas de forma imutável, preservando o contrato de imutabilidade do Zustand.
 
 ### Promessas
 
@@ -618,3 +695,92 @@ Sem consequências reais para mau desempenho, a diretoria é apenas cosmética. 
   - **Opção B (Assumir outro clube):** O usuário é demitido e assume outro clube do Brasileirão no meio do save. Mais flexível, mas requer mecânica de troca de clube.
   - **Opção C (Ultimatum):** A diretoria dá um ultimato (ex: "alcançar posição X até a semana Y"), e se não cumprido, Game Over. Mais interativo.
 - **Recomendação:** Implementar a Opção C (ultimato) como primeiro passo — é a mais interativa e dá ao usuário uma chance de se recuperar. Se o ultimato não for cumprido, Game Over com tela de demissão. A satisfação já existe no estado do jogo; falta apenas a verificação em `advanceWeek` e a geração do ultimato no inbox.
+
+---
+
+## Simulação Headless (`headless_sim.ts`)
+
+### Objetivo
+
+Script TypeScript na raiz do backend que simula 3 temporadas completas (114 semanas) sem subir o servidor Express e sem precisar do frontend. Importa as lógicas principais do jogo (motor de partida, avanço de semana, finanças e treino) diretamente do store Zustand.
+
+### Como Rodar
+
+```bash
+cd backend && npm run sim
+# ou: npx tsx headless_sim.ts
+```
+
+### Fluxo do Script
+
+1. **Inicialização:** Chama `initGame()` para carregar os 20 times do database JSON.
+2. **Loop de 114 semanas:** Para cada temporada (3 no total):
+   - Chama `advanceWeek()` 38 vezes (semanas 1-38).
+   - Após cada `advanceWeek`, aplica manualmente finanças, treino e fadiga a TODOS os times (pois `selectedTeam` é null e o `advanceWeek` normal só faz isso para o time do usuário).
+   - Rastreia a tática de cada time semanalmente para determinar a tática mais usada.
+   - Ao final da temporada, chama `startNextSeason()` para resetar stats e gerar novo calendário.
+3. **Métricas extraídas para `sim_output.json`:**
+   - **Campeões e rebaixados** de cada temporada com suas táticas mais usadas.
+   - **Média total de gols por partida** do campeonato (soma de todas as 3 temporadas).
+   - **Saldo financeiro final médio** dos clubes do Top 4 vs últimos 4 (pela classificação final da 3ª temporada).
+   - **Maior CA** alcançado por jogadores que começaram com menos de 21 anos.
+
+### Decisões de Design
+
+- **`selectedTeam = null`:** Todas as partidas são auto-simuladas (nenhuma fica pendente para usuário). A IA faz transferências e ajustes táticos normalmente via `processAIWeeklyDecisions`.
+- **Finanças manuais:** O script aplica a mesma fórmula de `advanceWeek` (receita de bilheteria + patrocínio - wage bill) a todos os times, pois o `advanceWeek` só atualiza finanças do time selecionado.
+- **Treino manual:** Rotaciona entre `technical`, `physical`, `cohesion`, `light` semanalmente para todos os times.
+- **Performance:** Roda em ~0.7s para 1140 partidas. Chama `process.exit(0)` ao final.
+
+---
+
+## Batch de Simulação (`run_batch.py`)
+
+### Objetivo
+
+Script Python que executa `headless_sim.ts` 30 vezes via subprocess de forma silenciosa, coleta as métricas de cada execução (`sim_output.json`), e gera um relatório consolidado `balance_report.txt` com médias e detecção de anomalias de balanceamento.
+
+### Como Rodar
+
+```bash
+cd backend && python run_batch.py
+```
+
+### Fluxo
+
+1. Executa `npx tsx headless_sim.ts` 30 vezes (stdout/stderr suprimidos).
+2. Após cada execução, lê `sim_output.json`, guarda os dados e deleta o arquivo.
+3. Agrega métricas across 30 runs × 3 temporadas = 90 campeonatos:
+   - **Win-rate por tática** (quantas vezes cada tática venceu o campeonato).
+   - **Rebaixamentos por tática e por time.**
+   - **Média de gols por partida** (média, desvio, min, max).
+   - **Saldo financeiro final** Top 4 vs Bottom 4.
+   - **Maior CA sub-21** (jogador e time mais frequentes).
+4. Detecta anomalias: tática dominante (>50% win-rate), tática ineficaz (nunca vence), monopólio de time (>30%), rebaixamento crônico (>40%), colapso financeiro, gols anormais, crescimento excessivo de CA.
+5. Exporta `balance_report.txt` com gráficos de barras em ASCII e resumo das anomalias.
+
+### Resultados após 5 Ciclos de Balanceamento
+
+**Evolução das métricas (Ciclo 1 → Ciclo 5):**
+
+| Métrica | Ciclo 1 | Ciclo 5 | Status |
+|---------|---------|---------|--------|
+| Attacking win-rate | 70.0% | 36.7% | ✅ Resolvido |
+| Balanced win-rate | 27.8% | 55.6% | ⚠ Ainda alto |
+| Defensive win-rate | 2.2% | 7.8% | ✅ Melhorado |
+| Palmeiras monopólio | 33.3% | 20.0% | ✅ Resolvido |
+| Sport Recife rebaix. | 66.7% | 66.7% | ⚠ Crônico |
+| Gols/partida | 1.41 | 1.40 | ⚠ Baixo |
+| Finanças (Top 4) | 0.00 | 93520 | ✅ Resolvido |
+| CA sub-21 médio | 150.0 | 167.1 | ✅ Resolvido |
+
+**Anomalias remanescentes:**
+- Balanced ainda vence 55.6% (>50% gatilho) — penalidade de 0.88 aplicada mas não suficiente
+- Sport Recife rebaixado em 66.7% das temporadas — problema de squad, não tático
+- Gols/partida em 1.40 — abaixo do esperado 2.0-3.0, resistente a mudanças em BASE_GOALS
+
+**Arquivos alterados no balanceamento:**
+- `matchEngine.ts`: Multiplicadores de tática, BASE_GOALS, expoente do ratio attack/defense, cap do poissonSample
+- `training.ts`: Recálculo de CA com curva de idade
+- `headless_sim.ts`: Receitas financeiras escaladas (bilheteira + patrocínio + TV)
+- `aiManager.ts`: Diversificação de escolhas táticas da IA

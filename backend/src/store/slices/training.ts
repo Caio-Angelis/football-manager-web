@@ -35,7 +35,7 @@ export const createTrainingSlice = (set: Set, get: Get) => ({
     team.squad = team.squad.map(p => {
       if (p.injury?.active) return p;
       
-      const updated = updatePlayerAttributes(p, focus === 'cohesion' ? 'cohesion' : focus === 'physical' ? 'physical' : 'technical');
+      const updated = updatePlayerAttributes(p, focus);
       
       // Add fatigue log entry
       const fatigueLevel = Math.max(0, (updated.cumulativeLoad || 0) * 2 + (100 - updated.fitness));
@@ -46,7 +46,7 @@ export const createTrainingSlice = (set: Set, get: Get) => ({
           day: 0,
           fatigue: Math.min(100, fatigueLevel),
           cumulativeLoad: updated.cumulativeLoad,
-          trainingType: focus === 'cohesion' ? 'cohesion' : focus === 'physical' ? 'physical' : 'technical',
+          trainingType: focus,
         },
       ];
       

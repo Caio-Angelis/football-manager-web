@@ -9,8 +9,8 @@ import type { MatchStats, MatchEvent } from '../../types/game';
 import { calculateLeagueStandings } from '../helpers/league';
 import { generateInboxMessage } from '../helpers/inbox';
 import { calculatePlayerInjuryRisk, getRiskLevel } from '../helpers/injury';
-import { maybeGenerateIncomingTransfer, recalcWageBill } from '../helpers/transfer';
-import { processScoutMissions, generateDefaultScouts, getBestScout } from '../helpers/scouting';
+import { maybeGenerateIncomingTransfer, recalcWageBill, processBiddingWars } from '../helpers/transfer';
+import { processScoutMissions, generateDefaultScouts, decayScoutKnowledge, generateScoutRecommendations, processLoans } from '../helpers/scouting';
 import { processAIWeeklyDecisions } from '../helpers/aiManager';
 import { applyWeeklyMoraleDynamics } from '../helpers/moraleDynamics';
 
@@ -73,6 +73,10 @@ export const createCoreSlice = (set: Set, get: Get) => ({
       leagueTable: initialStandings,
       scoutKnowledge: {},
       scoutMissions: [],
+      shortlist: [],
+      scoutRecommendations: [],
+      activeLoans: [],
+      biddingWars: [],
       seasonSummary: null,
       gameOver: false,
     });
@@ -87,19 +91,19 @@ export const createCoreSlice = (set: Set, get: Get) => ({
 
   advanceWeek: () => {
     const state = get();
-    let newWeek = state.currentWeek + 1;
-    let newSeason = state.currentSeason;
-    let youthReset = state.youthIntakeCompleted;
+    const newWeek = state.currentWeek + 1;
+    const newSeason = state.currentSeason;
+    const youthReset = state.youthIntakeCompleted;
     const championshipEnded = newWeek > 38;
 
     if (championshipEnded) {
       // Campeonato encerrado após 38 rodadas - não gerar novas partidas
-      const inboxMessage = generateInboxMessage(0, {
+      const inboxMessage = generateInboxMessage(38, {
         teams: state.teams,
         selectedTeamId: state.selectedTeam,
         hasIncomingTransfer: false,
       });
-      let updatedTeams = [...state.teams];
+      const updatedTeams = [...state.teams];
 
       // Manter partidas existentes sem gerar novas
       const updatedMatches = [...state.matches];
@@ -212,7 +216,7 @@ export const createCoreSlice = (set: Set, get: Get) => ({
 
     // Auto-finaliza partida pendente do usuário da rodada anterior (mantém a
     // classificação justa caso ele avance a semana sem jogá-la ao vivo).
-    let previousMatches = [...state.matches];
+    const previousMatches = [...state.matches];
     if (state.selectedTeam) {
       const pendingIdx = previousMatches.findIndex(
         pm => !pm.completed && (pm.homeTeam === state.selectedTeam || pm.awayTeam === state.selectedTeam),
@@ -315,10 +319,6 @@ export const createCoreSlice = (set: Set, get: Get) => ({
       }
     }
 
-    if (state.trainingPlan) {
-      get().applyWeeklyTraining();
-    }
-
     if (state.selectedTeam) {
       const teamIdx = updatedTeams.findIndex(t => t.id === state.selectedTeam);
       if (teamIdx !== -1) {
@@ -334,7 +334,7 @@ export const createCoreSlice = (set: Set, get: Get) => ({
 
     // Generate incoming transfer BEFORE inbox message so context can be passed
     const newIncoming = state.selectedTeam
-      ? maybeGenerateIncomingTransfer(updatedTeams, state.selectedTeam)
+      ? maybeGenerateIncomingTransfer(updatedTeams, state.selectedTeam, newWeek)
       : null;
 
     // Generate context-aware inbox message with proper relatedPlayerId
@@ -362,7 +362,7 @@ export const createCoreSlice = (set: Set, get: Get) => ({
       }
     }
 
-    let inboxToSend = inboxMessage;
+    const inboxToSend = inboxMessage;
 
     // ============================================================
     // PROCESSAMENTO DE FADIGA E RECOMENDAÇÕES (AVANCE WEEK)
@@ -582,8 +582,17 @@ export const createCoreSlice = (set: Set, get: Get) => ({
         ...state.scoutReports.filter(r => !reportIds.has(r.playerId)),
       ];
 
-      // Liberar olheiros cujas missões terminaram
-      if (state.selectedTeam) {
+      // Aplicar desenvolvimento de scouts (experiência, judgingAbility)
+      if (scoutResult.updatedScouts && state.selectedTeam) {
+        const teamIdx3 = updatedTeams.findIndex(t => t.id === state.selectedTeam);
+        if (teamIdx3 !== -1) {
+          updatedTeams[teamIdx3] = {
+            ...updatedTeams[teamIdx3],
+            scouts: scoutResult.updatedScouts,
+          };
+        }
+      } else if (state.selectedTeam) {
+        // Fallback: liberar olheiros cujas missões terminaram
         const activeScoutIds = new Set(updatedScoutMissions.map(m => m.scoutId));
         const teamIdx3 = updatedTeams.findIndex(t => t.id === state.selectedTeam);
         if (teamIdx3 !== -1 && updatedTeams[teamIdx3].scouts) {
@@ -596,6 +605,61 @@ export const createCoreSlice = (set: Set, get: Get) => ({
           };
         }
       }
+    }
+
+    // === DECAIMENTO DE CONHECIMENTO ===
+    const activeTargetIds = new Set(updatedScoutMissions.map(m => m.targetId));
+    const shortlistPlayerIds = new Set(state.shortlist.map(s => s.playerId));
+    updatedScoutKnowledge = decayScoutKnowledge(updatedScoutKnowledge, activeTargetIds, shortlistPlayerIds);
+
+    // === RECOMENDAÇÕES AUTOMÁTICAS DE SCOUTS ===
+    // Gerar a cada 4 semanas durante janelas de transferência
+    const isTransferWindowWeek = (newWeek >= 1 && newWeek <= 12) || (newWeek >= 20 && newWeek <= 26);
+    let updatedRecommendations = state.scoutRecommendations;
+    if (isTransferWindowWeek && newWeek % 4 === 0 && state.selectedTeam) {
+      const userTeam = updatedTeams.find(t => t.id === state.selectedTeam);
+      if (userTeam) {
+        const existingRecIds = new Set(state.scoutRecommendations.map(r => r.id));
+        const newRecs = generateScoutRecommendations(
+          userTeam,
+          updatedTeams,
+          newWeek,
+          existingRecIds,
+          updatedScoutKnowledge,
+        );
+        if (newRecs.length > 0) {
+          updatedRecommendations = [...state.scoutRecommendations, ...newRecs];
+          for (const rec of newRecs) {
+            scoutInboxMessages.push({
+              id: `scout_rec_${rec.id}_${newWeek}`,
+              type: 'suggestion',
+              subject: `💡 Recomendação do ${rec.scoutName}: ${rec.playerName} (Nota ${rec.grade})`,
+              body: `${rec.scoutName} recomenda ${rec.playerName} (${rec.position}, ${rec.age} anos) do ${rec.currentTeamName}. CA estimado: ${rec.estimatedCA}, PA estimado: ${rec.estimatedPA}. Valor estimado: R$ ${rec.estimatedValue}M. ${rec.reason}`,
+              timestamp: Date.now(),
+              read: false,
+              priority: rec.grade === 'A' ? 'high' : 'medium',
+              relatedPlayerId: rec.playerId,
+            });
+          }
+        }
+      }
+    }
+
+    // === PROCESSAMENTO DE EMPRÉSTIMOS ===
+    let updatedActiveLoans = state.activeLoans;
+    if (state.activeLoans.length > 0) {
+      const loanResult = processLoans(state.activeLoans, updatedTeams, newWeek);
+      updatedActiveLoans = loanResult.updatedLoans;
+      updatedTeams = loanResult.updatedTeams;
+      scoutInboxMessages.push(...loanResult.inboxMessages);
+    }
+
+    // === PROCESSAMENTO DE GUERRAS DE OFERTAS ===
+    let updatedBiddingWars = state.biddingWars;
+    if (state.biddingWars.length > 0) {
+      const bwResult = processBiddingWars(state.biddingWars, updatedTeams, state.selectedTeam ?? '', newWeek);
+      updatedBiddingWars = bwResult.updatedBiddingWars;
+      scoutInboxMessages.push(...bwResult.inboxMessages);
     }
 
     // Build final inbox: all new messages (injury, installment, bonus, scout, AI) + weekly message + existing
@@ -622,10 +686,16 @@ export const createCoreSlice = (set: Set, get: Get) => ({
       scoutKnowledge: updatedScoutKnowledge,
       scoutMissions: updatedScoutMissions,
       scoutReports: updatedScoutReports,
+      scoutRecommendations: updatedRecommendations,
+      activeLoans: updatedActiveLoans,
+      biddingWars: updatedBiddingWars,
       completedTransfers: [...state.completedTransfers, ...aiCompletedTransfers],
     });
 
     get().updatePromiseCountdown();
+    if (state.trainingPlan) {
+      get().applyWeeklyTraining();
+    }
     get().captureWeeklyAttributeSnapshot();
   },
 
@@ -634,7 +704,7 @@ export const createCoreSlice = (set: Set, get: Get) => ({
     const nextSeason = state.currentSeason + 1;
 
     // Reset team stats for new season
-    let updatedTeams = state.teams.map(team => ({
+    const updatedTeams = state.teams.map(team => ({
       ...team,
       points: 0,
       played: 0,

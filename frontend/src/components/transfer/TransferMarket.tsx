@@ -4,7 +4,7 @@ import { PlayerCard } from '../squad/PlayerCard';
 import { Button } from '../ui/Button';
 import { ScoutReportCard } from './ScoutReportCard';
 import { getFullName } from '../../utils/player';
-import type { IncomingTransfer, Player, InstallmentClause, PlayerBonus, TransferAgreement, NegotiationResult, ContractNegotiationResult } from '../../types/game';
+import type { IncomingTransfer, Player, InstallmentClause, PlayerBonus, TransferAgreement, NegotiationResult, ContractNegotiationResult, LoanDeal, ShortlistEntry, ScoutRecommendation, BiddingWar } from '../../types/game';
 
 const SquadStatusOptions = ['Key Player', 'Regular Starter', 'Rotation', 'Young Talent', 'Excess'];
 
@@ -223,15 +223,19 @@ export const TransferMarket: React.FC<{
     negotiateCounterOffer, pendingInstallments, incomingBonuses, payInstallment, checkBonuses, claimBonus,
     transferAgreements, terminateTransferAgreement, completedTransfers,
     makeOffer, acceptOffer, negotiatePlayerContract,
+    activeLoans, recallLoanedPlayer, buyLoanedPlayer, activateReleaseClause,
+    shortlist, addToShortlist, removeFromShortlist,
+    scoutRecommendations, dismissScoutRecommendation,
+    biddingWars, raiseBid, withdrawBid,
   } = useGameStore();
 
   const [filter, setFilter] = useState('');
   const [debouncedFilter, setDebouncedFilter] = useState('');
   // Item 9: Persistência da aba selecionada no localStorage
-  const [activeTab, setActiveTab] = useState<'market' | 'scouting' | 'offers' | 'deferred' | 'installments' | 'bonuses' | 'agreements' | 'completed'>(() => {
+  const [activeTab, setActiveTab] = useState<'market' | 'scouting' | 'offers' | 'deferred' | 'installments' | 'bonuses' | 'agreements' | 'completed' | 'loans' | 'shortlist' | 'recommendations' | 'bidding'>(() => {
     const saved = typeof window !== 'undefined' ? localStorage.getItem('fm_activeTab') : null;
-    const validTabs: Record<string, boolean> = { market: true, scouting: true, offers: true, deferred: true, installments: true, bonuses: true, agreements: true, completed: true };
-    return (saved && validTabs[saved]) ? saved as 'market' | 'scouting' | 'offers' | 'deferred' | 'installments' | 'bonuses' | 'agreements' | 'completed' : 'market';
+    const validTabs: Record<string, boolean> = { market: true, scouting: true, offers: true, deferred: true, installments: true, bonuses: true, agreements: true, completed: true, loans: true, shortlist: true, recommendations: true, bidding: true };
+    return (saved && validTabs[saved]) ? saved as 'market' | 'scouting' | 'offers' | 'deferred' | 'installments' | 'bonuses' | 'agreements' | 'completed' | 'loans' | 'shortlist' | 'recommendations' | 'bidding' : 'market';
   });
   const [selectedStatus, setSelectedStatus] = useState('Rotation');
   const [positionFilter, setPositionFilter] = useState('');
@@ -578,7 +582,7 @@ export const TransferMarket: React.FC<{
         <button onClick={() => setShowAll(v => !v)} className="fm-transfer-market__tab fm-transfer-market__tab--toggle">
           {showAll ? 'Mostrar Pendentes' : 'Mostrar Todos'}
         </button>
-        {(['market', 'scouting', 'offers', 'deferred', 'installments', 'bonuses', 'agreements', 'completed'] as const).map((tab) => (
+        {(['market', 'scouting', 'offers', 'deferred', 'installments', 'bonuses', 'agreements', 'completed', 'loans', 'shortlist', 'recommendations', 'bidding'] as const).map((tab) => (
           <button
             key={tab}
             className={`fm-transfer-market__tab ${activeTab === tab ? 'fm-transfer-market__tab--active' : ''}`}
@@ -587,7 +591,7 @@ export const TransferMarket: React.FC<{
               if (typeof window !== 'undefined') localStorage.setItem('fm_activeTab', tab);
             }}
           >
-            {tab === 'market' ? 'Mercado' : tab === 'scouting' ? 'Scouting' : tab === 'offers' ? `Ofertas (${showAll ? incomingTransfers.length : incomingTransfers.filter(o => !deferredTransfers.find(d => d.playerId === o.playerId)).length})` : tab === 'deferred' ? `Adiados (${showAll ? deferredTransfers.length : deferredTransfers.length})` : tab === 'installments' ? `Parcelas (${showAll ? pendingInstallments.length : pendingInstallments.filter(i => i.status === 'active').length})` : tab === 'bonuses' ? `Bónus (${showAll ? incomingBonuses.length : incomingBonuses.filter(b => !b.triggered).length})` : tab === 'agreements' ? `Acordos (${transferAgreements.filter(a => a.status === 'active').length})` : `Realizados (${completedTransfers.length})`}
+            {tab === 'market' ? 'Mercado' : tab === 'scouting' ? 'Scouting' : tab === 'offers' ? `Ofertas (${showAll ? incomingTransfers.length : incomingTransfers.filter(o => !deferredTransfers.find(d => d.playerId === o.playerId)).length})` : tab === 'deferred' ? `Adiados (${showAll ? deferredTransfers.length : deferredTransfers.length})` : tab === 'installments' ? `Parcelas (${showAll ? pendingInstallments.length : pendingInstallments.filter(i => i.status === 'active').length})` : tab === 'bonuses' ? `Bónus (${showAll ? incomingBonuses.length : incomingBonuses.filter(b => !b.triggered).length})` : tab === 'agreements' ? `Acordos (${transferAgreements.filter(a => a.status === 'active').length})` : tab === 'completed' ? `Realizados (${completedTransfers.length})` : tab === 'loans' ? `Empréstimos (${(activeLoans ?? []).filter(l => l.status === 'active').length})` : tab === 'shortlist' ? `Shortlist (${(shortlist ?? []).length})` : tab === 'recommendations' ? `Recomendações (${(scoutRecommendations ?? []).filter(r => !r.dismissed).length})` : `Guerra (${(biddingWars ?? []).filter(w => w.status === 'active').length})`}
           </button>
         ))}
       </div>
@@ -695,6 +699,26 @@ export const TransferMarket: React.FC<{
                           </div>
                         </div>
                       )}
+                      <div className="fm-transfer-player-wrap__extra-actions">
+                        {(shortlist ?? []).some(e => e.playerId === player.id) ? (
+                          <Button variant="secondary" onClick={() => { removeFromShortlist(player.id); addToast?.('Removido da shortlist.', 'info'); }}>
+                            ★ Remover da Shortlist
+                          </Button>
+                        ) : (
+                          <Button variant="secondary" onClick={() => { addToShortlist(player.id); addToast?.('Adicionado à shortlist.', 'success'); }}>
+                            ☆ Adicionar à Shortlist
+                          </Button>
+                        )}
+                        {player.contractClause && player.contractClause > 0 && team && team.budget >= player.contractClause && (
+                          <Button variant="primary" onClick={() => {
+                            const ok = activateReleaseClause(player.id, teamId);
+                            if (ok) addToast?.(`Cláusula ativada! ${getFullName(player)} contratado por R$ ${player.contractClause}M.`, 'success');
+                            else addToast?.('Não foi possível ativar a cláusula.', 'warning');
+                          }}>
+                            Cláusula: R$ {player.contractClause}M
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -727,6 +751,44 @@ export const TransferMarket: React.FC<{
               <Button onClick={() => handleAssignScout()}>Gerar Relatórios (3)</Button>
             )}
           </div>
+          {team && team.scouts && team.scouts.length > 0 && (
+            <div className="fm-scouts-panel">
+              <h3 className="fm-scouts-panel__title">Olheiros</h3>
+              <div className="fm-scouts-panel__grid">
+                {team.scouts.map(scout => (
+                  <div key={scout.id} className={`fm-scout-card ${scout.assigned ? 'fm-scout-card--assigned' : ''}`}>
+                    <div className="fm-scout-card__header">
+                      <span className="fm-scout-card__name">{scout.name}</span>
+                      {scout.assigned && <span className="fm-scout-card__badge">Em missão</span>}
+                    </div>
+                    <div className="fm-scout-card__stats">
+                      <div className="fm-scout-card__stat">
+                        <span className="fm-scout-card__stat-label">Julg. Habilidade</span>
+                        <span className="fm-scout-card__stat-value">{scout.judgingAbility}/20</span>
+                      </div>
+                      <div className="fm-scout-card__stat">
+                        <span className="fm-scout-card__stat-label">Julg. Potencial</span>
+                        <span className="fm-scout-card__stat-value">{scout.judgingPotential}/20</span>
+                      </div>
+                      <div className="fm-scout-card__stat">
+                        <span className="fm-scout-card__stat-label">Experiência</span>
+                        <span className="fm-scout-card__stat-value">{scout.experience ?? 0} pts</span>
+                      </div>
+                      <div className="fm-scout-card__stat">
+                        <span className="fm-scout-card__stat-label">Missões</span>
+                        <span className="fm-scout-card__stat-value">{scout.missionsCompleted ?? 0}</span>
+                      </div>
+                    </div>
+                    {(scout.experience ?? 0) > 0 && (
+                      <div className="fm-scout-card__progress">
+                        <div className="fm-scout-card__progress-bar" style={{ width: `${Math.min(100, (scout.experience ?? 0) % 100)}%` }} />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="fm-scouting-section__reports">
             {scoutReports.length === 0 ? (
               <div className="fm-empty">Nenhum relatório. Atribua olheiros para começar.</div>
@@ -1008,6 +1070,297 @@ export const TransferMarket: React.FC<{
                       Semana {transfer.transferWeek}
                     </span>
                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* ABA: EMPRÉSTIMOS                                              */}
+      {/* ============================================================ */}
+      {activeTab === 'loans' && (
+        <div className="fm-loans-section">
+          <h2>Empréstimos Ativos</h2>
+          {(activeLoans ?? []).length === 0 ? (
+            <div className="fm-empty">Nenhum empréstimo ativo no momento.</div>
+          ) : (
+            <div className="fm-loans-list">
+              {(activeLoans ?? []).map((loan: LoanDeal) => (
+                <div key={loan.id} className={`fm-loan-card fm-loan-card--${loan.status}`}>
+                  <div className="fm-loan-card__header">
+                    <h3 className="fm-loan-card__player-name">{loan.playerName}</h3>
+                    <span className={`fm-loan-card__status fm-loan-card__status--${loan.status}`}>
+                      {loan.status === 'active' ? 'Ativo' : loan.status === 'completed' ? 'Concluído' : loan.status === 'recalled' ? 'Recallado' : 'Comprado'}
+                    </span>
+                  </div>
+                  <div className="fm-loan-card__details">
+                    <div className="fm-loan-card__detail">
+                      <span className="fm-loan-card__detail-label">De:</span>
+                      <span className="fm-loan-card__detail-value">{loan.fromTeamName}</span>
+                    </div>
+                    <div className="fm-loan-card__detail">
+                      <span className="fm-loan-card__detail-label">Taxa:</span>
+                      <span className="fm-loan-card__detail-value">R$ {loan.loanFee}M</span>
+                    </div>
+                    <div className="fm-loan-card__detail">
+                      <span className="fm-loan-card__detail-label">Semanas restantes:</span>
+                      <span className="fm-loan-card__detail-value">{loan.remainingWeeks}/{loan.durationWeeks}</span>
+                    </div>
+                    {loan.buyOptionFee != null && (
+                      <div className="fm-loan-card__detail">
+                        <span className="fm-loan-card__detail-label">Opção de compra:</span>
+                        <span className="fm-loan-card__detail-value">R$ {loan.buyOptionFee}M {loan.buyOptionMandatory ? '(obrigatória)' : '(opcional)'}</span>
+                      </div>
+                    )}
+                  </div>
+                  {loan.status === 'active' && (
+                    <div className="fm-loan-card__actions">
+                      <Button variant="secondary" onClick={() => { recallLoanedPlayer(loan.id); addToast?.(`${loan.playerName} recallado.`, 'info'); }}>
+                        Recallar
+                      </Button>
+                      {loan.buyOptionFee != null && (
+                        <Button variant="primary" onClick={() => {
+                          const ok = buyLoanedPlayer(loan.id);
+                          if (ok) addToast?.(`${loan.playerName} comprado por R$ ${loan.buyOptionFee}M!`, 'success');
+                          else addToast?.('Saldo insuficiente para comprar.', 'warning');
+                        }}>
+                          Comprar por R$ {loan.buyOptionFee}M
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* ABA: SHORTLIST                                                */}
+      {/* ============================================================ */}
+      {activeTab === 'shortlist' && (
+        <div className="fm-shortlist-section">
+          <h2>Shortlist</h2>
+          {(shortlist ?? []).length === 0 ? (
+            <div className="fm-empty">Nenhum jogador na shortlist. Adicione jogadores do Mercado.</div>
+          ) : (
+            <div className="fm-shortlist-list">
+              {(shortlist ?? []).sort((a: ShortlistEntry, b: ShortlistEntry) => {
+                const order = { high: 0, medium: 1, low: 2 };
+                return order[a.priority] - order[b.priority];
+              }).map((entry: ShortlistEntry) => {
+                const allPlayers = teams.flatMap(t => t.squad);
+                const player = allPlayers.find(p => p.id === entry.playerId);
+                const playerTeam = teams.find(t => t.squad.some(p => p.id === entry.playerId));
+                return (
+                  <div key={entry.playerId} className={`fm-shortlist-card fm-shortlist-card--${entry.priority}`}>
+                    <div className="fm-shortlist-card__header">
+                      <h3 className="fm-shortlist-card__player-name">{player ? getFullName(player) : entry.playerId}</h3>
+                      <span className={`fm-shortlist-card__priority fm-shortlist-card__priority--${entry.priority}`}>
+                        {entry.priority === 'high' ? '🔴 Alta' : entry.priority === 'medium' ? '🟡 Média' : '🟢 Baixa'}
+                      </span>
+                    </div>
+                    <div className="fm-shortlist-card__details">
+                      {player && (
+                        <>
+                          <div className="fm-shortlist-card__detail">
+                            <span className="fm-shortlist-card__detail-label">Posição:</span>
+                            <span className="fm-shortlist-card__detail-value">{player.position}</span>
+                          </div>
+                          <div className="fm-shortlist-card__detail">
+                            <span className="fm-shortlist-card__detail-label">Idade:</span>
+                            <span className="fm-shortlist-card__detail-value">{player.age}</span>
+                          </div>
+                          <div className="fm-shortlist-card__detail">
+                            <span className="fm-shortlist-card__detail-label">Valor:</span>
+                            <span className="fm-shortlist-card__detail-value">R$ {player.marketValue}M</span>
+                          </div>
+                        </>
+                      )}
+                      {playerTeam && (
+                        <div className="fm-shortlist-card__detail">
+                          <span className="fm-shortlist-card__detail-label">Clube:</span>
+                          <span className="fm-shortlist-card__detail-value">{playerTeam.name}</span>
+                        </div>
+                      )}
+                      {entry.notes && (
+                        <div className="fm-shortlist-card__notes">{entry.notes}</div>
+                      )}
+                    </div>
+                    <div className="fm-shortlist-card__actions">
+                      <Button variant="secondary" onClick={() => { removeFromShortlist(entry.playerId); addToast?.('Removido da shortlist.', 'info'); }}>
+                        Remover
+                      </Button>
+                      {player && playerTeam && playerTeam.id !== selectedTeam && (
+                        <Button variant="primary" onClick={() => {
+                          setNegotiationModal({
+                            playerId: player.id,
+                            playerName: getFullName(player),
+                            sellerTeamId: playerTeam.id,
+                            sellerTeamName: playerTeam.name,
+                            marketValue: player.marketValue,
+                          });
+                          setOfferAmount(String(Math.round(player.marketValue * 10) / 10));
+                        }}>
+                          Negociar
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* ABA: RECOMENDAÇÕES DE SCOUTS                                  */}
+      {/* ============================================================ */}
+      {activeTab === 'recommendations' && (
+        <div className="fm-recommendations-section">
+          <h2>Recomendações de Scouts</h2>
+          {(scoutRecommendations ?? []).filter(r => !r.dismissed).length === 0 ? (
+            <div className="fm-empty">Nenhuma recomendação ativa no momento. Seus scouts podem recomendar jogadores automaticamente.</div>
+          ) : (
+            <div className="fm-recommendations-list">
+              {(scoutRecommendations ?? []).filter((r: ScoutRecommendation) => !r.dismissed).map((rec: ScoutRecommendation) => (
+                <div key={rec.id} className={`fm-recommendation-card fm-recommendation-card--${rec.grade}`}>
+                  <div className="fm-recommendation-card__header">
+                    <h3 className="fm-recommendation-card__player-name">{rec.playerName}</h3>
+                    <span className={`fm-recommendation-card__grade fm-recommendation-card__grade--${rec.grade}`}>
+                      Nota {rec.grade}
+                    </span>
+                  </div>
+                  <div className="fm-recommendation-card__details">
+                    <div className="fm-recommendation-card__detail">
+                      <span className="fm-recommendation-card__detail-label">Posição:</span>
+                      <span className="fm-recommendation-card__detail-value">{rec.position}</span>
+                    </div>
+                    <div className="fm-recommendation-card__detail">
+                      <span className="fm-recommendation-card__detail-label">Idade:</span>
+                      <span className="fm-recommendation-card__detail-value">{rec.age}</span>
+                    </div>
+                    <div className="fm-recommendation-card__detail">
+                      <span className="fm-recommendation-card__detail-label">CA estimado:</span>
+                      <span className="fm-recommendation-card__detail-value">{rec.estimatedCA}</span>
+                    </div>
+                    <div className="fm-recommendation-card__detail">
+                      <span className="fm-recommendation-card__detail-label">PA estimado:</span>
+                      <span className="fm-recommendation-card__detail-value">{rec.estimatedPA}</span>
+                    </div>
+                    <div className="fm-recommendation-card__detail">
+                      <span className="fm-recommendation-card__detail-label">Clube:</span>
+                      <span className="fm-recommendation-card__detail-value">{rec.currentTeamName}</span>
+                    </div>
+                    <div className="fm-recommendation-card__detail">
+                      <span className="fm-recommendation-card__detail-label">Valor estimado:</span>
+                      <span className="fm-recommendation-card__detail-value">R$ {rec.estimatedValue}M</span>
+                    </div>
+                  </div>
+                  <div className="fm-recommendation-card__reason">
+                    <span className="fm-recommendation-card__reason-label">Motivo:</span>
+                    <span className="fm-recommendation-card__reason-text">{rec.reason}</span>
+                  </div>
+                  <div className="fm-recommendation-card__meta">
+                    <span>Scout: {rec.scoutName}</span>
+                    <span>Semana {rec.week}</span>
+                  </div>
+                  <div className="fm-recommendation-card__actions">
+                    <Button variant="secondary" onClick={() => { dismissScoutRecommendation(rec.id); addToast?.('Recomendação dispensada.', 'info'); }}>
+                      Dispensar
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* ABA: GUERRA DE OFERTAS                                        */}
+      {/* ============================================================ */}
+      {activeTab === 'bidding' && (
+        <div className="fm-bidding-section">
+          <h2>Guerra de Ofertas</h2>
+          {(biddingWars ?? []).length === 0 ? (
+            <div className="fm-empty">Nenhuma guerra de ofertas ativa. Outros clubes podem competir quando você faz uma oferta.</div>
+          ) : (
+            <div className="fm-bidding-list">
+              {(biddingWars ?? []).map((war: BiddingWar) => (
+                <div key={war.id} className={`fm-bidding-card fm-bidding-card--${war.status}`}>
+                  <div className="fm-bidding-card__header">
+                    <h3 className="fm-bidding-card__player-name">{war.playerName}</h3>
+                    <span className={`fm-bidding-card__status fm-bidding-card__status--${war.status}`}>
+                      {war.status === 'active' ? 'Ativo' : war.status === 'won' ? 'Vencido' : war.status === 'lost' ? 'Perdido' : 'Retirado'}
+                    </span>
+                  </div>
+                  <div className="fm-bidding-card__details">
+                    <div className="fm-bidding-card__detail">
+                      <span className="fm-bidding-card__detail-label">Vendedor:</span>
+                      <span className="fm-bidding-card__detail-value">{war.sellerTeamName}</span>
+                    </div>
+                    <div className="fm-bidding-card__detail">
+                      <span className="fm-bidding-card__detail-label">Sua oferta:</span>
+                      <span className="fm-bidding-card__detail-value">R$ {war.userOffer}M</span>
+                    </div>
+                    <div className="fm-bidding-card__detail">
+                      <span className="fm-bidding-card__detail-label">Maior oferta:</span>
+                      <span className="fm-bidding-card__detail-value">R$ {war.highestOffer}M</span>
+                    </div>
+                    <div className="fm-bidding-card__detail">
+                      <span className="fm-bidding-card__detail-label">Rodada:</span>
+                      <span className="fm-bidding-card__detail-value">{war.round}/{war.maxRounds}</span>
+                    </div>
+                    <div className="fm-bidding-card__detail">
+                      <span className="fm-bidding-card__detail-label">Status:</span>
+                      <span className="fm-bidding-card__detail-value">
+                        {war.isUserWinning ? 'Você está liderando' : 'Outro clube lidera'}
+                      </span>
+                    </div>
+                  </div>
+                  {war.aiOffers.length > 0 && (
+                    <div className="fm-bidding-card__competitors">
+                      <span className="fm-bidding-card__competitors-label">Competidores:</span>
+                      {war.aiOffers.map(offer => (
+                        <div key={offer.teamId} className="fm-bidding-card__competitor">
+                          <span>{offer.teamName}</span>
+                          <span>R$ {offer.offerPrice}M</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {war.status === 'active' && (
+                    <div className="fm-bidding-card__actions">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        placeholder="Nova oferta (R$M)"
+                        id={`bid-input-${war.id}`}
+                      />
+                      <Button variant="primary" onClick={() => {
+                        const input = document.getElementById(`bid-input-${war.id}`) as HTMLInputElement;
+                        const val = parseFloat(input?.value || '0');
+                        if (val > war.userOffer) {
+                          const ok = raiseBid(war.id, val);
+                          if (ok) addToast?.(`Oferta aumentada para R$ ${val}M!`, 'success');
+                          else addToast?.('Não foi possível aumentar a oferta.', 'warning');
+                        } else {
+                          addToast?.('A nova oferta deve ser maior que a atual.', 'warning');
+                        }
+                      }}>
+                        Aumentar Oferta
+                      </Button>
+                      <Button variant="secondary" onClick={() => { withdrawBid(war.id); addToast?.('Oferta retirada.', 'info'); }}>
+                        Retirar
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

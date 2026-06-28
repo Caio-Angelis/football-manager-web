@@ -9,7 +9,7 @@
 **Progresso estimado:** ~99% da especificação completa (ver `IMPLMENTATION_CHECKLIST.md`). Fluxos completos documentados em `docs/fluxo.md`. Database real de 20 clubes do Brasileirão integrada (ver `DataBase jogadores/`). Sistema multi-temporada (até 3), IA adversária ativa, dinâmica de moral semanal e relatórios pós-jogo implementados.
 
 **Stack:**
-- **Backend:** Express 4, Zustand 5 (estado em memória), Zod 4 (validação), TypeScript 5.6, tsx (dev), Vitest 4 (testes)
+- **Backend:** Express 4, Zustand 5 (estado em memória), Zod 4 (validação), TypeScript 5.6, tsx (dev), Vitest 4 (testes). Script headless (`headless_sim.ts`) para simulação sem servidor.
 - **Frontend:** Vite 6, React 19, Zustand 5 (thin client), React Router DOM 7, Lucide React (ícones), Recharts (gráficos), TypeScript 5.6, Vitest 3 + happy-dom (testes)
 - **Root:** concurrently (orquestra backend + frontend)
 
@@ -46,6 +46,10 @@ football-manager-web/
 │
 ├── backend/
 │   ├── package.json            # Express, Zustand, Zod, tsx, Vitest
+│   ├── headless_sim.ts         # Simulação headless de 3 temporadas sem servidor/frontend
+│   ├── run_batch.py            # Executa headless_sim 30x e gera balance_report.txt
+│   ├── sim_output.json         # Métricas geradas pelo headless_sim (gerado em runtime)
+│   ├── balance_report.txt      # Relatório de balanceamento (gerado em runtime)
 │   ├── .env.example            # PORT, NODE_ENV, SAVES_DIR
 │   ├── eslint.config.js
 │   ├── .prettierrc
@@ -222,7 +226,7 @@ Backend (Express 4)
 
 Tipos são definidos no backend em 13 arquivos de domínio sob `backend/src/types/`, com barrel export em `game.ts`. O frontend espelha os tipos em `frontend/src/types/game.ts`.
 
-> **⚠️ Dessincronização:** O `GameActions` do backend (`backend/src/types/game.ts`) possui actions extras não espelhadas no thin client do frontend (`frontend/src/store/gameStore.ts`): `generateInstallmentClause`, `generatePlayerBonus`, `setCoachTreatment`, `setPlayerTrustLevel`, `setPlayerTrainingLoad`, `updateClubPerformance`, `updateLeagueForm`, `setLeaguePosition`, `assignScoutMission`, `getScoutKnowledge`. Essas actions são invocadas diretamente via `apiAction()` sem implementação no thin client. `negotiatePlayerContract` está espelhada no frontend (tipos + store). Os tipos `Scout`, `ActiveScoutMission`, `ContractNegotiationResult`, `scoutKnowledge` e `scoutMissions` estão espelhados em `frontend/src/types/game.ts`.
+> **⚠️ Dessincronização:** O `GameActions` do backend (`backend/src/types/game.ts`) possui actions extras não espelhadas no thin client do frontend (`frontend/src/store/gameStore.ts`): `generateInstallmentClause`, `generatePlayerBonus`, `setCoachTreatment`, `setPlayerTrustLevel`, `setPlayerTrainingLoad`, `updateClubPerformance`, `updateLeagueForm`, `setLeaguePosition`, `assignScoutMission`, `getScoutKnowledge`. Essas actions são invocadas diretamente via `apiAction()` sem implementação no thin client. `negotiatePlayerContract`, `loanPlayer`, `recallLoanedPlayer`, `buyLoanedPlayer`, `activateReleaseClause`, `raiseBid`, `withdrawBid`, `addToShortlist`, `removeFromShortlist`, `getShortlist`, `dismissScoutRecommendation` estão espelhadas no frontend (tipos + store). Os tipos `Scout`, `ActiveScoutMission`, `ContractNegotiationResult`, `LoanDeal`, `ShortlistEntry`, `ScoutRecommendation`, `BiddingWar`, `scoutKnowledge` e `scoutMissions` estão espelhados em `frontend/src/types/game.ts`.
 
 ---
 
@@ -260,6 +264,11 @@ Tipos são definidos no backend em 13 arquivos de domínio sob `backend/src/type
 - `DeferredTransfer`, `CompletedTransfer`
 - `InstallmentClause`, `PlayerBonus`, `TransferAgreement`, `ScoutReport`
 - `ActiveScoutMission` — missão de observação ativa (scoutId, targetId, weeksAssigned, weeksTotal)
+- `LoanDeal` — empréstimo de jogador (id, playerId, fromTeamId, toTeamId, loanFee, weeklyWageContribution, durationWeeks, remainingWeeks, buyOptionFee, buyOptionMandatory, status: active|completed|recalled|bought)
+- `ShortlistEntry` — entrada de shortlist (playerId, addedAt, addedWeek, priority: high|medium|low, notes)
+- `ScoutRecommendation` — recomendação automática de scout (id, playerId, playerName, position, age, estimatedCA, estimatedPA, currentTeamName, estimatedValue, grade: A-F, reason, scoutId, scoutName, week, dismissed)
+- `BiddingWar` — guerra de ofertas (id, playerId, playerName, sellerTeamId, sellerTeamName, userOffer, highestOffer, aiOffers[], round, maxRounds, isUserWinning, status: active|won|lost|withdrawn)
+- `AIOffer` — oferta de clube AI em guerra de ofertas (teamId, teamName, offerPrice)
 
 ### Lesões (`injury.ts`)
 - `InjuryHistory`, `LoadManagement`, `PreventionSession`, `PlayerLoadState`
@@ -349,22 +358,24 @@ recommendations, degradedConditions, socialTree,
 leagueTable, saveSlots, completedTransfers,
 youthAcademy, reserveTeam,
 scoutKnowledge (Record<string, number>), scoutMissions (ActiveScoutMission[]),
-seasonSummary (SeasonSummary | null), gameOver (boolean)
+seasonSummary (SeasonSummary | null), gameOver (boolean),
+shortlist (ShortlistEntry[]), scoutRecommendations (ScoutRecommendation[]),
+activeLoans (LoanDeal[]), biddingWars (BiddingWar[])
 ```
 
 ### Slices (13)
 
 | Slice | Arquivo | Responsabilidade |
 |-------|---------|-----------------|
-| Core | `core.ts` | `initGame` (database real + fallback procedural), `selectTeam`, `deselectTeam`, `updateTeam`, `advanceWeek` (auto-finaliza partida pendente, simula outras, processa IA adversária, dinâmica de moral, scouting, finanças, fadiga, parcelas, bônus, inbox), `startNextSeason` (reseta stats, gera novo calendário), `updateClubPerformance`, `updateLeagueForm`, `setLeaguePosition` |
+| Core | `core.ts` | `initGame` (database real + fallback procedural), `selectTeam`, `deselectTeam`, `updateTeam`, `advanceWeek` (auto-finaliza partida pendente, simula outras, processa IA adversária, dinâmica de moral, scouting, finanças, fadiga, parcelas, bônus, inbox; **treino aplicado após `set()` final** para persistir alterações), `startNextSeason` (reseta stats, gera novo calendário), `updateClubPerformance`, `updateLeagueForm`, `setLeaguePosition` |
 | Match | `match.ts` | `simulateMatch` (inicia estado ao vivo via `initLiveMatchState`), `generateLiveMatchMinute` (simula 1 minuto via `simulateMinute`), `applyMatchIntervention`, `finishMatch` (continua simulação até minuto 90, gera `postMatchReport`) |
-| Transfer | `transfer.ts` | `buyPlayer`, `makeOffer`, `acceptOffer`, `negotiatePlayerContract`, `deferTransfer`, `reinstateDeferredTransfer`, `rejectDeferredTransfer`, `negotiateCounterOffer`, `generateInstallmentClause`, `generatePlayerBonus`, parcelas, bônus, acordos |
-| Training | `training.ts` | `setTrainingPlan`, `applyWeeklyTraining`, `applyTrainingCooldown` |
+| Transfer | `transfer.ts` | `buyPlayer`, `makeOffer`, `acceptOffer`, `negotiatePlayerContract`, `deferTransfer`, `reinstateDeferredTransfer`, `rejectDeferredTransfer`, `negotiateCounterOffer`, `generateInstallmentClause`, `generatePlayerBonus`, parcelas, bônus, acordos, `loanPlayer`, `recallLoanedPlayer`, `buyLoanedPlayer`, `activateReleaseClause`, `raiseBid`, `withdrawBid` |
+| Training | `training.ts` | `setTrainingPlan`, `applyWeeklyTraining` (passa o foco real — physical, technical, cohesion, medical, recovery, light — diretamente para `updatePlayerAttributes`), `applyTrainingCooldown` |
 | Injury | `injury.ts` | `calculateInjuryRisk`, `schedulePreventionSession`, `recoverInjuredPlayer`, fadiga, recomendações |
 | Inbox | `inbox.ts` | `handleInboxAction`, `handleBoardReply`, `markAsRead`, `removeMessage` |
 | Financial | `financial.ts` | `generateFinancialReport`, `getFinancialReport`, `adjustPlayerSalary` |
-| Scouting | `scouting.ts` | `assignScout`, `assignScoutMission`, `getScoutKnowledge` |
-| Social | `social.ts` | `generateSocialTree`, `updateSocialConnections` |
+| Scouting | `scouting.ts` | `assignScout` (sem playerId: embaralha candidatos antes de selecionar 3), `assignScoutMission`, `getScoutKnowledge`, `addToShortlist` (playerId, priority?, notes?), `removeFromShortlist`, `getShortlist`, `dismissScoutRecommendation` |
+| Social | `social.ts` | `generateSocialTree`, `updateSocialConnections` (atualização imutável de edges) |
 | Promises | `promises.ts` | `updatePromiseCountdown`, `getActivePromises`, `checkPromiseDeadlines`, `setCoachTreatment`, `setPlayerTrustLevel`, `setPlayerTrainingLoad` |
 | Saves | `saves.ts` | `saveGame`, `loadGame`, `deleteSave` (disco via `saveService`) |
 | Youth | `youth.ts` | `generateYouthPlayers`, `promoteYouthPlayer`, `setAcademyTraining`, reserva |
@@ -378,17 +389,23 @@ seasonSummary (SeasonSummary | null), gameOver (boolean)
 | League | `league.ts` | `calculateLeagueStandings` |
 | Inbox | `inbox.ts` | `generateInboxMessage` |
 | Injury | `injury.ts` | `calculatePlayerInjuryRisk`, `getRiskLevel` |
-| Training | `training.ts` | `applyTrainingToPlayer`, `captureSnapshot` |
+| Training | `training.ts` | `applyTrainingToPlayer`, `captureSnapshot`, `updatePlayerAttributes` (recalcula CA com curva de idade: <21 ×1.5, 21-23 ×1.2, 24-27 ×0.8, 28-30 ×0.4, 31+ ×0.1) |
 | Transfer | `transfer.ts` | `maybeGenerateIncomingTransfer`, `recalcWageBill` |
 | Scouting | `scouting.ts` | `maskAttributeValue`, `maskPlayerAttributes`, `getBestScout`, `generateDefaultScouts`, `processScoutMissions`, `generateScoutReportForMission`, `calculateScoutGrade` |
-| AI Manager | `aiManager.ts` | `processAIWeeklyDecisions` — orquestra `processAITransfers` (janelas 1-12 e 20-26, AI-vs-AI), `processAITactics` (ajustes a cada 4 semanas baseados na tabela, demissão de técnico), `processAIContracts` (renovação automática) |
+| AI Manager | `aiManager.ts` | `processAIWeeklyDecisions` — orquestra `processAITransfers` (janelas 1-12 e 20-26, AI-vs-AI), `processAITactics` (ajustes a cada 4 semanas: rebaixamento 50/30/20 attacking/balanced/defensive, título 40% attacking em boa forma, mid-table 50% defensive após derrotas; demissão de técnico com nova formação), `processAIContracts` (renovação automática) |
 | Morale Dynamics | `moraleDynamics.ts` | `applyWeeklyMoraleDynamics` — 6 motores: promessas expiradas, tempo de jogo vs. status, forma do time, cascata do capitão, cascata de grupo social, regressão à média |
 
 ### Motor de Partida (`helpers/matchEngine.ts`)
 
 **`getTacticalBonus()`**
-- Bônus táticos variam de +0.02 a +0.08 por configuração
-- Considera: mentalidade, contra-pressionamento, linha defensiva, estilo de passe, ritmo
+- Bônus táticos: `attacking` +4%, `defensive` +8% (base)
+- Mentalidade ofensiva +5%, defensiva +4%
+- Considera: contra-pressionamento, linha defensiva, estilo de passe, ritmo, pressão, desarme, etc.
+
+**Multiplicadores de força por tática (em `teamAttack` e `teamDefense`):**
+- `attacking`: Ataque ×1.12, Defesa ×0.85
+- `balanced`: Ataque ×0.88, Defesa ×0.88
+- `defensive`: Ataque ×0.88, Defesa ×1.20
 
 **`calculateTeamStrength()`**
 - Calcula força baseada nos 11 primeiros jogadores
@@ -398,8 +415,9 @@ seasonSummary (SeasonSummary | null), gameOver (boolean)
 **`simulateMatchResult()`** — Modelo de Gols Esperados (xG) + Poisson (usado internamente como componente de probabilidade)
 - **Força ofensiva e defensiva separadas** por posição (FWD/MID/DEF/GK), ponderadas por forma e condição física
 - Atributos reais: `finishing`, `tackling`, `marking`, `reflexes`, `composure`, `positioning`, etc.
-- **Gols esperados (λ):** `BASE_GOALS × (ataque / defesa adversária) × vantagem de casa (1.12)`
-- **Amostragem de Poisson** para o número de gols de cada time
+- **Multiplicadores de tática** aplicados em `teamAttack` e `teamDefense` (ver acima)
+- **Gols esperados (λ):** `BASE_GOALS × (ataque / defesa adversária)^1.15 × vantagem de casa (1.12)` — `BASE_GOALS = 2.2`
+- **Amostragem de Poisson** (Knuth's algorithm, cap 10) para o número de gols de cada time
 - **Autor do gol ponderado** por finalização + posição (FWD peso 3.2, MID 1.5, DEF 0.45, GK 0.02)
 - **Assistências** atribuídas por passe/visão/cruzamento, priorizando meias (~62% dos gols têm assistência)
 - **Estatísticas coerentes** (chutes, no alvo, posse, passes, xG) derivadas dos lambdas e gols
@@ -453,7 +471,7 @@ seasonSummary (SeasonSummary | null), gameOver (boolean)
 
 ### Validação Zod (`backend/src/validation/schemas.ts`)
 
-82 schemas cobrindo todas as actions. Tipos comuns: `zString`, `zNumber`, `zNumberNonNeg`, `zMatchIndex`, `zSlot` (1|2), `zEmpty`. Actions sem schema emitem `console.warn`.
+91 schemas cobrindo todas as actions. Tipos comuns: `zString`, `zNumber`, `zNumberNonNeg`, `zMatchIndex`, `zSlot` (1|2), `zEmpty`. Actions sem schema emitem `console.warn`. Novos schemas: `loanPlayerSchema`, `recallLoanedPlayerSchema`, `buyLoanedPlayerSchema`, `activateReleaseClauseSchema`, `raiseBidSchema`, `withdrawBidSchema`, `addToShortlistSchema`, `removeFromShortlistSchema`, `getShortlistSchema`, `dismissScoutRecommendationSchema`.
 
 ### Erros (`backend/src/utils/errors.ts`)
 
@@ -601,11 +619,17 @@ seasonSummary (SeasonSummary | null), gameOver (boolean)
 
 ### TransferMarket (`transfer/TransferMarket.tsx`)
 
-- Tabs: Mercado, Ofertas, Acordos
+- Tabs: Mercado, Scouting, Ofertas, Adiados, Parcelas, Bônus, Acordos, Realizados, Empréstimos, Shortlist, Recomendações, Guerra de Ofertas
 - `buyPlayer`, `makeOffer`, `acceptOffer`, `deferTransfer`, `negotiateCounterOffer`
 - `assignScout` → `ScoutReportCard`
 - Parcelas (`InstallmentClauseDisplay`), Bônus (`PlayerBonusDisplay`)
 - `terminateTransferAgreement`
+- **Empréstimos:** lista de `LoanDeal` ativos com ações recallar/comprar
+- **Shortlist:** lista de `ShortlistEntry` ordenada por prioridade, com botão negociar
+- **Recomendações:** `ScoutRecommendation` não-dismissed com nota, motivo, dispensar
+- **Guerra de Ofertas:** `BiddingWar` ativos com input de nova oferta, aumentar/retirar
+- **Market extras:** botão ☆ Adicionar à Shortlist + botão Cláusula de Rescisão em cada card
+- **Scouts panel:** painel de olheiros com experiência, missões concluídas e barra de progresso
 
 ### TacticsView (`tactics/TacticsView.tsx`)
 
@@ -826,7 +850,7 @@ npm run format:check # prettier --check src
 | Tipos de domínio (backend) | 13 arquivos |
 | Componentes React | ~25 |
 | Telas na sidebar | 10 |
-| Schemas Zod | 82 |
+| Schemas Zod | 91 |
 | Times por partida | 20 (database real) ou 8 (fallback procedural) |
 | Temporadas máximas | 3 |
 
@@ -876,4 +900,4 @@ Console sem erros. Ver também `IMPLMENTATION_CHECKLIST.md`.
 
 ---
 
-**Última atualização:** Junho 2026 — sistema multi-temporada (até 3, `startNextSeason`, `SeasonSummary`, `gameOver`); IA adversária ativa (helper `aiManager.ts` — transferências AI-vs-AI em janelas, ajustes táticos por zona da tabela, demissão de técnico, renovações de contrato); dinâmica de moral semanal (helper `moraleDynamics.ts` — 6 motores: promessas, tempo de jogo, forma, cascata do capitão, cascata de grupo social, regressão à média); motor de partida atualizado (`simulateFullMatch`/`simulateMinute`/`initLiveMatchState` — simulação passo a passo para todas as partidas); relatório pós-jogo (`generatePostMatchReport` — mapa de calor 3×3, insights táticos, conselhos do assistente, breakdown de passes); novos tipos `PostMatchReport`, `HeatMapZone`, `TacticalInsight`, `AssistantAdvice`, `SeasonSummary`; novos componentes `PostMatchReportView` e `SeasonSummaryModal`; helpers agora são 9 (era 7); `startNextSeason` sem schema Zod
+**Última atualização:** Junho 2026 — sistema multi-temporada (até 3, `startNextSeason`, `SeasonSummary`, `gameOver`); IA adversária ativa (helper `aiManager.ts` — transferências AI-vs-AI em janelas, ajustes táticos por zona da tabela, demissão de técnico, renovações de contrato); dinâmica de moral semanal (helper `moraleDynamics.ts` — 6 motores: promessas, tempo de jogo, forma, cascata do capitão, cascata de grupo social, regressão à média); motor de partida atualizado (`simulateFullMatch`/`simulateMinute`/`initLiveMatchState` — simulação passo a passo para todas as partidas); relatório pós-jogo (`generatePostMatchReport` — mapa de calor 3×3, insights táticos, conselhos do assistente, breakdown de passes); novos tipos `PostMatchReport`, `HeatMapZone`, `TacticalInsight`, `AssistantAdvice`, `SeasonSummary`; novos componentes `PostMatchReportView` e `SeasonSummaryModal`; helpers agora são 9 (era 7); `startNextSeason` sem schema Zod; **sistema de transferências expandido:** empréstimos (`LoanDeal` — loanPlayer, recallLoanedPlayer, buyLoanedPlayer), cláusulas de rescisão (`activateReleaseClause`), guerra de ofertas (`BiddingWar` — raiseBid, withdrawBid), shortlist (`ShortlistEntry` — addToShortlist, removeFromShortlist, getShortlist), recomendações de scouts (`ScoutRecommendation` — dismissScoutRecommendation), experiência de scouts (`Scout.experience`, `Scout.missionsCompleted`); novos campos no `GameState`: `shortlist`, `scoutRecommendations`, `activeLoans`, `biddingWars`; compatibilidade de saves atualizada em `saves.ts`; 9 novos schemas Zod (total 91); UI do `TransferMarket` com 4 novas abas (Empréstimos, Shortlist, Recomendações, Guerra de Ofertas) + botões de shortlist/cláusula nos cards do mercado + painel de olheiros com experiência

@@ -341,7 +341,7 @@ export const TrainingView: React.FC = () => {
                       <div className="fm-attribute-progression-bar">
                         <div
                           className="fm-attribute-progression-bar-fill fm-attribute-progression-bar-fill--technical"
-                          style={{ width: `${((player.technical?.technique || 8) / 20) * 100}%` }}
+                          style={{ width: `${(Number(player.technical?.technique || 8) / 20) * 100}%` }}
                         />
                       </div>
                       <span className="fm-attribute-progression-bar-value">{player.technical?.technique || 8}</span>
@@ -351,7 +351,7 @@ export const TrainingView: React.FC = () => {
                       <div className="fm-attribute-progression-bar">
                         <div
                           className="fm-attribute-progression-bar-fill fm-attribute-progression-bar-fill--technical"
-                          style={{ width: `${((player.technical?.passing || 8) / 20) * 100}%` }}
+                          style={{ width: `${(Number(player.technical?.passing || 8) / 20) * 100}%` }}
                         />
                       </div>
                       <span className="fm-attribute-progression-bar-value">{player.technical?.passing || 8}</span>
@@ -361,7 +361,7 @@ export const TrainingView: React.FC = () => {
                       <div className="fm-attribute-progression-bar">
                         <div
                           className="fm-attribute-progression-bar-fill fm-attribute-progression-bar-fill--technical"
-                          style={{ width: `${((player.technical?.finishing || 8) / 20) * 100}%` }}
+                          style={{ width: `${(Number(player.technical?.finishing || 8) / 20) * 100}%` }}
                         />
                       </div>
                       <span className="fm-attribute-progression-bar-value">{player.technical?.finishing || 8}</span>
@@ -371,7 +371,7 @@ export const TrainingView: React.FC = () => {
                       <div className="fm-attribute-progression-bar">
                         <div
                           className="fm-attribute-progression-bar-fill fm-attribute-progression-bar-fill--physical"
-                          style={{ width: `${((player.physical?.stamina || 8) / 20) * 100}%` }}
+                          style={{ width: `${(Number(player.physical?.stamina || 8) / 20) * 100}%` }}
                         />
                       </div>
                       <span className="fm-attribute-progression-bar-value">{player.physical?.stamina || 8}</span>
@@ -381,7 +381,7 @@ export const TrainingView: React.FC = () => {
                       <div className="fm-attribute-progression-bar">
                         <div
                           className="fm-attribute-progression-bar-fill fm-attribute-progression-bar-fill--physical"
-                          style={{ width: `${((player.physical?.speed || 8) / 20) * 100}%` }}
+                          style={{ width: `${(Number(player.physical?.speed || 8) / 20) * 100}%` }}
                         />
                       </div>
                       <span className="fm-attribute-progression-bar-value">{player.physical?.speed || 8}</span>
@@ -447,9 +447,9 @@ export const TrainingView: React.FC = () => {
                               <span className="fm-attribute-progression-delta-new">
                                 {latestSnapshot.technical.technique || 8}
                               </span>
-                              <span className={`fm-attribute-progression-delta-change ${((latestSnapshot.technical.technique || 8) - (prevSnapshot.technical.technique || 8)) >= 0 ? 'positive' : 'negative'}`}>
-                                {((latestSnapshot.technical.technique || 8) - (prevSnapshot.technical.technique || 8)) >= 0 ? '+' : ''}
-                                {((latestSnapshot.technical.technique || 8) - (prevSnapshot.technical.technique || 8))}
+                              <span className={`fm-attribute-progression-delta-change ${(Number(latestSnapshot.technical.technique || 8) - Number(prevSnapshot.technical.technique || 8)) >= 0 ? 'positive' : 'negative'}`}>
+                                {(Number(latestSnapshot.technical.technique || 8) - Number(prevSnapshot.technical.technique || 8)) >= 0 ? '+' : ''}
+                                {(Number(latestSnapshot.technical.technique || 8) - Number(prevSnapshot.technical.technique || 8))}
                               </span>
                             </div>
                           </div>
@@ -463,9 +463,9 @@ export const TrainingView: React.FC = () => {
                               <span className="fm-attribute-progression-delta-new">
                                 {latestSnapshot.technical.passing || 8}
                               </span>
-                              <span className={`fm-attribute-progression-delta-change ${((latestSnapshot.technical.passing || 8) - (prevSnapshot.technical.passing || 8)) >= 0 ? 'positive' : 'negative'}`}>
-                                {((latestSnapshot.technical.passing || 8) - (prevSnapshot.technical.passing || 8)) >= 0 ? '+' : ''}
-                                {((latestSnapshot.technical.passing || 8) - (prevSnapshot.technical.passing || 8))}
+                              <span className={`fm-attribute-progression-delta-change ${(Number(latestSnapshot.technical.passing || 8) - Number(prevSnapshot.technical.passing || 8)) >= 0 ? 'positive' : 'negative'}`}>
+                                {(Number(latestSnapshot.technical.passing || 8) - Number(prevSnapshot.technical.passing || 8)) >= 0 ? '+' : ''}
+                                {(Number(latestSnapshot.technical.passing || 8) - Number(prevSnapshot.technical.passing || 8))}
                               </span>
                             </div>
                           </div>

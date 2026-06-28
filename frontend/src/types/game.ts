@@ -189,6 +189,8 @@ export interface Scout {
   judgingAbility: number;    // 1-20
   judgingPotential: number;  // 1-20
   assigned: boolean;
+  experience: number;        // pontos de experiência acumulados
+  missionsCompleted: number; // missões concluídas
 }
 
 export interface Team {
@@ -602,6 +604,83 @@ export interface ActiveScoutMission {
 }
 
 // ============================================================
+// SISTEMA DE EMPRÉSTIMOS (LOANS)
+// ============================================================
+
+export interface LoanDeal {
+  id: string;
+  playerId: string;
+  playerName: string;
+  fromTeamId: string;
+  fromTeamName: string;
+  toTeamId: string;
+  toTeamName: string;
+  loanFee: number;
+  weeklyWageContribution: number;
+  durationWeeks: number;
+  remainingWeeks: number;
+  buyOptionFee?: number;
+  buyOptionMandatory: boolean;
+  startDate: number;
+  startWeek: number;
+  status: 'active' | 'completed' | 'recalled' | 'bought';
+}
+
+// ============================================================
+// SISTEMA DE SHORTLIST
+// ============================================================
+
+export interface ShortlistEntry {
+  playerId: string;
+  addedAt: number;
+  addedWeek: number;
+  notes?: string;
+  priority: 'high' | 'medium' | 'low';
+}
+
+// ============================================================
+// RECOMENDAÇÕES DE SCOUTS
+// ============================================================
+
+export interface ScoutRecommendation {
+  id: string;
+  scoutId: string;
+  scoutName: string;
+  playerId: string;
+  playerName: string;
+  position: string;
+  age: number;
+  estimatedCA: number;
+  estimatedPA: number;
+  currentTeamName: string;
+  estimatedValue: number;
+  reason: string;
+  grade: 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
+  week: number;
+  dismissed: boolean;
+}
+
+// ============================================================
+// GUERRA DE OFERTAS (BIDDING WARS)
+// ============================================================
+
+export interface BiddingWar {
+  id: string;
+  playerId: string;
+  playerName: string;
+  sellerTeamId: string;
+  sellerTeamName: string;
+  userOffer: number;
+  aiOffers: { teamId: string; teamName: string; offerPrice: number }[];
+  highestOffer: number;
+  isUserWinning: boolean;
+  round: number;
+  maxRounds: number;
+  status: 'active' | 'won' | 'lost' | 'withdrawn';
+  week: number;
+}
+
+// ============================================================
 // RELATÓRIO DE LESÃO (Item 9.8.2)
 // ============================================================
 
@@ -981,6 +1060,14 @@ export interface GameState {
   // Scouting — conhecimento do manager sobre jogadores
   scoutKnowledge: Record<string, number>;
   scoutMissions: ActiveScoutMission[];
+  // Shortlist — jogadores marcados para acompanhamento
+  shortlist: ShortlistEntry[];
+  // Recomendações de scouts
+  scoutRecommendations: ScoutRecommendation[];
+  // Empréstimos ativos
+  activeLoans: LoanDeal[];
+  // Guerras de ofertas ativas
+  biddingWars: BiddingWar[];
   // Resumo de fim de temporada
   seasonSummary: SeasonSummary | null;
   gameOver: boolean;
@@ -1077,6 +1164,21 @@ export interface GameActions {
   // Scouting
   assignScoutMission: (scoutId: string, targetId: string, weeks: number) => boolean;
   getScoutKnowledge: (playerId: string) => number;
+  // Shortlist
+  addToShortlist: (playerId: string, priority?: 'high' | 'medium' | 'low', notes?: string) => boolean;
+  removeFromShortlist: (playerId: string) => void;
+  getShortlist: () => ShortlistEntry[];
+  // Empréstimos
+  loanPlayer: (playerId: string, sellerTeamId: string, durationWeeks: number, loanFee: number, buyOptionFee?: number, buyOptionMandatory?: boolean) => boolean;
+  recallLoanedPlayer: (loanId: string) => void;
+  buyLoanedPlayer: (loanId: string) => boolean;
+  // Cláusula de rescisão
+  activateReleaseClause: (playerId: string, sellerTeamId: string) => boolean;
+  // Guerra de ofertas
+  raiseBid: (biddingWarId: string, newOffer: number) => boolean;
+  withdrawBid: (biddingWarId: string) => void;
+  // Recomendações de scouts
+  dismissScoutRecommendation: (recommendationId: string) => void;
   // Resumo de fim de temporada
   startNextSeason: () => void;
 }

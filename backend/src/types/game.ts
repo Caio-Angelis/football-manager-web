@@ -17,7 +17,8 @@ export type {
   IncomingTransfer, CounterOffer, NegotiationResult,
   ContractNegotiationResult,
   DeferredTransfer, CompletedTransfer, ScoutReport,
-  ActiveScoutMission,
+  ActiveScoutMission, LoanDeal, ShortlistEntry,
+  ScoutRecommendation, BiddingWar,
 } from './transfer';
 
 // Injury & Fatigue
@@ -53,7 +54,7 @@ export type { YouthPlayer, YouthAcademy, ReserveTeamPlayer } from './youth';
 
 import type { Match } from './match';
 import type { Team } from './team';
-import type { TransferOffer, IncomingTransfer, CounterOffer, DeferredTransfer, InstallmentClause, PlayerBonus, TransferAgreement, CompletedTransfer, ScoutReport, NegotiationResult, ContractNegotiationResult, ActiveScoutMission } from './transfer';
+import type { TransferOffer, IncomingTransfer, CounterOffer, DeferredTransfer, InstallmentClause, PlayerBonus, TransferAgreement, CompletedTransfer, ScoutReport, NegotiationResult, ContractNegotiationResult, ActiveScoutMission, LoanDeal, ShortlistEntry, ScoutRecommendation, BiddingWar } from './transfer';
 import type { InboxMessage } from './inbox';
 import type { BoardReply, FinancialReport } from './financial';
 import type { WeeklyTrainingPlan } from './training';
@@ -127,6 +128,14 @@ export interface GameState {
   // Scouting — conhecimento do manager sobre jogadores
   scoutKnowledge: Record<string, number>; // Player ID -> 0-100
   scoutMissions: ActiveScoutMission[];   // missões de observação ativas
+  // Shortlist — jogadores marcados para acompanhamento
+  shortlist: ShortlistEntry[];
+  // Recomendações de scouts
+  scoutRecommendations: ScoutRecommendation[];
+  // Empréstimos ativos
+  activeLoans: LoanDeal[];
+  // Guerras de ofertas ativas
+  biddingWars: BiddingWar[];
   // Resumo de fim de temporada
   seasonSummary: SeasonSummary | null;
   gameOver: boolean;
@@ -243,6 +252,21 @@ export interface GameActions {
   // Scouting — designar olheiro a jogador
   assignScoutMission: (scoutId: string, targetId: string, weeks: number) => boolean;
   getScoutKnowledge: (playerId: string) => number;
+  // Shortlist
+  addToShortlist: (playerId: string, priority?: 'high' | 'medium' | 'low', notes?: string) => boolean;
+  removeFromShortlist: (playerId: string) => void;
+  getShortlist: () => ShortlistEntry[];
+  // Empréstimos
+  loanPlayer: (playerId: string, sellerTeamId: string, durationWeeks: number, loanFee: number, buyOptionFee?: number, buyOptionMandatory?: boolean) => boolean;
+  recallLoanedPlayer: (loanId: string) => void;
+  buyLoanedPlayer: (loanId: string) => boolean;
+  // Cláusula de rescisão
+  activateReleaseClause: (playerId: string, sellerTeamId: string) => boolean;
+  // Guerra de ofertas
+  raiseBid: (biddingWarId: string, newOffer: number) => boolean;
+  withdrawBid: (biddingWarId: string) => void;
+  // Recomendações de scouts
+  dismissScoutRecommendation: (recommendationId: string) => void;
   // Resumo de fim de temporada
   startNextSeason: () => void;
 }

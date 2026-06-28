@@ -47,8 +47,8 @@ export const createAttributesSlice = (set: Set, get: Get) => ({
     const snapB = player.attributeHistory.find(h => h.week === weekB);
     if (!snapA || !snapB) return 0;
 
-    const from = (snapA as any)[attributeName] ?? 0;
-    const to = (snapB as any)[attributeName] ?? 0;
+    const from = (snapA as unknown as Record<string, number | undefined>)[attributeName] ?? 0;
+    const to = (snapB as unknown as Record<string, number | undefined>)[attributeName] ?? 0;
     return Math.round((to - from) * 100) / 100;
   },
 
@@ -70,24 +70,24 @@ export const createAttributesSlice = (set: Set, get: Get) => ({
       // Compare technical
       const techKeys = Object.keys(prev.technical || {});
       techKeys.forEach(key => {
-        const from = (prev.technical as any)[key] ?? 0;
-        const to = (curr.technical as any)[key] ?? 0;
+        const from = (prev.technical as unknown as Record<string, number | undefined>)[key] ?? 0;
+        const to = (curr.technical as unknown as Record<string, number | undefined>)[key] ?? 0;
         if (from !== to) changes[`technical_${key}`] = { from, to };
       });
 
       // Compare mental
       const mentalKeys = Object.keys(prev.mental || {});
       mentalKeys.forEach(key => {
-        const from = (prev.mental as any)[key] ?? 0;
-        const to = (curr.mental as any)[key] ?? 0;
+        const from = (prev.mental as unknown as Record<string, number | undefined>)[key] ?? 0;
+        const to = (curr.mental as unknown as Record<string, number | undefined>)[key] ?? 0;
         if (from !== to) changes[`mental_${key}`] = { from, to };
       });
 
       // Compare physical
       const physKeys = Object.keys(prev.physical || {});
       physKeys.forEach(key => {
-        const from = (prev.physical as any)[key] ?? 0;
-        const to = (curr.physical as any)[key] ?? 0;
+        const from = (prev.physical as unknown as Record<string, number | undefined>)[key] ?? 0;
+        const to = (curr.physical as unknown as Record<string, number | undefined>)[key] ?? 0;
         if (from !== to) changes[`physical_${key}`] = { from, to };
       });
 

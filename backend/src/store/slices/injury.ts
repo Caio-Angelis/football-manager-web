@@ -71,7 +71,7 @@ export const createInjurySlice = (set: Set, get: Get) => ({
     // Apply prevention effects
     team.squad = team.squad.map(player => {
       if (latestSession.targetPlayerIds.includes(player.id)) {
-        let updated = { ...player };
+        const updated = { ...player };
         
         // Medical sessions reduce injury duration
         if (latestSession.type === 'medical' && updated.injury?.active) {

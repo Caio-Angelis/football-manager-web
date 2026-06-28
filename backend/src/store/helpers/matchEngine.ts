@@ -1,6 +1,6 @@
 // Motor de Partida — Cálculo de força, simulação e ratings
 
-import type { Team, Match, MatchEvent, MatchStats, PlayerMatchRating, Player, PlayerAttribute, GKAttributes, MatchAction, LiveMatchState, HeatMapZone, TacticalInsight, AssistantAdvice, PostMatchReport } from '../../types/game';
+import type { Team, Match, MatchEvent, MatchStats, PlayerMatchRating, Player, MatchAction, LiveMatchState, HeatMapZone, TacticalInsight, AssistantAdvice, PostMatchReport } from '../../types/game';
 
 // ============================================================
 // CÁLCULO DE FORÇA DO TIME
@@ -8,8 +8,8 @@ import type { Team, Match, MatchEvent, MatchStats, PlayerMatchRating, Player, Pl
 
 export function getTacticalBonus(team: Team): number {
   let bonus = 0;
-  if (team.tactic === 'attacking') bonus += 0.08;
-  if (team.tactic === 'defensive') bonus += 0.05;
+  if (team.tactic === 'attacking') bonus += 0.04;
+  if (team.tactic === 'defensive') bonus += 0.08;
   if (team.teamMentality === 'offensive' || team.teamMentality === 'very offensive') bonus += 0.05;
   if (team.teamMentality === 'defensive' || team.teamMentality === 'very defensive') bonus += 0.04;
 
@@ -212,7 +212,10 @@ function teamAttack(team: Team): number {
     weight += w;
   });
   const base = sum / Math.max(weight, 1);
-  return base * (1 + getTacticalBonus(team) * 0.6) * getTeamMoraleCohesion(team);
+  const tacticAttackMult =
+    team.tactic === 'attacking' ? 1.12 :
+    team.tactic === 'defensive' ? 0.88 : 0.88;
+  return base * tacticAttackMult * (1 + getTacticalBonus(team) * 0.3) * getTeamMoraleCohesion(team);
 }
 
 // Força defensiva do time, ponderada por posição, forma e condição
@@ -227,17 +230,21 @@ function teamDefense(team: Team): number {
     weight += w;
   });
   const base = sum / Math.max(weight, 1);
-  return base * (1 + getTacticalBonus(team) * 0.3) * getTeamMoraleCohesion(team);
+  const tacticDefenseMult =
+    team.tactic === 'attacking' ? 0.85 :
+    team.tactic === 'defensive' ? 1.20 : 0.88;
+  return base * tacticDefenseMult * (1 + getTacticalBonus(team) * 0.2) * getTeamMoraleCohesion(team);
 }
 
 // Amostra de uma distribuição de Poisson (número de gols)
 function poissonSample(lambda: number): number {
   if (lambda <= 0) return 0;
+  // Knuth's algorithm — returns k where P(X=k) is maximized
   const L = Math.exp(-lambda);
   let k = 0;
   let p = 1;
   do { k++; p *= Math.random(); } while (p > L);
-  return Math.min(k - 1, 8);
+  return Math.min(k - 1, 10);
 }
 
 // Escolha ponderada de um item
@@ -281,7 +288,7 @@ function pickAssister(team: Team, scorerId?: string): Team['squad'][number] | un
 
 export function simulateMatchResult(homeTeam: Team, awayTeam: Team, homeBoost = 0, awayBoost = 0): MatchResult {
   const HOME_ADVANTAGE = 1.12;
-  const BASE_GOALS = 1.35;
+  const BASE_GOALS = 2.2;
 
   const homeAtt = teamAttack(homeTeam) * (1 + homeBoost);
   const awayAtt = teamAttack(awayTeam) * (1 + awayBoost);
@@ -289,8 +296,8 @@ export function simulateMatchResult(homeTeam: Team, awayTeam: Team, homeBoost = 
   const awayDef = Math.max(1, teamDefense(awayTeam));
 
   // Gols esperados: força ofensiva relativa à defesa adversária
-  const homeLambda = clamp(BASE_GOALS * (homeAtt / awayDef) * HOME_ADVANTAGE, 0.15, 4.5);
-  const awayLambda = clamp(BASE_GOALS * (awayAtt / homeDef), 0.1, 4.0);
+  const homeLambda = clamp(BASE_GOALS * Math.pow(homeAtt / awayDef, 1.15) * HOME_ADVANTAGE, 0.2, 5.0);
+  const awayLambda = clamp(BASE_GOALS * Math.pow(awayAtt / homeDef, 1.15), 0.15, 4.5);
 
   const homeGoals = poissonSample(homeLambda);
   const awayGoals = poissonSample(awayLambda);
@@ -886,7 +893,7 @@ export function generatePostMatchReport(
   }
 
   // === RESUMO ===
-  let summary = '';
+  let summary: string;
   const winner = homeWon ? homeTeam : awayWon ? awayTeam : null;
   const loser = homeWon ? awayTeam : awayWon ? homeTeam : null;
   const winnerGoals = homeWon ? result.homeGoals : awayWon ? result.awayGoals : result.homeGoals;
@@ -1075,7 +1082,7 @@ function passSuccessProb(passer: Player, receiver: Player, pressure: number, tea
 }
 
 // Probabilidade de sucesso de um drible
-function dribbleSuccessProb(dribbler: Player, defender: Player, team: Team): number {
+function dribbleSuccessProb(dribbler: Player, defender: Player, _team: Team): number {
   const dribbling = dribbler.technical?.dribbling ?? 10;
   const technique = dribbler.technical?.technique ?? 10;
   const agility = dribbler.physical?.agility ?? 10;
@@ -1109,7 +1116,7 @@ function dribbleSuccessProb(dribbler: Player, defender: Player, team: Team): num
 }
 
 // Probabilidade de sucesso de um chute (em gol)
-function shotSuccessProb(shooter: Player, goalkeeper: Player, distance: number, team: Team): { onTarget: boolean; goal: boolean } {
+function shotSuccessProb(shooter: Player, goalkeeper: Player, distance: number, _team: Team): { onTarget: boolean; goal: boolean } {
   const finishing = shooter.technical?.finishing ?? 10;
   const technique = shooter.technical?.technique ?? 10;
   const longShots = shooter.technical?.longShots ?? 10;
@@ -1161,38 +1168,6 @@ function shotSuccessProb(shooter: Player, goalkeeper: Player, distance: number, 
 
   const goal = Math.random() < clamp(goalProb, 0.10, 0.85);
   return { onTarget: true, goal };
-}
-
-// Probabilidade de um defensor fazer desarme
-function tackleSuccessProb(defender: Player, attacker: Player, team: Team): number {
-  const tackling = defender.technical?.tackling ?? 10;
-  const marking = defender.technical?.marking ?? 10;
-  const strength = defender.physical?.strength ?? 10;
-  const anticipation = defender.mental?.anticipation ?? 10;
-  const aggression = defender.mental?.aggression ?? 10;
-
-  const dribbling = attacker.technical?.dribbling ?? 10;
-  const technique = attacker.technical?.technique ?? 10;
-  const agility = attacker.physical?.agility ?? 10;
-
-  let prob = 0.45;
-  prob += (tackling - 10) * 0.015;
-  prob += (marking - 10) * 0.008;
-  prob += (strength - 10) * 0.006;
-  prob += (anticipation - 10) * 0.006;
-  prob += (aggression - 10) * 0.004;
-  prob -= (dribbling - 10) * 0.010;
-  prob -= (technique - 10) * 0.005;
-  prob -= (agility - 10) * 0.005;
-
-  // Pressão alta aumenta chance de desarme
-  if (team.pressIntensity === 'high') prob += 0.05;
-  if (team.tacklingStyle === 'aggressive') prob += 0.04;
-
-  prob *= ((defender.fitness ?? 90) / 100) * 0.5 + 0.5;
-  prob *= getMoraleFactor(defender);
-
-  return clamp(prob, 0.20, 0.75);
 }
 
 // Escolhe um jogador do time com posse, favorecendo os mais avançados quando atacando
@@ -1330,7 +1305,7 @@ export function simulateMinute(
   const roll = Math.random();
   const newActions: MatchAction[] = [];
   const newEvents: MatchEvent[] = [];
-  let newState: LiveMatchState = { ...state, pressure };
+  const newState: LiveMatchState = { ...state, pressure };
 
   // Acumula passes para stats
   let homePasses = state.stats.homePasses;
