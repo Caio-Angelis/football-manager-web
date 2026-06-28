@@ -1,4 +1,5 @@
 import type { GameStore, SocialTree, SocialNode } from '../../types/game';
+import { getFullName } from '../../utils/playerName';
 
 type Set = (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void;
 type Get = () => GameStore;
@@ -26,7 +27,7 @@ export const createSocialSlice = (set: Set, get: Get) => ({
         (p.squadStatus === 'Key Player' ? 20 : p.squadStatus === 'Regular Starter' ? 15 : 10));
       return {
         playerId: p.id,
-        playerName: `${p.name} ${p.surname}`,
+        playerName: getFullName(p),
         position: p.position,
         socialGroup: p.socialGroup || 'Sem grupo',
         influence,

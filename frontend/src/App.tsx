@@ -16,6 +16,7 @@ import { ToastContainer } from './components/ui/Toast';
 import { ThemeToggle } from './components/ui/ThemeToggle';
 import type { ToastData } from './components/ui/Toast';
 import { TransferMarket as TransferMarketComponent } from './components/transfer/TransferMarket';
+import { SeasonSummaryModal } from './components/season/SeasonSummaryModal';
 import type { SaveSlotMetadata, Team } from './types/game';
 import { FolderOpen } from 'lucide-react';
 
@@ -360,6 +361,7 @@ export const App: React.FC = () => {
         </Routes>
         </div>
       </main>
+      <SeasonSummaryModal />
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );

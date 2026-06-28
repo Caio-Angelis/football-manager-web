@@ -171,6 +171,10 @@ export interface Player {
   
   // Famosidade para scouting
   fame: number;             // 1-100
+
+  // Estatísticas da temporada atual
+  seasonGoals: number;      // gols na temporada atual
+  seasonAssists: number;    // assistências na temporada atual
 }
 
 // Re-export de tipos de lesão usados pelo Player

@@ -2,6 +2,7 @@ import React from 'react';
 import type { Player } from '../../types/game';
 import { StatBar } from '../ui/StatBar';
 import { Button } from '../ui/Button';
+import { getFullName } from '../../utils/player';
 
 interface PlayerCardProps {
   player: Player;
@@ -54,7 +55,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
           {player.position}
         </div>
         <div className="fm-player-card__info">
-          <h3 className="fm-player-card__name">{player.name} {player.surname}</h3>
+          <h3 className="fm-player-card__name">{getFullName(player)}</h3>
           <p className="fm-player-card__meta">
             {player.age} anos • {player.nationality}
             {player.secondaryPositions.length > 0 && (

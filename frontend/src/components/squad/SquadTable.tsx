@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import type { Player } from '../../types/game';
+import { getFullName } from '../../utils/player';
 
 interface SquadTableProps {
   players: Player[];
@@ -70,13 +71,13 @@ export const SquadTable: React.FC<SquadTableProps> = ({
     let list = [...players];
     if (filterPos) list = list.filter(p => p.position === filterPos);
     if (search) list = list.filter(p => {
-      const name = `${p.name} ${p.surname}`.toLowerCase();
+      const name = getFullName(p).toLowerCase();
       return name.includes(search.toLowerCase());
     });
     return list.sort((a, b) => {
       let cmp: number;
       if (sortKey === 'name') {
-        cmp = `${a.name} ${a.surname}`.localeCompare(`${b.name} ${b.surname}`);
+        cmp = getFullName(a).localeCompare(getFullName(b));
       } else if (sortKey === 'position') {
         cmp = (POSITION_ORDER[a.position] ?? 99) - (POSITION_ORDER[b.position] ?? 99);
       } else {
@@ -198,7 +199,7 @@ export const SquadTable: React.FC<SquadTableProps> = ({
                   </td>
                   {!isNarrow && (
                     <td className="fm-squad-table__name">
-                      <span className="fm-squad-table__name-text">{player.name} {player.surname}</span>
+                      <span className="fm-squad-table__name-text">{getFullName(player)}</span>
                       <span className="fm-squad-table__name-overall">{overall}</span>
                     </td>
                   )}

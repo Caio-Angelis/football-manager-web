@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { Button } from '../ui/Button';
 import { MatchPitch2D } from './MatchPitch2D';
+import { PostMatchReportView } from './PostMatchReportView';
 import type { MatchEvent, MatchStats, PlayerMatchRating, MatchAction } from '../../types/game';
 
 const EVENT_ICONS: Record<string, string> = {
@@ -179,11 +180,13 @@ export const MatchCenter: React.FC = () => {
   const { matches, teams, selectedTeam, currentWeek, currentSeason, simulateMatch, advanceWeek, applyMatchIntervention, generateLiveMatchMinute, finishMatch } = useGameStore();
   const [selectedMatchIndex, setSelectedMatchIndex] = useState<number | null>(null);
   const [liveMatchWatching, setLiveMatchWatching] = useState<number | null>(null);
+  const [matchSpeed, setMatchSpeed] = useState<number>(1);
 
   // Reset selection when week changes (new matches are generated)
   useEffect(() => {
     setSelectedMatchIndex(null);
     setLiveMatchWatching(null);
+    setMatchSpeed(1);
   }, [currentWeek]);
 
   // Live match auto-advance effect
@@ -191,10 +194,10 @@ export const MatchCenter: React.FC = () => {
     if (liveMatchWatching !== null && matches[liveMatchWatching]?.isLive) {
       const timer = setInterval(() => {
         generateLiveMatchMinute(liveMatchWatching);
-      }, 2000);
+      }, 2000 / matchSpeed);
       return () => clearInterval(timer);
     }
-  }, [liveMatchWatching, liveMatchWatching !== null ? matches[liveMatchWatching]?.isLive : false]);
+  }, [liveMatchWatching, liveMatchWatching !== null ? matches[liveMatchWatching]?.isLive : false, matchSpeed, generateLiveMatchMinute]);
 
   const getTeamName = (teamId: string) => teams.find(t => t.id === teamId)?.name ?? teamId;
   const isUserMatch = (match: typeof matches[0]) =>
@@ -289,6 +292,20 @@ export const MatchCenter: React.FC = () => {
                       }} className="fm-match-finish-btn">
                         Finalizar
                       </Button>
+                      <div className="fm-match-speed">
+                        <button
+                          className={`fm-match-speed__btn ${matchSpeed === 1 ? 'fm-match-speed__btn--active' : ''}`}
+                          onClick={() => setMatchSpeed(1)}
+                        >1x</button>
+                        <button
+                          className={`fm-match-speed__btn ${matchSpeed === 2 ? 'fm-match-speed__btn--active' : ''}`}
+                          onClick={() => setMatchSpeed(2)}
+                        >2x</button>
+                        <button
+                          className={`fm-match-speed__btn ${matchSpeed === 4 ? 'fm-match-speed__btn--active' : ''}`}
+                          onClick={() => setMatchSpeed(4)}
+                        >4x</button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -304,8 +321,24 @@ export const MatchCenter: React.FC = () => {
           <div className="fm-match-live-view__content">
             <div className="fm-match-live-view__header">
               <h2>Partida ao Vivo</h2>
-              <div className="fm-match-live-view__minute">
-                <span>{matches[liveMatchWatching].liveMinute}' / 90'</span>
+              <div className="fm-match-live-view__header-right">
+                <div className="fm-match-speed">
+                  <button
+                    className={`fm-match-speed__btn ${matchSpeed === 1 ? 'fm-match-speed__btn--active' : ''}`}
+                    onClick={() => setMatchSpeed(1)}
+                  >1x</button>
+                  <button
+                    className={`fm-match-speed__btn ${matchSpeed === 2 ? 'fm-match-speed__btn--active' : ''}`}
+                    onClick={() => setMatchSpeed(2)}
+                  >2x</button>
+                  <button
+                    className={`fm-match-speed__btn ${matchSpeed === 4 ? 'fm-match-speed__btn--active' : ''}`}
+                    onClick={() => setMatchSpeed(4)}
+                  >4x</button>
+                </div>
+                <div className="fm-match-live-view__minute">
+                  <span>{matches[liveMatchWatching].liveMinute}' / 90'</span>
+                </div>
               </div>
             </div>
             <div className="fm-match-live-view__score">
@@ -330,6 +363,7 @@ export const MatchCenter: React.FC = () => {
                   isLive={true}
                   ballPos={lm.liveMatchState?.ballPos}
                   possessionSide={lm.liveMatchState?.possession}
+                  speed={matchSpeed}
                 />
               );
             })()}
@@ -427,6 +461,13 @@ export const MatchCenter: React.FC = () => {
               <PlayerRatingsDisplay
                 ratings={matches[selectedMatchIndex].playerRatings!}
                 bestPlayerId={matches[selectedMatchIndex].bestPlayer}
+              />
+            )}
+            {matches[selectedMatchIndex].postMatchReport && (
+              <PostMatchReportView
+                report={matches[selectedMatchIndex].postMatchReport!}
+                homeTeamName={getTeamName(matches[selectedMatchIndex].homeTeam)}
+                awayTeamName={getTeamName(matches[selectedMatchIndex].awayTeam)}
               />
             )}
           </div>

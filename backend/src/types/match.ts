@@ -76,6 +76,48 @@ export interface PlayerMatchRating {
   isStarted: boolean;
 }
 
+// ============================================================
+// RELATÓRIO PÓS-JOGO — Análise tática, mapa de calor, conselhos
+// ============================================================
+
+export interface HeatMapZone {
+  label: string;          // 'Defesa-Esq', 'Meio-Centro', 'Ataque-Dir', etc.
+  third: 'defensive' | 'middle' | 'attacking';
+  flank: 'left' | 'center' | 'right';
+  intensity: number;      // 0-1, proporção de ações nesta zona
+  actions: number;        // contagem absoluta de ações
+}
+
+export interface TacticalInsight {
+  category: 'positive' | 'negative' | 'neutral';
+  icon: string;
+  title: string;
+  description: string;
+}
+
+export interface AssistantAdvice {
+  type: 'tactical' | 'player' | 'formation';
+  message: string;
+}
+
+export interface PostMatchReport {
+  summary: string;
+  heatMapHome: HeatMapZone[];
+  heatMapAway: HeatMapZone[];
+  insights: TacticalInsight[];
+  assistantComments: AssistantAdvice[];
+  passBreakdown: {
+    homeSuccessful: number;
+    homeFailed: number;
+    awaySuccessful: number;
+    awayFailed: number;
+  };
+  attackZones: {
+    home: { left: number; center: number; right: number };
+    away: { left: number; center: number; right: number };
+  };
+}
+
 export interface Match {
   homeTeam: string;
   awayTeam: string;
@@ -99,4 +141,6 @@ export interface Match {
   // Player ratings (Tarefa 2.2)
   playerRatings?: PlayerMatchRating[];
   bestPlayer?: string; // playerId of best rated player
+  // Relatório pós-jogo (análise tática)
+  postMatchReport?: PostMatchReport;
 }

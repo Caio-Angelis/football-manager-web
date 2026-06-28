@@ -36,7 +36,8 @@ export const actionSchemas: Record<string, z.ZodTypeAny> = {
   // Transfer
   buyPlayer: z.union([z.tuple([zString, zString]), z.tuple([zString, zString, z.boolean()])]),
   makeOffer: z.union([z.tuple([zString, zString, zNumberNonNeg]), z.tuple([zString, zString, zNumberNonNeg, zNumber.int().positive()])]),
-  acceptOffer: z.tuple([zString, zString, zNumberNonNeg]),
+  acceptOffer: z.tuple([zString, zString, zNumberNonNeg, zNumberNonNeg]),
+  negotiatePlayerContract: z.tuple([zString, zString, zNumberNonNeg, zNumber.int().positive()]),
   acceptIncomingTransfer: z.tuple([zString]),
   rejectIncomingTransfer: z.tuple([zString]),
   deferTransfer: z.tuple([zString]),

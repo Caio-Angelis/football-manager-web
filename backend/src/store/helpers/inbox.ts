@@ -1,6 +1,7 @@
 // Geração de Mensagens do Inbox — context-aware
 
 import type { InboxMessage, Team } from '../../types/game';
+import { getFullName } from '../../utils/playerName';
 
 export interface GenerateInboxContext {
   teams: Team[];
@@ -41,7 +42,7 @@ export function generateInboxMessage(week: number, context?: GenerateInboxContex
     case 'transfer': {
       const playerId = context?.incomingTransferPlayerId;
       const player = userTeam?.squad.find(p => p.id === playerId);
-      const playerName = player ? `${player.name} ${player.surname}` : 'um jogador';
+      const playerName = player ? getFullName(player) : 'um jogador';
       return {
         id,
         type: 'transfer',
@@ -63,8 +64,8 @@ export function generateInboxMessage(week: number, context?: GenerateInboxContex
       return {
         id,
         type: 'injury',
-        subject: `Relatório Médico — ${player.name} ${player.surname} lesionado`,
-        body: `${player.name} ${player.surname} sofreu uma lesão (${injuryType}) durante o treino. Afastamento estimado: ${days} dias. Verifique o relatório médico para detalhes do tratamento e prognóstico.`,
+        subject: `Relatório Médico — ${getFullName(player)} lesionado`,
+        body: `${getFullName(player)} sofreu uma lesão (${injuryType}) durante o treino. Afastamento estimado: ${days} dias. Verifique o relatório médico para detalhes do tratamento e prognóstico.`,
         priority: days > 21 ? 'high' : days > 7 ? 'medium' : 'low',
         timestamp: ts,
         read: false,

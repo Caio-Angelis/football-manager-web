@@ -1,5 +1,6 @@
 import type { GameStore, Player, PreventionSession, FatigueLogEntry, Recommendation, InjuryReport } from '../../types/game';
 import { calculatePlayerInjuryRisk, getRiskLevel } from '../helpers/injury';
+import { getFullName } from '../../utils/playerName';
 
 type Set = (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void;
 type Get = () => GameStore;
@@ -38,7 +39,7 @@ export const createInjurySlice = (set: Set, get: Get) => ({
 
     return {
       playerId,
-      playerName: `${player.name} ${player.surname}`,
+      playerName: getFullName(player),
       position: player.position,
       injuryType,
       severity,
@@ -273,7 +274,7 @@ export const createInjurySlice = (set: Set, get: Get) => ({
       id: `rec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       ...recommendation,
       playerId,
-      playerName: `${player.name} ${player.surname}`,
+      playerName: getFullName(player),
       week: state.currentWeek,
       timestamp: Date.now(),
       acknowledged: false,

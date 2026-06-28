@@ -1,6 +1,7 @@
 import React from 'react';
 import { useGameStore } from '../../store/gameStore';
 import type { Player } from '../../types/game';
+import { getFullName } from '../../utils/player';
 
 const HIERARCHY_LEVELS = [
   { key: 'Key Player', label: 'Líderes de Equipa' },
@@ -97,7 +98,7 @@ export const DynamicsView: React.FC = () => {
                 <div className="fm-hierarchy__players">
                   {players.map(p => (
                     <span key={p.id} className="fm-hierarchy__player">
-                      {p.name} {p.surname} ({p.position})
+                      {getFullName(p)} ({p.position})
                     </span>
                   ))}
                 </div>
@@ -138,7 +139,7 @@ export const DynamicsView: React.FC = () => {
               const ct = player.coachTreatment;
               return (
                 <tr key={player.id}>
-                  <td>{player.name} {player.surname}</td>
+                  <td>{getFullName(player)}</td>
                   <td>
                     <div className="fm-promise-bar">
                       <div className="fm-promise-bar__fill" style={{ width: `${s.playingTime}%` }} />
@@ -216,7 +217,7 @@ export const DynamicsView: React.FC = () => {
               <h3>{group}</h3>
               <ul>
                 {players.map(p => (
-                  <li key={p.id}>{p.name} {p.surname}</li>
+                  <li key={p.id}>{getFullName(p)}</li>
                 ))}
               </ul>
             </div>

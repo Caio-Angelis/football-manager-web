@@ -255,7 +255,9 @@ export function generatePlayer(options: {
     injuryRisk: 0,
     injuryHistory: [] as InjuryHistory[],
     fatigueLog: [],
-    fame: Math.min(100, overall * 0.8 + Math.random() * 20)
+    fame: Math.min(100, overall * 0.8 + Math.random() * 20),
+    seasonGoals: 0,
+    seasonAssists: 0,
   };
 }
 

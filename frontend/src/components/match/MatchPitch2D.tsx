@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { Team, Player, MatchEvent } from '../../types/game';
+import { getFullName } from '../../utils/player';
 import './MatchPitch2D.css';
 
 // ============================================================
@@ -263,6 +264,43 @@ const PitchMarkings: React.FC = () => (
   </svg>
 );
 
+const LINE_POSITIONS: Record<string, { engagement: number; defensive: number }> = {
+  high: { engagement: 68, defensive: 58 },
+  medium: { engagement: 50, defensive: 42 },
+  low: { engagement: 32, defensive: 25 },
+};
+
+const TacticalLines: React.FC<{ homeTeam: Team; awayTeam: Team; isLive: boolean }> = ({
+  homeTeam, awayTeam, isLive,
+}) => {
+  const homeEng = homeTeam.engagementLine ?? 'medium';
+  const homeDef = homeTeam.defensiveLine ?? 'medium';
+  const awayEng = awayTeam.engagementLine ?? 'medium';
+  const awayDef = awayTeam.defensiveLine ?? 'medium';
+
+  const homeEngX = LINE_POSITIONS[homeEng]?.engagement ?? 50;
+  const homeDefX = LINE_POSITIONS[homeDef]?.defensive ?? 42;
+  const awayEngX = 160 - (LINE_POSITIONS[awayEng]?.engagement ?? 50);
+  const awayDefX = 160 - (LINE_POSITIONS[awayDef]?.defensive ?? 42);
+
+  return (
+    <svg className="fm-pitch2d__tactical-lines" viewBox="0 0 160 100" preserveAspectRatio="none">
+      {/* Linha de engajamento - casa (verde) */}
+      <line x1={homeEngX} y1="2" x2={homeEngX} y2="98"
+        stroke="#22c55e" strokeWidth="0.5" strokeDasharray="3 2" opacity={isLive ? 0.5 : 0.35} />
+      {/* Linha defensiva - casa (verde claro) */}
+      <line x1={homeDefX} y1="2" x2={homeDefX} y2="98"
+        stroke="#86efac" strokeWidth="0.5" strokeDasharray="2 2" opacity={isLive ? 0.4 : 0.25} />
+      {/* Linha de engajamento - fora (azul) */}
+      <line x1={awayEngX} y1="2" x2={awayEngX} y2="98"
+        stroke="#3b82f6" strokeWidth="0.5" strokeDasharray="3 2" opacity={isLive ? 0.5 : 0.35} />
+      {/* Linha defensiva - fora (azul claro) */}
+      <line x1={awayDefX} y1="2" x2={awayDefX} y2="98"
+        stroke="#93c5fd" strokeWidth="0.5" strokeDasharray="2 2" opacity={isLive ? 0.4 : 0.25} />
+    </svg>
+  );
+};
+
 // ============================================================
 // COMPONENTE PRINCIPAL
 // ============================================================
@@ -283,10 +321,11 @@ interface MatchPitch2DProps {
   isLive: boolean;
   ballPos?: number; // 0-1 do estado live (0 = gol casa, 1 = gol fora)
   possessionSide?: 'home' | 'away'; // quem está com a bola
+  speed?: number; // 1, 2, 4 — multiplicador de velocidade da animação
 }
 
 export const MatchPitch2D: React.FC<MatchPitch2DProps> = ({
-  homeTeam, awayTeam, homeGoals, awayGoals, minute, possession, events, isLive, ballPos, possessionSide,
+  homeTeam, awayTeam, homeGoals, awayGoals, minute, possession, events, isLive, ballPos, possessionSide, speed = 1,
 }) => {
   const homePositions = useMemo(() => buildPositions(homeTeam, 'home'), [homeTeam]);
   const awayPositions = useMemo(() => buildPositions(awayTeam, 'away'), [awayTeam]);
@@ -355,9 +394,9 @@ export const MatchPitch2D: React.FC<MatchPitch2DProps> = ({
       setBall({ x: newBallX, y: newBallY });
       setHomeDyn(computeShiftedPositions(homePositions, 'home', newBallX, newBallY, homeHasBall));
       setAwayDyn(computeShiftedPositions(awayPositions, 'away', newBallX, newBallY, !homeHasBall));
-    }, 700);
+    }, 700 / speed);
     return () => clearInterval(id);
-  }, [isLive, possession, homePositions, awayPositions, ballPos, possessionSide]);
+  }, [isLive, possession, homePositions, awayPositions, ballPos, possessionSide, speed]);
 
   // Detecta gol e dispara celebração (sem depender de events para não re-executar a cada tick)
   useEffect(() => {
@@ -406,7 +445,7 @@ export const MatchPitch2D: React.FC<MatchPitch2DProps> = ({
             top: `${d.y}%`,
             background: `radial-gradient(circle at 35% 30%, ${color}, color-mix(in srgb, ${color} 70%, #000))`,
           }}
-          title={`${d.player.name} ${d.player.surname} (${d.player.position})`}
+          title={`${getFullName(d.player)} (${d.player.position})`}
         >
           {d.number}
         </div>
@@ -437,6 +476,7 @@ export const MatchPitch2D: React.FC<MatchPitch2DProps> = ({
       {/* Campo */}
       <div className="fm-pitch2d__field">
         <PitchMarkings />
+        <TacticalLines homeTeam={homeTeam} awayTeam={awayTeam} isLive={isLive} />
         {renderDiscs(isLive ? homeDyn : homePositions, homeColor)}
         {renderDiscs(isLive ? awayDyn : awayPositions, awayColor)}
         <div className="fm-pitch2d__ball" style={{ left: `${ball.x}%`, top: `${ball.y}%` }} />

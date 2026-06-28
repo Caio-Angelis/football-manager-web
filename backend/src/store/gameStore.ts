@@ -55,6 +55,8 @@ export const useGameStore = create<GameStore>()(
     scoutMissions: [],
     youthAcademy: { players: [], level: 1, weeklySlots: 3, currentTraining: 'technical', graduationRate: 20 },
     reserveTeam: [],
+    seasonSummary: null,
+    gameOver: false,
 
     // --- Slices (actions) ---
     ...createCoreSlice(set, get),

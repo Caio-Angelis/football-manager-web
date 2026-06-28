@@ -1,6 +1,7 @@
 // Helpers de Scouting — Máscara de atributos, processamento de missões, nota
 
 import type { Player, Team, Scout, ScoutReport, ActiveScoutMission, InboxMessage } from '../../types/game';
+import { getFullName } from '../../utils/playerName';
 
 // ============================================================
 // MÁSCARA DE ATRIBUTOS
@@ -210,11 +211,11 @@ export function processScoutMissions(
         id: `scout_report_${Date.now()}_${mission.targetId}_${currentWeek}`,
         type: 'suggestion',
         subject: crossed100
-          ? `🔍 Relatório Final: ${targetPlayer.name} ${targetPlayer.surname}${gradeText}`
-          : `🔍 Relatório Parcial: ${targetPlayer.name} ${targetPlayer.surname}${gradeText}`,
+          ? `🔍 Relatório Final: ${getFullName(targetPlayer)}${gradeText}`
+          : `🔍 Relatório Parcial: ${getFullName(targetPlayer)}${gradeText}`,
         body: crossed100
-          ? `O olheiro ${scout.name} concluiu a observação de ${targetPlayer.name} ${targetPlayer.surname}. CA estimado: ${report.currentAbility}, PA estimado: ${report.potentialAbility}. ${getRecommendationText(report.grade)}`
-          : `O olheiro ${scout.name} já tem um conhecimento moderado de ${targetPlayer.name} ${targetPlayer.surname}. CA estimado: ${report.currentAbility}, PA estimado: ${report.potentialAbility}.`,
+          ? `O olheiro ${scout.name} concluiu a observação de ${getFullName(targetPlayer)}. CA estimado: ${report.currentAbility}, PA estimado: ${report.potentialAbility}. ${getRecommendationText(report.grade)}`
+          : `O olheiro ${scout.name} já tem um conhecimento moderado de ${getFullName(targetPlayer)}. CA estimado: ${report.currentAbility}, PA estimado: ${report.potentialAbility}.`,
         timestamp: Date.now(),
         read: false,
         priority: crossed100 ? 'high' : 'medium',
@@ -275,7 +276,7 @@ export function generateScoutReportForMission(
 
   return {
     playerId: player.id,
-    playerName: `${player.name} ${player.surname}`,
+    playerName: getFullName(player),
     position: player.position,
     age: player.age,
     nationality: player.nationality,

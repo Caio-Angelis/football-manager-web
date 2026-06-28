@@ -54,6 +54,10 @@ export const createSavesSlice = (set: Set, get: Get) => ({
         youthAcademy: state.youthAcademy,
         reserveTeam: state.reserveTeam,
         completedTransfers: state.completedTransfers,
+        scoutKnowledge: state.scoutKnowledge,
+        scoutMissions: state.scoutMissions,
+        seasonSummary: state.seasonSummary,
+        gameOver: state.gameOver,
       },
     };
 
@@ -106,6 +110,10 @@ export const createSavesSlice = (set: Set, get: Get) => ({
       youthAcademy: gameState.youthAcademy ?? { players: [], level: 1, weeklySlots: 3, currentTraining: 'technical', graduationRate: 20 },
       reserveTeam: gameState.reserveTeam ?? [],
       completedTransfers: gameState.completedTransfers ?? [],
+      scoutKnowledge: gameState.scoutKnowledge ?? {},
+      scoutMissions: gameState.scoutMissions ?? [],
+      seasonSummary: gameState.seasonSummary ?? null,
+      gameOver: gameState.gameOver ?? false,
       saveSlots: state.saveSlots,
     });
   },

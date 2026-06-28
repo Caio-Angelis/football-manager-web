@@ -173,6 +173,10 @@ export interface Player {
   
   // Famosidade para scouting
   fame: number;             // 1-100
+
+  // Estatísticas da temporada atual
+  seasonGoals: number;      // gols na temporada atual
+  seasonAssists: number;    // assistências na temporada atual
 }
 
 // ============================================================
@@ -337,6 +341,44 @@ export interface PlayerMatchRating {
   isStarted: boolean;
 }
 
+export interface HeatMapZone {
+  label: string;
+  third: 'defensive' | 'middle' | 'attacking';
+  flank: 'left' | 'center' | 'right';
+  intensity: number;
+  actions: number;
+}
+
+export interface TacticalInsight {
+  category: 'positive' | 'negative' | 'neutral';
+  icon: string;
+  title: string;
+  description: string;
+}
+
+export interface AssistantAdvice {
+  type: 'tactical' | 'player' | 'formation';
+  message: string;
+}
+
+export interface PostMatchReport {
+  summary: string;
+  heatMapHome: HeatMapZone[];
+  heatMapAway: HeatMapZone[];
+  insights: TacticalInsight[];
+  assistantComments: AssistantAdvice[];
+  passBreakdown: {
+    homeSuccessful: number;
+    homeFailed: number;
+    awaySuccessful: number;
+    awayFailed: number;
+  };
+  attackZones: {
+    home: { left: number; center: number; right: number };
+    away: { left: number; center: number; right: number };
+  };
+}
+
 export interface Match {
   homeTeam: string;
   awayTeam: string;
@@ -360,6 +402,8 @@ export interface Match {
   // Player ratings (Tarefa 2.2)
   playerRatings?: PlayerMatchRating[];
   bestPlayer?: string; // playerId of best rated player
+  // Relatório pós-jogo (análise tática)
+  postMatchReport?: PostMatchReport;
 }
 
 // ============================================================
@@ -486,6 +530,16 @@ export interface NegotiationResult {
     estimatedWeeks: number;
     estimatedReleaseClause: number; // em milhões
   };
+}
+
+export interface ContractNegotiationResult {
+  status: 'accepted' | 'rejected' | 'countered';
+  offeredSalary: number; // em milhares
+  expectedSalary: number; // em milhares — what the player wants
+  counterSalary?: number; // em milhares — if countered
+  message: string;
+  negotiationRound: number;
+  maxRounds: number;
 }
 
 export interface DeferredTransfer {
@@ -858,6 +912,27 @@ export interface ReserveTeamPlayer {
 }
 
 // ============================================================
+// RESUMO DE FIM DE TEMPORADA
+// ============================================================
+
+export interface SeasonSummary {
+  season: number;
+  teamName: string;
+  position: number;
+  zone: 'title' | 'europe' | 'safe' | 'relegation';
+  zoneLabel: string;
+  points: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  topScorer: { name: string; goals: number } | null;
+  topAssister: { name: string; assists: number } | null;
+  isFinalSeason: boolean;
+}
+
+// ============================================================
 // ESTADO DO JOGO
 // ============================================================
 
@@ -906,6 +981,9 @@ export interface GameState {
   // Scouting — conhecimento do manager sobre jogadores
   scoutKnowledge: Record<string, number>;
   scoutMissions: ActiveScoutMission[];
+  // Resumo de fim de temporada
+  seasonSummary: SeasonSummary | null;
+  gameOver: boolean;
 }
 
 export interface GameActions {
@@ -921,7 +999,8 @@ export interface GameActions {
   updateTeam: (teamId: string, updater: (team: Team) => Team) => void;
   buyPlayer: (playerId: string, sellerTeamId: string) => boolean;
   makeOffer: (playerId: string, sellerTeamId: string, offerPrice: number, negotiationRound?: number) => Promise<NegotiationResult>;
-  acceptOffer: (playerId: string, sellerTeamId: string, offerPrice: number) => Promise<boolean>;
+  acceptOffer: (playerId: string, sellerTeamId: string, offerPrice: number, agreedSalary: number) => Promise<boolean>;
+  negotiatePlayerContract: (playerId: string, sellerTeamId: string, offeredSalary: number, negotiationRound: number) => Promise<ContractNegotiationResult>;
   acceptIncomingTransfer: (playerId: string) => void;
   rejectIncomingTransfer: (playerId: string) => void;
   deferTransfer: (playerId: string) => void;
@@ -998,6 +1077,8 @@ export interface GameActions {
   // Scouting
   assignScoutMission: (scoutId: string, targetId: string, weeks: number) => boolean;
   getScoutKnowledge: (playerId: string) => number;
+  // Resumo de fim de temporada
+  startNextSeason: () => void;
 }
 
 export type GameStore = GameState & GameActions;

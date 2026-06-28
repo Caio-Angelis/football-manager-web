@@ -6,8 +6,10 @@ import type {
   ReserveTeamPlayer, CompletedTransfer,
   PreventionSession, WeeklyTrainingPlan, BoardReply,
   NegotiationResult,
+  ContractNegotiationResult,
 } from '../types/game';
 import { apiAction, apiPost } from '../api/client';
+import { getFullName } from '../utils/player';
 
 // ============================================================
 // HELPER FUNCTIONS (mirrored from backend for local getters)
@@ -89,6 +91,10 @@ const INITIAL_STATE = {
   youthAcademy: { players: [], level: 1, weeklySlots: 3, currentTraining: 'technical', graduationRate: 20 },
   reserveTeam: [] as ReserveTeamPlayer[],
   completedTransfers: [] as CompletedTransfer[],
+  scoutKnowledge: {} as Record<string, number>,
+  scoutMissions: [] as any[],
+  seasonSummary: null as any,
+  gameOver: false,
 };
 
 // ============================================================
@@ -248,7 +254,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     };
     return {
       playerId,
-      playerName: `${player.name} ${player.surname}`,
+      playerName: getFullName(player),
       position: player.position,
       injuryType,
       severity,
@@ -384,10 +390,17 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     }) as any;
   },
 
-  acceptOffer: (playerId: string, sellerTeamId: string, offerPrice: number) => {
-    return apiAction('acceptOffer', [playerId, sellerTeamId, offerPrice]).then(data => {
+  acceptOffer: (playerId: string, sellerTeamId: string, offerPrice: number, agreedSalary: number) => {
+    return apiAction('acceptOffer', [playerId, sellerTeamId, offerPrice, agreedSalary]).then(data => {
       syncFromResponse(data);
       return data.result as boolean;
+    }) as any;
+  },
+
+  negotiatePlayerContract: (playerId: string, sellerTeamId: string, offeredSalary: number, negotiationRound: number) => {
+    return apiAction('negotiatePlayerContract', [playerId, sellerTeamId, offeredSalary, negotiationRound]).then(data => {
+      syncFromResponse(data);
+      return data.result as ContractNegotiationResult;
     }) as any;
   },
 
@@ -566,5 +579,20 @@ export const useGameStore = create<GameStore>()((set, get) => ({
 
   setReserveTraining: (type: string) => {
     apiAction('setReserveTraining', [type]).then(syncFromResponse);
+  },
+
+  assignScoutMission: (scoutId: string, targetId: string, weeks: number) => {
+    return apiAction('assignScoutMission', [scoutId, targetId, weeks]).then(data => {
+      syncFromResponse(data);
+      return data.result as boolean;
+    }) as any;
+  },
+
+  getScoutKnowledge: (playerId: string) => {
+    return get().scoutKnowledge[playerId] ?? 0;
+  },
+
+  startNextSeason: () => {
+    apiAction('startNextSeason', []).then(syncFromResponse);
   },
 }));

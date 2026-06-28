@@ -124,6 +124,16 @@ export interface NegotiationResult {
   };
 }
 
+export interface ContractNegotiationResult {
+  status: 'accepted' | 'rejected' | 'countered';
+  offeredSalary: number; // em milhares
+  expectedSalary: number; // em milhares — what the player wants
+  counterSalary?: number; // em milhares — if countered
+  message: string;
+  negotiationRound: number;
+  maxRounds: number;
+}
+
 export interface DeferredTransfer {
   playerId: string;
   offerPrice: number;

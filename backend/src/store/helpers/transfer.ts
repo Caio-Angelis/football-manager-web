@@ -1,6 +1,7 @@
 // Helpers de Transferência — Scout, Incoming Transfers e Wage Bill
 
 import type { Player, Team, ScoutReport, IncomingTransfer, InstallmentClause, PlayerBonus } from '../../types/game';
+import { getFullName } from '../../utils/playerName';
 
 export function generateScoutReport(player: Player): ScoutReport {
   const reliability = Math.min(5, Math.floor(Math.random() * 3) + 2);
@@ -11,7 +12,7 @@ export function generateScoutReport(player: Player): ScoutReport {
 
   return {
     playerId: player.id,
-    playerName: `${player.name} ${player.surname}`,
+    playerName: getFullName(player),
     position: player.position,
     age: player.age,
     nationality: player.nationality,

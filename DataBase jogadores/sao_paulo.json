@@ -13,7 +13,8 @@
       "drible": 28,
       "defesa": 82,
       "fisico": 80,
-      "over_geral": 70
+      "over_geral": 70,
+      "idade": 36
     },
     {
       "nome": "Luciano",
@@ -27,7 +28,8 @@
       "drible": 72,
       "defesa": 40,
       "fisico": 68,
-      "over_geral": 72
+      "over_geral": 72,
+      "idade": 31
     },
     {
       "nome": "Enzo Díaz",
@@ -41,7 +43,8 @@
       "drible": 58,
       "defesa": 62,
       "fisico": 68,
-      "over_geral": 64
+      "over_geral": 64,
+      "idade": 28
     },
     {
       "nome": "Alisson",
@@ -55,7 +58,8 @@
       "drible": 65,
       "defesa": 52,
       "fisico": 62,
-      "over_geral": 65
+      "over_geral": 65,
+      "idade": 30
     },
     {
       "nome": "Robert Arboleda",
@@ -69,7 +73,8 @@
       "drible": 35,
       "defesa": 82,
       "fisico": 83,
-      "over_geral": 72
+      "over_geral": 72,
+      "idade": 33
     },
     {
       "nome": "Alan Franco",
@@ -83,7 +88,8 @@
       "drible": 38,
       "defesa": 78,
       "fisico": 78,
-      "over_geral": 70
+      "over_geral": 70,
+      "idade": 28
     },
     {
       "nome": "André Silva",
@@ -97,7 +103,8 @@
       "drible": 68,
       "defesa": 35,
       "fisico": 75,
-      "over_geral": 70
+      "over_geral": 70,
+      "idade": 24
     },
     {
       "nome": "Nahuel Ferraresi",
@@ -111,7 +118,8 @@
       "drible": 38,
       "defesa": 78,
       "fisico": 78,
-      "over_geral": 70
+      "over_geral": 70,
+      "idade": 26
     },
     {
       "nome": "Cédric Soares",
@@ -125,7 +133,8 @@
       "drible": 52,
       "defesa": 62,
       "fisico": 65,
-      "over_geral": 61
+      "over_geral": 61,
+      "idade": 33
     },
     {
       "nome": "Oscar",
@@ -139,7 +148,8 @@
       "drible": 65,
       "defesa": 48,
       "fisico": 60,
-      "over_geral": 66
+      "over_geral": 66,
+      "idade": 33
     },
     {
       "nome": "Ferreira",
@@ -153,7 +163,8 @@
       "drible": 75,
       "defesa": 35,
       "fisico": 62,
-      "over_geral": 70
+      "over_geral": 70,
+      "idade": 28
     },
     {
       "nome": "Lucas Moura",
@@ -167,7 +178,8 @@
       "drible": 78,
       "defesa": 38,
       "fisico": 62,
-      "over_geral": 73
+      "over_geral": 73,
+      "idade": 32
     },
     {
       "nome": "Calleri",
@@ -181,7 +193,8 @@
       "drible": 65,
       "defesa": 38,
       "fisico": 75,
-      "over_geral": 68
+      "over_geral": 68,
+      "idade": 31
     },
     {
       "nome": "Bobadilla",
@@ -195,7 +208,8 @@
       "drible": 62,
       "defesa": 32,
       "fisico": 68,
-      "over_geral": 63
+      "over_geral": 63,
+      "idade": 36
     },
     {
       "nome": "Marcos Antônio",
@@ -209,7 +223,8 @@
       "drible": 62,
       "defesa": 52,
       "fisico": 62,
-      "over_geral": 63
+      "over_geral": 63,
+      "idade": 25
     },
     {
       "nome": "Pablo Maia",
@@ -223,7 +238,8 @@
       "drible": 48,
       "defesa": 70,
       "fisico": 70,
-      "over_geral": 65
+      "over_geral": 65,
+      "idade": 23
     },
     {
       "nome": "Aráoz",
@@ -237,7 +253,8 @@
       "drible": 65,
       "defesa": 32,
       "fisico": 65,
-      "over_geral": 63
+      "over_geral": 63,
+      "idade": 24
     },
     {
       "nome": "Welington",
@@ -251,7 +268,8 @@
       "drible": 52,
       "defesa": 58,
       "fisico": 65,
-      "over_geral": 60
+      "over_geral": 60,
+      "idade": 23
     },
     {
       "nome": "Júnior",
@@ -265,7 +283,8 @@
       "drible": 25,
       "defesa": 76,
       "fisico": 74,
-      "over_geral": 64
+      "over_geral": 64,
+      "idade": 21
     },
     {
       "nome": "Ryan Francisco",
@@ -279,7 +298,8 @@
       "drible": 62,
       "defesa": 28,
       "fisico": 60,
-      "over_geral": 59
+      "over_geral": 59,
+      "idade": 20
     }
   ]
 }

@@ -187,6 +187,7 @@
 /* --- Landing page (club selection) — Night Pitch --- */
 .fm-landing {
   min-height: 100vh;
+  min-height: 100dvh;
   position: relative;
   background:
     radial-gradient(ellipse 80% 60% at 50% 40%, #0d2418 0%, #0a1c14 50%, #060f0a 100%);
@@ -231,6 +232,7 @@
   max-width: 1440px;
   margin: 0 auto;
   min-height: 100vh;
+  min-height: 100dvh;
   padding: 0 48px 56px;
 }
 
@@ -2594,6 +2596,42 @@
 .fm-match-finish-btn {
   background: oklch(0.82 0.19 130);
   color: oklch(0.15 0.03 130);
+}
+
+/* Speed control buttons */
+.fm-match-speed {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.fm-match-speed__btn {
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.fm-match-speed__btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--color-text);
+}
+
+.fm-match-speed__btn--active {
+  background: var(--color-success);
+  color: #fff;
+  border-color: var(--color-success);
+}
+
+.fm-match-live-view__header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
 .fm-match-live-view {
@@ -5235,4 +5273,231 @@
   .fm-tactics-view__instruction-row {
     flex-direction: column;
   }
+}
+
+/* ===== Season Summary Modal ===== */
+.fm-season-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 24px;
+}
+
+.fm-season-modal {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  max-width: 520px;
+  width: 100%;
+  box-shadow: 0 8px 32px var(--color-shadow);
+  overflow: hidden;
+}
+
+.fm-season-modal__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 24px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.fm-season-modal__season-icon {
+  font-size: 32px;
+}
+
+.fm-season-modal__header h2 {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  margin: 0;
+}
+
+.fm-season-modal__body {
+  padding: 24px;
+}
+
+.fm-season-modal__team-name {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 20px;
+  color: var(--color-text);
+}
+
+.fm-season-modal__position-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.fm-season-modal__position {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.fm-season-modal__position-number {
+  font-size: 48px;
+  font-weight: 800;
+  color: var(--color-primary);
+  line-height: 1;
+}
+
+.fm-season-modal__position-label {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.fm-season-modal__zone-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.fm-season-modal__zone-badge--title {
+  background: rgba(255, 193, 7, 0.15);
+  color: #f5a623;
+}
+
+.fm-season-modal__zone-badge--europe {
+  background: rgba(0, 123, 255, 0.15);
+  color: #007bff;
+}
+
+.fm-season-modal__zone-badge--safe {
+  background: rgba(40, 167, 69, 0.15);
+  color: #28a745;
+}
+
+.fm-season-modal__zone-badge--relegation {
+  background: rgba(220, 53, 69, 0.15);
+  color: #dc3545;
+}
+
+.fm-season-modal__stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.fm-season-modal__stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px;
+  border-radius: var(--radius);
+  background: var(--color-background);
+}
+
+.fm-season-modal__stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.fm-season-modal__stat-label {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 4px;
+}
+
+.fm-season-modal__awards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.fm-season-modal__award {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border-radius: var(--radius);
+  background: var(--color-background);
+}
+
+.fm-season-modal__award-icon {
+  font-size: 24px;
+}
+
+.fm-season-modal__award-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.fm-season-modal__award-label {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.fm-season-modal__award-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-top: 2px;
+}
+
+.fm-season-modal__final-season {
+  text-align: center;
+  padding: 20px;
+  border-radius: var(--radius);
+  background: var(--color-background);
+  margin-bottom: 16px;
+}
+
+.fm-season-modal__final-season h3 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.fm-season-modal__final-season p {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.fm-season-modal__footer {
+  padding: 24px;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  justify-content: center;
+}
+
+.fm-season-modal__btn {
+  padding: 12px 32px;
+  border-radius: var(--radius);
+  border: none;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.fm-season-modal__btn--primary {
+  background: var(--color-primary);
+  color: white;
+}
+
+.fm-season-modal__btn--primary:hover {
+  opacity: 0.9;
 }

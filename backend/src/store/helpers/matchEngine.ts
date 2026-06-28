@@ -1,6 +1,6 @@
 // Motor de Partida — Cálculo de força, simulação e ratings
 
-import type { Team, Match, MatchEvent, MatchStats, PlayerMatchRating, Player, PlayerAttribute, GKAttributes, MatchAction, LiveMatchState } from '../../types/game';
+import type { Team, Match, MatchEvent, MatchStats, PlayerMatchRating, Player, PlayerAttribute, GKAttributes, MatchAction, LiveMatchState, HeatMapZone, TacticalInsight, AssistantAdvice, PostMatchReport } from '../../types/game';
 
 // ============================================================
 // CÁLCULO DE FORÇA DO TIME
@@ -63,7 +63,7 @@ export function calculateTeamStrength(team: Team): number {
     }
 
     const playerStrength = (player.currentAbility * 0.6 + (sum / Math.max(count, 1)) * 5.5) * 1.2;
-    totalStrength += playerStrength * (player.form / 100) * (player.fitness / 100);
+    totalStrength += playerStrength * (player.form / 100) * (player.fitness / 100) * getMoraleFactor(player);
   });
 
   return (totalStrength / Math.max(starting11.length, 1)) * (1 + getTacticalBonus(team));
@@ -117,6 +117,61 @@ function startingXI(team: Team) {
   return team.squad.slice(0, 11);
 }
 
+// ============================================================
+// EFEITOS DA MORAL NO MOTOR DE SIMULAÇÃO
+// Moral baixa reduz atributos mentais (Compostura, Decisões, etc.)
+// Moral alta dá bônus de desempenho — peso letal no resultado
+// ============================================================
+
+// Converte moral (0-100) em multiplicador de desempenho
+// 50 = neutro (1.0), 0 = 0.75 (penalidade severa), 100 = 1.20 (bônus)
+function getMoraleFactor(player: Player): number {
+  const morale = player.morale ?? 50;
+  return clamp(1.0 + ((morale - 50) / 50) * 0.25, 0.75, 1.20);
+}
+
+// Coesão do time baseada em moral + dinâmica social
+// Capitão insatisfeito arrasta o grupo; grupos sociais infelzes penalizam o time
+function getTeamMoraleCohesion(team: Team): number {
+  const xi = startingXI(team);
+  if (xi.length === 0) return 1.0;
+
+  const avgMorale = xi.reduce((s, p) => s + (p.morale ?? 50), 0) / xi.length;
+  let cohesion = 1.0 + ((avgMorale - 50) / 50) * 0.10;
+
+  // Peso letal do capitão: maior liderança no XI
+  const captain = xi.reduce((best, p) =>
+    (p.mental?.leadership ?? 0) > (best.mental?.leadership ?? 0) ? p : best, xi[0]);
+
+  if ((captain.morale ?? 50) < 40) {
+    cohesion -= 0.08;
+    // Cascata: aliados do capitão no XI com moral baixa amplificam
+    const unhappyAllies = xi.filter(p =>
+      p.id !== captain.id &&
+      captain.teamMates?.includes(p.id) &&
+      (p.morale ?? 50) < 50,
+    ).length;
+    cohesion -= unhappyAllies * 0.02;
+  }
+
+  // Grupo social infeliz: 2+ titulares do mesmo grupo com média < 40
+  const groupMorale = new Map<string, { total: number; count: number }>();
+  xi.forEach(p => {
+    const group = p.socialGroup;
+    if (group) {
+      const cur = groupMorale.get(group) ?? { total: 0, count: 0 };
+      groupMorale.set(group, { total: cur.total + (p.morale ?? 50), count: cur.count + 1 });
+    }
+  });
+  groupMorale.forEach(({ total, count }) => {
+    if (count >= 2 && total / count < 40) {
+      cohesion -= 0.05;
+    }
+  });
+
+  return clamp(cohesion, 0.75, 1.15);
+}
+
 // Qualidade ofensiva individual (escala ~0-100)
 function attackQuality(p: Team['squad'][number]): number {
   const attr = avgDefined([
@@ -151,13 +206,13 @@ function teamAttack(team: Team): number {
   let sum = 0;
   let weight = 0;
   xi.forEach(p => {
-    const cond = ((p.form ?? 70) / 100) * ((p.fitness ?? 90) / 100);
+    const cond = ((p.form ?? 70) / 100) * ((p.fitness ?? 90) / 100) * getMoraleFactor(p);
     const w = ATTACK_WEIGHT[p.position] ?? 1;
     sum += attackQuality(p) * w * cond;
     weight += w;
   });
   const base = sum / Math.max(weight, 1);
-  return base * (1 + getTacticalBonus(team) * 0.6);
+  return base * (1 + getTacticalBonus(team) * 0.6) * getTeamMoraleCohesion(team);
 }
 
 // Força defensiva do time, ponderada por posição, forma e condição
@@ -166,13 +221,13 @@ function teamDefense(team: Team): number {
   let sum = 0;
   let weight = 0;
   xi.forEach(p => {
-    const cond = ((p.form ?? 70) / 100) * ((p.fitness ?? 90) / 100);
+    const cond = ((p.form ?? 70) / 100) * ((p.fitness ?? 90) / 100) * getMoraleFactor(p);
     const w = DEFENSE_WEIGHT[p.position] ?? 1;
     sum += defenseQuality(p) * w * cond;
     weight += w;
   });
   const base = sum / Math.max(weight, 1);
-  return base * (1 + getTacticalBonus(team) * 0.3);
+  return base * (1 + getTacticalBonus(team) * 0.3) * getTeamMoraleCohesion(team);
 }
 
 // Amostra de uma distribuição de Poisson (número de gols)
@@ -384,6 +439,7 @@ export function calculatePlayerMatchRatings(
 
       rating += ((player.form ?? 70) - 70) * 0.006;
       rating += ((player.fitness ?? 90) - 85) * 0.004;
+      rating += ((player.morale ?? 50) - 50) * 0.008;
       rating += (Math.random() - 0.5) * 0.5;
 
       // Teto de qualidade baseado no CA (exceção para grandes atuações)
@@ -417,6 +473,464 @@ export function calculatePlayerMatchRatings(
   const bestPlayer = ratings.reduce((best, r) => (r.rating > best.rating ? r : best), ratings[0]);
 
   return { ...result, playerRatings: ratings, bestPlayer: bestPlayer?.playerId };
+}
+
+// ============================================================
+// RELATÓRIO PÓS-JOGO — Análise tática, mapa de calor, conselhos
+// ============================================================
+
+const ZONE_DEFS: { label: string; third: 'defensive' | 'middle' | 'attacking'; flank: 'left' | 'center' | 'right' }[] = [
+  { label: 'Defesa-Esq', third: 'defensive', flank: 'left' },
+  { label: 'Defesa-Centro', third: 'defensive', flank: 'center' },
+  { label: 'Defesa-Dir', third: 'defensive', flank: 'right' },
+  { label: 'Meio-Esq', third: 'middle', flank: 'left' },
+  { label: 'Meio-Centro', third: 'middle', flank: 'center' },
+  { label: 'Meio-Dir', third: 'middle', flank: 'right' },
+  { label: 'Ataque-Esq', third: 'attacking', flank: 'left' },
+  { label: 'Ataque-Centro', third: 'attacking', flank: 'center' },
+  { label: 'Ataque-Dir', third: 'attacking', flank: 'right' },
+];
+
+function distributeFlank(team: Team): number {
+  const r = Math.random();
+  if (team.useFlank === 'left') return r < 0.50 ? 0 : r < 0.80 ? 1 : 2;
+  if (team.useFlank === 'right') return r < 0.50 ? 2 : r < 0.80 ? 1 : 0;
+  if (team.attackWidth === 'narrow') return r < 0.60 ? 1 : r < 0.80 ? 0 : 2;
+  if (team.attackWidth === 'wide') return r < 0.35 ? 1 : r < 0.68 ? 0 : 2;
+  return r < 0.40 ? 1 : r < 0.70 ? 0 : 2;
+}
+
+export function generatePostMatchReport(
+  homeTeam: Team,
+  awayTeam: Team,
+  result: MatchResult,
+  actions?: MatchAction[],
+): PostMatchReport {
+  const stats = result.stats;
+  const homeWon = result.homeGoals > result.awayGoals;
+  const awayWon = result.awayGoals > result.homeGoals;
+  const draw = !homeWon && !awayWon;
+
+  // === MAPA DE CALOR ===
+  const homeZones = new Array(9).fill(0);
+  const awayZones = new Array(9).fill(0);
+
+  if (actions && actions.length > 0) {
+    for (const a of actions) {
+      const isHome = a.team === 'home';
+      const bp = a.ballPos;
+      const team = isHome ? homeTeam : awayTeam;
+
+      // Terço: para casa, bp alto = ataque; para fora, bp baixo = ataque
+      let thirdIdx: number;
+      if (isHome) {
+        thirdIdx = bp < 0.33 ? 0 : bp < 0.66 ? 1 : 2;
+      } else {
+        thirdIdx = bp > 0.66 ? 0 : bp > 0.33 ? 1 : 2;
+      }
+
+      const flankIdx = distributeFlank(team);
+      const zoneIdx = thirdIdx * 3 + flankIdx;
+      if (isHome) homeZones[zoneIdx]++;
+      else awayZones[zoneIdx]++;
+    }
+  } else {
+    // Fallback: distribui proporcionalmente à posse e estilo
+    const homeAttBias = stats.homePossession / 100;
+    const awayAttBias = stats.awayPossession / 100;
+    for (let i = 0; i < 9; i++) {
+      const third = Math.floor(i / 3);
+      const base = 10 + Math.random() * 15;
+      homeZones[i] = Math.round(base * (third === 2 ? homeAttBias : third === 0 ? 1 - homeAttBias : 1));
+      awayZones[i] = Math.round(base * (third === 0 ? awayAttBias : third === 2 ? 1 - awayAttBias : 1));
+    }
+  }
+
+  const maxHome = Math.max(...homeZones, 1);
+  const maxAway = Math.max(...awayZones, 1);
+
+  const heatMapHome: HeatMapZone[] = ZONE_DEFS.map((z, i) => ({
+    label: z.label,
+    third: z.third,
+    flank: z.flank,
+    actions: homeZones[i],
+    intensity: homeZones[i] / maxHome,
+  }));
+
+  const heatMapAway: HeatMapZone[] = ZONE_DEFS.map((z, i) => ({
+    label: z.label,
+    third: z.third,
+    flank: z.flank,
+    actions: awayZones[i],
+    intensity: awayZones[i] / maxAway,
+  }));
+
+  // === PASS BREAKDOWN ===
+  let homeSuccessful = 0, homeFailed = 0, awaySuccessful = 0, awayFailed = 0;
+  if (actions && actions.length > 0) {
+    for (const a of actions) {
+      if (a.type === 'pass') {
+        if (a.team === 'home') {
+          if (a.success) homeSuccessful++; else homeFailed++;
+        } else {
+          if (a.success) awaySuccessful++; else awayFailed++;
+        }
+      }
+    }
+  } else {
+    homeSuccessful = Math.round(stats.homePasses * stats.homePassAccuracy / 100);
+    homeFailed = stats.homePasses - homeSuccessful;
+    awaySuccessful = Math.round(stats.awayPasses * stats.awayPassAccuracy / 100);
+    awayFailed = stats.awayPasses - awaySuccessful;
+  }
+
+  // === ATTACK ZONES (left/center/right no terço de ataque) ===
+  const hAtt = { left: 0, center: 0, right: 0 };
+  const aAtt = { left: 0, center: 0, right: 0 };
+  heatMapHome.forEach(z => { if (z.third === 'attacking') hAtt[z.flank] += z.actions; });
+  heatMapAway.forEach(z => { if (z.third === 'attacking') aAtt[z.flank] += z.actions; });
+  const hTotal = hAtt.left + hAtt.center + hAtt.right || 1;
+  const aTotal = aAtt.left + aAtt.center + aAtt.right || 1;
+  const attackZones = {
+    home: {
+      left: Math.round(hAtt.left / hTotal * 100),
+      center: Math.round(hAtt.center / hTotal * 100),
+      right: Math.round(hAtt.right / hTotal * 100),
+    },
+    away: {
+      left: Math.round(aAtt.left / aTotal * 100),
+      center: Math.round(aAtt.center / aTotal * 100),
+      right: Math.round(aAtt.right / aTotal * 100),
+    },
+  };
+
+  // === INSIGHTS TÁTICOS ===
+  const insights: TacticalInsight[] = [];
+  const homePassTotal = homeSuccessful + homeFailed;
+  const awayPassTotal = awaySuccessful + awayFailed;
+  const homePassErr = homePassTotal > 0 ? homeFailed / homePassTotal : 0;
+  const awayPassErr = awayPassTotal > 0 ? awayFailed / awayPassTotal : 0;
+
+  // Posse vs resultado
+  if (stats.homePossession >= 60 && !homeWon) {
+    insights.push({
+      category: 'negative',
+      icon: '⚠️',
+      title: 'Posse sem efetividade',
+      description: `${homeTeam.name} dominou a posse (${stats.homePossession}%) mas ${homeWon ? 'não venceu' : draw ? 'empatou' : 'perdeu'}. Muita circulação de bola sem penetração no terço final.`,
+    });
+  }
+  if (stats.awayPossession >= 60 && !awayWon) {
+    insights.push({
+      category: 'negative',
+      icon: '⚠️',
+      title: 'Posse sem efetividade',
+      description: `${awayTeam.name} dominou a posse (${stats.awayPossession}%) mas não converteu em resultado. Controle de bola estéril no meio-campo.`,
+    });
+  }
+
+  // Estilo de passe vs erros
+  if (homeTeam.passingStyle === 'direct' && homePassErr > 0.25) {
+    insights.push({
+      category: 'negative',
+      icon: '🎯',
+      title: 'Passes diretos geraram perdas',
+      description: `O estilo de passe "Direto" do ${homeTeam.name} resultou em ${homeFailed} passes errados (${Math.round(homePassErr * 100)}% de erro). Bolas longas foram interceptadas pela defesa adversária no terço final.`,
+    });
+  }
+  if (awayTeam.passingStyle === 'direct' && awayPassErr > 0.25) {
+    insights.push({
+      category: 'negative',
+      icon: '🎯',
+      title: 'Passes diretos geraram perdas',
+      description: `O estilo de passe "Direto" do ${awayTeam.name} resultou em ${awayFailed} passes errados (${Math.round(awayPassErr * 100)}% de erro). Bolas longas perdidas no terço final.`,
+    });
+  }
+  if (homeTeam.passingStyle === 'short' && homePassErr < 0.15 && homePassTotal > 50) {
+    insights.push({
+      category: 'positive',
+      icon: '🔹',
+      title: 'Passe curto preciso',
+      description: `O ${homeTeam.name} completou ${homeSuccessful} passes com ${Math.round((1 - homePassErr) * 100)}% de precisão. O estilo de passe curto funcionou bem para manter a posse.`,
+    });
+  }
+  if (awayTeam.passingStyle === 'short' && awayPassErr < 0.15 && awayPassTotal > 50) {
+    insights.push({
+      category: 'positive',
+      icon: '🔹',
+      title: 'Passe curto preciso',
+      description: `O ${awayTeam.name} completou ${awaySuccessful} passes com ${Math.round((1 - awayPassErr) * 100)}% de precisão. Circulação de bola eficaz.`,
+    });
+  }
+
+  // Linha de engajamento
+  if (homeTeam.engagementLine === 'high' && stats.awayShots > stats.homeShots) {
+    insights.push({
+      category: 'negative',
+      icon: '⬆️',
+      title: 'Linha alta deixou espaço',
+      description: `A linha de engajamento alta do ${homeTeam.name} permitiu ${stats.awayShots} chutes do adversário. O press alto não recuperou a bola a tempo e o time ficou exposto nas costas.`,
+    });
+  }
+  if (awayTeam.engagementLine === 'high' && stats.homeShots > stats.awayShots) {
+    insights.push({
+      category: 'negative',
+      icon: '⬆️',
+      title: 'Linha alta deixou espaço',
+      description: `A linha de engajamento alta do ${awayTeam.name} permitiu ${stats.homeShots} chutes do adversário. Pressão alta foi batida por lançamentos longos.`,
+    });
+  }
+  if (homeTeam.engagementLine === 'low' && stats.homePossession < 45) {
+    insights.push({
+      category: 'neutral',
+      icon: '⬇️',
+      title: 'Bloco baixo e contido',
+      description: `${homeTeam.name} jogou com linha de engajamento baixa, cedendo a posse (${stats.homePossession}%) e esperando o adversário. Estratégia defensiva que ${homeWon ? 'funcionou' : 'não foi suficiente'}.`,
+    });
+  }
+
+  // Contra-ataque
+  if (homeTeam.afterGainingPossession === 'counterAttack' && homeWon) {
+    insights.push({
+      category: 'positive',
+      icon: '🚀',
+      title: 'Contra-ataque letal',
+      description: `A estratégia de contra-ataque do ${homeTeam.name} foi decisiva. Recuperou a bola e criou ${stats.homeShots} oportunidades com transições rápidas.`,
+    });
+  }
+  if (awayTeam.afterGainingPossession === 'counterAttack' && awayWon) {
+    insights.push({
+      category: 'positive',
+      icon: '🚀',
+      title: 'Contra-ataque letal',
+      description: `O ${awayTeam.name} venceu com contra-ataques eficientes. ${stats.awayShots} chutes criados a partir de transições rápidas pós-recuperação.`,
+    });
+  }
+
+  // xG vs gols
+  const homeOverperform = result.homeGoals - stats.homeXG;
+  const awayOverperform = result.awayGoals - stats.awayXG;
+  if (homeOverperform > 0.8) {
+    insights.push({
+      category: 'positive',
+      icon: '📈',
+      title: 'Finalização acima do esperado',
+      description: `${homeTeam.name} marcou ${result.homeGoals} gols com xG de apenas ${stats.homeXG.toFixed(2)}. Aproveitamento excepcional das chances criadas.`,
+    });
+  }
+  if (awayOverperform > 0.8) {
+    insights.push({
+      category: 'positive',
+      icon: '📈',
+      title: 'Finalização acima do esperado',
+      description: `${awayTeam.name} marcou ${result.awayGoals} gols com xG de apenas ${stats.awayXG.toFixed(2)}. Eficiência clínica na finalização.`,
+    });
+  }
+  if (homeOverperform < -0.8) {
+    insights.push({
+      category: 'negative',
+      icon: '📉',
+      title: 'Gols esperados não convertidos',
+      description: `${homeTeam.name} criou chances suficientes para ${stats.homeXG.toFixed(2)} gols mas marcou apenas ${result.homeGoals}. Falta de frieza na finalização.`,
+    });
+  }
+  if (awayOverperform < -0.8) {
+    insights.push({
+      category: 'negative',
+      icon: '📉',
+      title: 'Gols esperados não convertidos',
+      description: `${awayTeam.name} teve xG de ${stats.awayXG.toFixed(2)} mas marcou só ${result.awayGoals}. Chutes no alvo não suficientes para vencer o goleiro.`,
+    });
+  }
+
+  // Conversão de chutes
+  const homeConv = stats.homeShots > 0 ? result.homeGoals / stats.homeShots : 0;
+  const awayConv = stats.awayShots > 0 ? result.awayGoals / stats.awayShots : 0;
+  if (stats.homeShots > 12 && homeConv < 0.08) {
+    insights.push({
+      category: 'negative',
+      icon: '👟',
+      title: 'Muitos chutes, poucos gols',
+      description: `${homeTeam.name} teve ${stats.homeShots} chutes mas converteu apenas ${result.homeGoals}. Baixa precisão ofensiva — apenas ${stats.homeShotsOnTarget} no alvo.`,
+    });
+  }
+  if (stats.awayShots > 12 && awayConv < 0.08) {
+    insights.push({
+      category: 'negative',
+      icon: '👟',
+      title: 'Muitos chutes, poucos gols',
+      description: `${awayTeam.name} teve ${stats.awayShots} chutes mas converteu apenas ${result.awayGoals}. Apenas ${stats.awayShotsOnTarget} no alvo — finalização improdutiva.`,
+    });
+  }
+
+  // Pressão alta
+  if (homeTeam.pressIntensity === 'high' && homeWon) {
+    const homeTackles = actions?.filter(a => a.team === 'home' && a.type === 'tackle' && a.success).length ?? 0;
+    if (homeTackles > 5) {
+      insights.push({
+        category: 'positive',
+        icon: '🔥',
+        title: 'Pressão alta efetiva',
+        description: `A pressão alta do ${homeTeam.name} recuperou a bola frequentemente (${homeTackles} desarmes bem-sucedidos). O adversário não conseguiu sair jogando.`,
+      });
+    }
+  }
+
+  // Zonas de ataque
+  const hDominantFlank = attackZones.home.left > attackZones.home.right ? 'esquerda' : attackZones.home.right > attackZones.home.left ? 'direita' : 'ambas as pontas';
+  if (attackZones.home.center > 50) {
+    insights.push({
+      category: 'neutral',
+      icon: '📐',
+      title: 'Ataque centralizado',
+      description: `${homeTeam.name} atacou ${attackZones.home.center}% pelo centro. ${hDominantFlank === 'ambas as pontas' ? 'Pouca variação pelas pontas.' : `Pouca exploração pela ${hDominantFlank}.`}`,
+    });
+  } else if (Math.abs(attackZones.home.left - attackZones.home.right) > 25) {
+    const side = attackZones.home.left > attackZones.home.right ? 'esquerda' : 'direita';
+    insights.push({
+      category: 'neutral',
+      icon: '📐',
+      title: `Ataque concentrado pela ${side}`,
+      description: `${homeTeam.name} atacou ${Math.max(attackZones.home.left, attackZones.home.right)}% pela ${side}. O adversário pode fechar esse corredor no próximo jogo.`,
+    });
+  }
+
+  // Defesa
+  if (result.awayGoals === 0 && homeWon) {
+    insights.push({
+      category: 'positive',
+      icon: '🛡️',
+      title: 'Defesa sólida',
+      description: `${homeTeam.name} manteve os zeros e não sofreu gols. ${homeTeam.defensiveLine === 'low' ? 'Bloco baixo e compacto dificultou a aproximação.' : 'Organização defensiva eficaz.'}`,
+    });
+  }
+  if (result.homeGoals === 0 && awayWon) {
+    insights.push({
+      category: 'positive',
+      icon: '🛡️',
+      title: 'Defesa sólida',
+      description: `${awayTeam.name} não sofreu gols. ${awayTeam.defensiveLine === 'low' ? 'Bloco baixo e compacto anulou o ataque adversário.' : 'Marcação organizada e segura.'}`,
+    });
+  }
+
+  // === CONSELHOS DO ASSISTENTE ===
+  const assistantComments: AssistantAdvice[] = [];
+
+  // Aconselhamento baseado em erros de passe
+  if (homePassErr > 0.25) {
+    if (homeTeam.passingStyle === 'direct') {
+      assistantComments.push({
+        type: 'tactical',
+        message: `O estilo de passe direto gerou ${Math.round(homePassErr * 100)}% de erros. Considere mudar para "Misto" ou "Curto" contra times que pressionam alto.`,
+      });
+    } else {
+      assistantComments.push({
+        type: 'tactical',
+        message: `A precisão de passes foi baixa (${Math.round((1 - homePassErr) * 100)}%). Treinar circulação de bola ou reduzir o ritmo pode ajudar.`,
+      });
+    }
+  }
+  if (awayPassErr > 0.25) {
+    if (awayTeam.passingStyle === 'direct') {
+      assistantComments.push({
+        type: 'tactical',
+        message: `O ${awayTeam.name} errou muitos passes com estilo direto (${Math.round(awayPassErr * 100)}%). Recomendo ajustar para "Misto" na próxima partida.`,
+      });
+    }
+  }
+
+  // Aconselhamento sobre linha de engajamento
+  if (homeTeam.engagementLine === 'high' && stats.awayShotsOnTarget > 5) {
+    assistantComments.push({
+      type: 'tactical',
+      message: `A linha de engajamento alta permitiu ${stats.awayShotsOnTarget} chutes no alvo do adversário. Contra times rápidos, considere recuar a linha para "Média".`,
+    });
+  }
+  if (homeTeam.engagementLine === 'low' && stats.homePossession < 40) {
+    assistantComments.push({
+      type: 'tactical',
+      message: `Com linha baixa, o time teve apenas ${stats.homePossession}% de posse. Se o objetivo é vencer, experimente subir a linha de engajamento para pressionar mais alto.`,
+    });
+  }
+
+  // Aconselhamento sobre finalização
+  if (stats.homeShots > 10 && stats.homeShotsOnTarget < stats.homeShots * 0.3) {
+    assistantComments.push({
+      type: 'tactical',
+      message: `Apenas ${stats.homeShotsOnTarget} de ${stats.homeShots} chutes foram no alvo. Trabalhar finalização ou criar chances mais claras (levar a bola à área) pode melhorar o aproveitamento.`,
+    });
+  }
+
+  // Aconselhamento sobre flancos
+  if (attackZones.home.center > 55) {
+    assistantComments.push({
+      type: 'tactical',
+      message: `O time atacou ${attackZones.home.center}% pelo centro. Usar as pontas (${attackZones.home.left}% esq, ${attackZones.home.right}% dir) pode criar mais espaços e dificultar a marcação adversária.`,
+    });
+  }
+
+  // Aconselhamento sobre contra-pressão
+  if (homeTeam.afterLosingPossession === 'regroup' && stats.homePossession < 45) {
+    assistantComments.push({
+      type: 'tactical',
+      message: `O time recuou após perder a posse e teve apenas ${stats.homePossession}% de bola. Contra-pressionar pode recuperar a bola mais rápido e aumentar a posse.`,
+    });
+  }
+
+  // Aconselhamento sobre tempo
+  if (homeTeam.tempo === 'fast' && homePassErr > 0.20) {
+    assistantComments.push({
+      type: 'tactical',
+      message: `O ritmo rápido causou ${homeFailed} passes errados. Reduzir para "Equilibrado" pode melhorar a precisão sem perder muita intensidade.`,
+    });
+  }
+
+  // === RESUMO ===
+  let summary = '';
+  const winner = homeWon ? homeTeam : awayWon ? awayTeam : null;
+  const loser = homeWon ? awayTeam : awayWon ? homeTeam : null;
+  const winnerGoals = homeWon ? result.homeGoals : awayWon ? result.awayGoals : result.homeGoals;
+  const loserGoals = homeWon ? result.awayGoals : awayWon ? result.homeGoals : result.awayGoals;
+
+  if (draw) {
+    summary = `Empate em ${result.homeGoals}-${result.awayGoals}. `;
+    if (stats.homePossession > stats.awayPossession) {
+      summary += `${homeTeam.name} teve mais posse (${stats.homePossession}%) mas não conseguiu superar o ${awayTeam.name}. `;
+    } else {
+      summary += `${awayTeam.name} teve mais posse (${stats.awayPossession}%) mas o ${homeTeam.name} equilibrou as ações. `;
+    }
+    summary += `xG: ${stats.homeXG.toFixed(2)} vs ${stats.awayXG.toFixed(2)}.`;
+  } else {
+    summary = `${winner!.name} venceu por ${winnerGoals}-${loserGoals}. `;
+    if (winner === homeTeam) {
+      if (stats.homePossession > 55) {
+        summary += `Dominou a posse (${stats.homePossession}%) e criou ${stats.homeShots} chances (xG ${stats.homeXG.toFixed(2)}). `;
+      } else if (stats.homePossession < 45) {
+        summary += `Vitória com apenas ${stats.homePossession}% de posse — eficiência em contra-ataques. `;
+      }
+      if (result.awayGoals === 0) summary += `Defesa inviolável. `;
+    } else {
+      if (stats.awayPossession > 55) {
+        summary += `Controlou o jogo fora de casa (${stats.awayPossession}% posse, ${stats.awayShots} chutes). `;
+      } else if (stats.awayPossession < 45) {
+        summary += `Venceu como visitante com ${stats.awayPossession}% de posse — letal nos contra-ataques. `;
+      }
+      if (result.homeGoals === 0) summary += `Manteve o zero na defesa. `;
+    }
+    if (loser && (winnerGoals - loserGoals) >= 2) {
+      summary += `Vitória convincente por margem de ${winnerGoals - loserGoals} gols.`;
+    }
+  }
+
+  return {
+    summary,
+    heatMapHome,
+    heatMapAway,
+    insights,
+    assistantComments,
+    passBreakdown: { homeSuccessful, homeFailed, awaySuccessful, awayFailed },
+    attackZones,
+  };
 }
 
 export function generateWeekMatches(teams: Team[], week: number): Match[] {
@@ -483,6 +997,28 @@ export function applyMatchResultToTeams(
   homeTeam.goalsAgainst += result.awayGoals;
   awayTeam.goalsAgainst += result.homeGoals;
 
+  // Track goals and assists per player for the season
+  const goalDetails = result.goalDetails || [];
+  const applyPlayerStats = (team: Team, side: 'home' | 'away') => {
+    team.squad = team.squad.map(player => {
+      let goals = 0;
+      let assists = 0;
+      goalDetails.forEach(g => {
+        if (g.team !== side) return;
+        if (g.scorerId === player.id) goals++;
+        if (g.assistId === player.id) assists++;
+      });
+      if (goals === 0 && assists === 0) return player;
+      return {
+        ...player,
+        seasonGoals: (player.seasonGoals ?? 0) + goals,
+        seasonAssists: (player.seasonAssists ?? 0) + assists,
+      };
+    });
+  };
+  applyPlayerStats(homeTeam, 'home');
+  applyPlayerStats(awayTeam, 'away');
+
   if (result.homeGoals > result.awayGoals) {
     homeTeam.points += 3;
     homeTeam.won++;
@@ -533,6 +1069,7 @@ function passSuccessProb(passer: Player, receiver: Player, pressure: number, tea
   // Forma e condição física
   prob *= ((passer.form ?? 70) / 100) * 0.5 + 0.5;
   prob *= ((passer.fitness ?? 90) / 100) * 0.5 + 0.5;
+  prob *= getMoraleFactor(passer);
 
   return clamp(prob, 0.45, 0.97);
 }
@@ -566,6 +1103,7 @@ function dribbleSuccessProb(dribbler: Player, defender: Player, team: Team): num
 
   prob *= ((dribbler.form ?? 70) / 100) * 0.5 + 0.5;
   prob *= ((dribbler.fitness ?? 90) / 100) * 0.5 + 0.5;
+  prob *= getMoraleFactor(dribbler);
 
   return clamp(prob, 0.20, 0.85);
 }
@@ -598,6 +1136,7 @@ function shotSuccessProb(shooter: Player, goalkeeper: Player, distance: number, 
     onTargetProb += 0.15; // na cara do gol
   }
   onTargetProb *= ((shooter.form ?? 70) / 100) * 0.5 + 0.5;
+  onTargetProb *= getMoraleFactor(shooter);
 
   const onTarget = Math.random() < clamp(onTargetProb, 0.15, 0.80);
 
@@ -618,6 +1157,7 @@ function shotSuccessProb(shooter: Player, goalkeeper: Player, distance: number, 
   if (distance > 0.6) goalProb -= 0.15;
 
   goalProb *= ((shooter.form ?? 70) / 100) * 0.5 + 0.5;
+  goalProb *= getMoraleFactor(shooter);
 
   const goal = Math.random() < clamp(goalProb, 0.10, 0.85);
   return { onTarget: true, goal };
@@ -650,6 +1190,7 @@ function tackleSuccessProb(defender: Player, attacker: Player, team: Team): numb
   if (team.tacklingStyle === 'aggressive') prob += 0.04;
 
   prob *= ((defender.fitness ?? 90) / 100) * 0.5 + 0.5;
+  prob *= getMoraleFactor(defender);
 
   return clamp(prob, 0.20, 0.75);
 }
@@ -1101,7 +1642,7 @@ export function simulateMinute(
 
 // Simula uma partida completa (para AI vs AI e auto-finalizar)
 // Roda 90 minutos de simulação passo a passo
-export function simulateFullMatch(homeTeam: Team, awayTeam: Team, homeBoost = 0, awayBoost = 0): MatchResult & { playerRatings: PlayerMatchRating[]; bestPlayer?: string } {
+export function simulateFullMatch(homeTeam: Team, awayTeam: Team, homeBoost = 0, awayBoost = 0): MatchResult & { playerRatings: PlayerMatchRating[]; bestPlayer?: string; postMatchReport?: PostMatchReport } {
   let state = initLiveMatchState(homeTeam, awayTeam);
 
   // Aplica boosts de intervenção
@@ -1135,5 +1676,6 @@ export function simulateFullMatch(homeTeam: Team, awayTeam: Team, homeBoost = 0,
   };
 
   const withRatings = calculatePlayerMatchRatings(homeTeam, awayTeam, result);
-  return withRatings;
+  const postMatchReport = generatePostMatchReport(homeTeam, awayTeam, result, state.actions);
+  return { ...withRatings, postMatchReport };
 }

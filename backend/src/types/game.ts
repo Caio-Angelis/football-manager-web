@@ -8,13 +8,14 @@ export type { PlayerAttribute, GKAttributes, HiddenAttributes, Promise, Player }
 export type { PlayerRole, PlayerInstruction, TeamTacticsConfig, Team, Scout } from './team';
 
 // Match
-export type { MatchEvent, MatchStats, MatchAction, LiveMatchState, PlayerMatchRating, Match } from './match';
+export type { MatchEvent, MatchStats, MatchAction, LiveMatchState, PlayerMatchRating, Match, HeatMapZone, TacticalInsight, AssistantAdvice, PostMatchReport } from './match';
 
 // Transfer
 export type {
   InstallmentPayment, InstallmentClause, PlayerBonus,
   ContractClause, TransferAgreement, TransferOffer,
   IncomingTransfer, CounterOffer, NegotiationResult,
+  ContractNegotiationResult,
   DeferredTransfer, CompletedTransfer, ScoutReport,
   ActiveScoutMission,
 } from './transfer';
@@ -52,7 +53,7 @@ export type { YouthPlayer, YouthAcademy, ReserveTeamPlayer } from './youth';
 
 import type { Match } from './match';
 import type { Team } from './team';
-import type { TransferOffer, IncomingTransfer, CounterOffer, DeferredTransfer, InstallmentClause, PlayerBonus, TransferAgreement, CompletedTransfer, ScoutReport, NegotiationResult, ActiveScoutMission } from './transfer';
+import type { TransferOffer, IncomingTransfer, CounterOffer, DeferredTransfer, InstallmentClause, PlayerBonus, TransferAgreement, CompletedTransfer, ScoutReport, NegotiationResult, ContractNegotiationResult, ActiveScoutMission } from './transfer';
 import type { InboxMessage } from './inbox';
 import type { BoardReply, FinancialReport } from './financial';
 import type { WeeklyTrainingPlan } from './training';
@@ -63,6 +64,23 @@ import type { SaveSlot, SaveSlotMetadata } from './saves';
 import type { YouthAcademy, ReserveTeamPlayer, YouthPlayer } from './youth';
 import type { Player } from './player';
 import type { Promise as PlayerPromise } from './player';
+
+export interface SeasonSummary {
+  season: number;
+  teamName: string;
+  position: number;
+  zone: 'title' | 'europe' | 'safe' | 'relegation';
+  zoneLabel: string;
+  points: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  topScorer: { name: string; goals: number } | null;
+  topAssister: { name: string; assists: number } | null;
+  isFinalSeason: boolean;
+}
 
 export interface GameState {
   selectedTeam: string | null;
@@ -109,6 +127,9 @@ export interface GameState {
   // Scouting — conhecimento do manager sobre jogadores
   scoutKnowledge: Record<string, number>; // Player ID -> 0-100
   scoutMissions: ActiveScoutMission[];   // missões de observação ativas
+  // Resumo de fim de temporada
+  seasonSummary: SeasonSummary | null;
+  gameOver: boolean;
 }
 
 export interface GameActions {
@@ -124,7 +145,8 @@ export interface GameActions {
   updateTeam: (teamId: string, updater: (team: Team) => Team) => void;
   buyPlayer: (playerId: string, sellerTeamId: string) => boolean;
   makeOffer: (playerId: string, sellerTeamId: string, offerPrice: number, negotiationRound?: number) => NegotiationResult;
-  acceptOffer: (playerId: string, sellerTeamId: string, offerPrice: number) => boolean;
+  acceptOffer: (playerId: string, sellerTeamId: string, offerPrice: number, agreedSalary: number) => boolean;
+  negotiatePlayerContract: (playerId: string, sellerTeamId: string, offeredSalary: number, negotiationRound: number) => ContractNegotiationResult;
   acceptIncomingTransfer: (playerId: string) => void;
   rejectIncomingTransfer: (playerId: string) => void;
   deferTransfer: (playerId: string) => void;
@@ -221,6 +243,8 @@ export interface GameActions {
   // Scouting — designar olheiro a jogador
   assignScoutMission: (scoutId: string, targetId: string, weeks: number) => boolean;
   getScoutKnowledge: (playerId: string) => number;
+  // Resumo de fim de temporada
+  startNextSeason: () => void;
 }
 
 export type GameStore = GameState & GameActions;

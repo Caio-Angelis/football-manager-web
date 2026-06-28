@@ -10,6 +10,10 @@
 
 /* Tablet: sidebar stays but content adapts */
 @media (max-width: 1024px) {
+  .fm-sidebar {
+    width: 220px;
+  }
+
   .fm-squad-view,
   .fm-league-view {
     padding: 10px 12px;
@@ -20,30 +24,47 @@
   .fm-inbox-view {
     padding: 12px;
   }
+
+  .fm-tactics-view,
+  .fm-training-view,
+  .fm-dynamics-view,
+  .fm-finance-view,
+  .fm-club-view {
+    padding: 16px 16px;
+  }
 }
 
 /* Mobile: sidebar → bottom navigation */
 @media (max-width: 768px) {
   .fm-app {
     flex-direction: column;
+    height: 100dvh;
   }
 
   .fm-sidebar {
     width: 100%;
+    height: auto;
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
+    top: auto;
     z-index: 1000;
     flex-direction: row;
     padding: 0;
     border-right: none;
     border-top: 1px solid var(--color-border);
-    box-shadow: 0 -2px 8px var(--color-shadow);
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.3);
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
   }
 
+  .fm-sidebar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .fm-sidebar__header,
   .fm-sidebar__logo,
   .fm-sidebar__season,
   .fm-sidebar__footer {
@@ -53,51 +74,103 @@
   .fm-sidebar__nav {
     flex-direction: row;
     flex: none;
-    padding: 8px 16px;
-    gap: 8px;
+    padding: 6px 8px;
+    gap: 4px;
+    width: 100%;
   }
 
   .fm-sidebar__item {
     flex-direction: column;
-    padding: 8px 12px;
-    gap: 4px;
-    min-width: 64px;
+    padding: 6px 10px;
+    gap: 2px;
+    min-width: 60px;
+    border-left: none;
+    border-bottom: 3px solid transparent;
+    border-radius: 0;
+  }
+
+  .fm-sidebar__item--active {
+    border-left: none;
+    border-bottom: 3px solid var(--color-primary);
+    padding-left: 10px;
+  }
+
+  .fm-sidebar__item:hover {
+    transform: none;
   }
 
   .fm-sidebar__item-label {
     display: block;
-    font-size: 10px;
+    font-size: 9px;
+    text-align: center;
+    line-height: 1.2;
+  }
+
+  .fm-sidebar__item-icon {
+    font-size: 16px;
+    width: auto;
   }
 
   .fm-sidebar__badge {
-    display: none;
+    position: absolute;
+    top: 2px;
+    right: 6px;
+    font-size: 8px;
+    padding: 1px 5px;
+    min-width: 14px;
   }
 
   .fm-main {
-    padding-bottom: 120px; /* space for bottom nav */
+    padding-bottom: 72px; /* space for bottom nav */
+    flex: 1;
+    width: 100%;
   }
 
   .fm-squad-view,
   .fm-league-view {
-    min-height: calc(100vh - 120px);
+    min-height: auto;
+  }
+}
+
+/* ===== Actionbar Mobile ===== */
+@media (max-width: 768px) {
+  .fm-main__actionbar {
+    flex-wrap: wrap;
+    padding: 8px 12px;
+    gap: 6px;
+  }
+
+  .fm-main__actionbar .fm-button {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .fm-main__actionbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    padding: 8px 12px;
+  }
+
+  .fm-main__actionbar .fm-button {
+    width: 100%;
+    text-align: center;
   }
 }
 
 /* ===== Squad Table Mobile ===== */
 @media (max-width: 768px) {
-  .fm-main__actionbar {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    white-space: nowrap;
-  }
-
   .fm-squad-table__wrapper {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    margin: 0 -12px;
+    padding: 0 12px;
   }
 
   .fm-squad-table__grid {
-    min-width: 600px; /* allow horizontal scroll */
+    min-width: 580px;
   }
 
   .fm-squad-table__toolbar {
@@ -108,10 +181,18 @@
 
   .fm-squad-table__search {
     min-width: auto;
+    width: 100%;
   }
 
   .fm-squad-table__filters {
     flex-wrap: wrap;
+  }
+
+  .fm-squad-table__header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px;
   }
 }
 
@@ -266,7 +347,7 @@
     right: 0;
     top: auto;
     width: 100%;
-    max-height: 90vh;
+    max-height: 85dvh;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   }
 
@@ -308,7 +389,7 @@
 /* ===== Toast Mobile ===== */
 @media (max-width: 768px) {
   .fm-toast-container {
-    bottom: 120px; /* above bottom nav */
+    bottom: 84px; /* above bottom nav */
     right: 12px;
     left: 12px;
     max-width: none;
@@ -362,5 +443,168 @@
 
   .fm-empty-message__text {
     font-size: 16px;
+  }
+}
+
+/* ===== Club View Mobile ===== */
+@media (max-width: 768px) {
+  .fm-club-view {
+    padding: 16px 12px;
+  }
+
+  .fm-club-view__info {
+    padding: 16px;
+  }
+
+  .fm-club-view__info h2 {
+    font-size: 18px;
+  }
+
+  .fm-club-view__grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 8px;
+  }
+
+  .fm-club-view__stat {
+    padding: 10px 12px;
+  }
+
+  .fm-club-view__stat-value {
+    font-size: 14px;
+  }
+
+  .fm-club-view__stat-label {
+    font-size: 10px;
+  }
+
+  .fm-club-view__form-badges {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .fm-club-view__promise {
+    flex-direction: column;
+    gap: 4px;
+  }
+}
+
+@media (max-width: 480px) {
+  .fm-club-view__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ===== Landing Page Mobile ===== */
+@media (max-width: 768px) {
+  .fm-landing__topbar {
+    padding: 12px 16px 0;
+  }
+
+  .fm-landing__layout {
+    padding: 0 16px 32px;
+    gap: 20px;
+  }
+
+  .fm-landing__main {
+    padding: 16px 0 0;
+  }
+
+  .fm-landing__brand {
+    padding: 12px 16px;
+    margin-bottom: 16px;
+  }
+
+  .fm-landing__title {
+    font-size: 1.25rem;
+  }
+
+  .fm-landing__mark {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+  }
+
+  .fm-landing__new-game {
+    font-size: 1rem !important;
+    padding: 12px 24px !important;
+    width: 100%;
+  }
+
+  .fm-landing__aside {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .fm-landing__layout {
+    padding: 0 12px 24px;
+  }
+
+  .fm-landing__topbar {
+    padding: 10px 12px 0;
+  }
+
+  .fm-landing__brand {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .fm-landing__title {
+    font-size: 1.1rem;
+  }
+
+  .fm-landing__aside {
+    padding: 12px;
+  }
+}
+
+/* ===== Misc Mobile Fixes ===== */
+@media (max-width: 768px) {
+  .fm-main h1 {
+    font-size: 1.5rem;
+  }
+
+  .fm-main h2 {
+    font-size: 1.2rem;
+  }
+
+  .fm-main h3 {
+    font-size: 1.05rem;
+  }
+
+  /* Ensure all scrollable views have proper touch behavior */
+  .fm-match-center,
+  .fm-tactics-view,
+  .fm-transfer-market,
+  .fm-training-view,
+  .fm-dynamics-view,
+  .fm-finance-view,
+  .fm-inbox-view,
+  .fm-club-view {
+    padding: 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Prevent text overflow issues */
+  .fm-main__content {
+    overflow-x: hidden;
+    width: 100%;
+  }
+
+  /* Tables should scroll horizontally, not break layout */
+  table {
+    word-break: break-word;
+  }
+}
+
+@media (max-width: 480px) {
+  .fm-main h1 {
+    font-size: 1.3rem;
+  }
+
+  .fm-main h2 {
+    font-size: 1.1rem;
   }
 }

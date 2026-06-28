@@ -1,9 +1,9 @@
-import type { GameStore, Team, InboxMessage } from '../../types/game';
+import type { GameStore, Team, InboxMessage, SeasonSummary } from '../../types/game';
 import { generateTeam, generateYouthIntake } from '../../utils/playerGenerator';
 import { loadTeamsFromDatabase } from '../../utils/dataLoader';
 import {
   simulateFullMatch, simulateMinute, calculatePlayerMatchRatings,
-  generateWeekMatches, applyMatchResultToTeams,
+  generateWeekMatches, applyMatchResultToTeams, generatePostMatchReport,
 } from '../helpers/matchEngine';
 import type { MatchStats, MatchEvent } from '../../types/game';
 import { calculateLeagueStandings } from '../helpers/league';
@@ -11,6 +11,8 @@ import { generateInboxMessage } from '../helpers/inbox';
 import { calculatePlayerInjuryRisk, getRiskLevel } from '../helpers/injury';
 import { maybeGenerateIncomingTransfer, recalcWageBill } from '../helpers/transfer';
 import { processScoutMissions, generateDefaultScouts, getBestScout } from '../helpers/scouting';
+import { processAIWeeklyDecisions } from '../helpers/aiManager';
+import { applyWeeklyMoraleDynamics } from '../helpers/moraleDynamics';
 
 type Set = (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void;
 type Get = () => GameStore;
@@ -71,6 +73,8 @@ export const createCoreSlice = (set: Set, get: Get) => ({
       leagueTable: initialStandings,
       scoutKnowledge: {},
       scoutMissions: [],
+      seasonSummary: null,
+      gameOver: false,
     });
   },
 
@@ -133,6 +137,62 @@ export const createCoreSlice = (set: Set, get: Get) => ({
         }
       }
 
+      // ============================================================
+      // GERAR RESUMO DE FIM DE TEMPORADA
+      // ============================================================
+      let seasonSummary: SeasonSummary | null = null;
+      let gameOver = state.gameOver ?? false;
+
+      if (state.selectedTeam) {
+        const userStanding = leagueStandings.find(s => s.teamId === state.selectedTeam);
+        const userTeam = updatedTeams.find(t => t.id === state.selectedTeam);
+        if (userStanding && userTeam) {
+          const zoneLabels: Record<string, string> = {
+            title: 'Libertadores',
+            europe: 'Sul-Americana',
+            safe: 'Meio de Tabela',
+            relegation: 'Rebaixamento',
+          };
+
+          // Artilheiro e líder de assistências do time
+          let topScorer: { name: string; goals: number } | null = null;
+          let topAssister: { name: string; assists: number } | null = null;
+
+          userTeam.squad.forEach(player => {
+            const goals = player.seasonGoals ?? 0;
+            const assists = player.seasonAssists ?? 0;
+            if (goals > 0 && (!topScorer || goals > topScorer.goals)) {
+              topScorer = { name: `${player.name} ${player.surname}`.trim(), goals };
+            }
+            if (assists > 0 && (!topAssister || assists > topAssister.assists)) {
+              topAssister = { name: `${player.name} ${player.surname}`.trim(), assists };
+            }
+          });
+
+          const isFinalSeason = newSeason >= 3;
+          seasonSummary = {
+            season: newSeason,
+            teamName: userTeam.name,
+            position: userStanding.position,
+            zone: userStanding.zone ?? 'safe',
+            zoneLabel: zoneLabels[userStanding.zone ?? 'safe'] ?? 'Meio de Tabela',
+            points: userStanding.points,
+            wins: userStanding.wins,
+            draws: userStanding.draws,
+            losses: userStanding.losses,
+            goalsFor: userStanding.goalsFor,
+            goalsAgainst: userStanding.goalsAgainst,
+            topScorer,
+            topAssister,
+            isFinalSeason,
+          };
+
+          if (isFinalSeason) {
+            gameOver = true;
+          }
+        }
+      }
+
       set({
         currentWeek: 38,
         currentSeason: newSeason,
@@ -141,6 +201,8 @@ export const createCoreSlice = (set: Set, get: Get) => ({
         youthIntakeCompleted: false,
         inbox: [...(state.inbox || []), inboxMessage],
         leagueTable: leagueStandings,
+        seasonSummary,
+        gameOver,
       });
       return;
     }
@@ -174,13 +236,16 @@ export const createCoreSlice = (set: Set, get: Get) => ({
               homePossession: clamp(liveState.stats.homePossession, 25, 75),
               awayPossession: 100 - clamp(liveState.stats.homePossession, 25, 75),
             };
-            result = {
+            const baseResult = {
               homeGoals: liveState.homeGoals,
               awayGoals: liveState.awayGoals,
               events,
               stats,
               goalDetails: liveState.goalDetails,
             };
+            const withRatings = calculatePlayerMatchRatings(ph, pa, baseResult);
+            const postMatchReport = generatePostMatchReport(ph, pa, baseResult, liveState.actions);
+            result = { ...withRatings, postMatchReport };
           } else {
             // Partida não iniciada — simula do zero
             result = simulateFullMatch(ph, pa);
@@ -195,6 +260,9 @@ export const createCoreSlice = (set: Set, get: Get) => ({
             awayGoals: result.awayGoals,
             events: result.events,
             stats: result.stats,
+            playerRatings: result.playerRatings,
+            bestPlayer: result.bestPlayer,
+            postMatchReport: result.postMatchReport,
           };
         }
       }
@@ -220,6 +288,7 @@ export const createCoreSlice = (set: Set, get: Get) => ({
         match.stats = result.stats;
         match.playerRatings = result.playerRatings;
         match.bestPlayer = result.bestPlayer;
+        match.postMatchReport = result.postMatchReport;
         updatedTeams = applyMatchResultToTeams(updatedTeams, m.homeTeam, m.awayTeam, result);
       } else {
         // Partida do usuário: fica PENDENTE para ser jogada ao vivo no Centro de Partidas.
@@ -469,6 +538,24 @@ export const createCoreSlice = (set: Set, get: Get) => ({
     const leagueStandings = calculateLeagueStandings(updatedTeams, updatedMatches, newWeek);
 
     // ============================================================
+    // ROTINA SEMANAL DA IA — Clubes AI tomam decisões ativas
+    // (transferências entre si, ajustes táticos, renovações)
+    // ============================================================
+    const aiResult = processAIWeeklyDecisions(updatedTeams, leagueStandings, newWeek, state.selectedTeam);
+    updatedTeams = aiResult.teams;
+    const aiCompletedTransfers = aiResult.completedTransfers;
+
+    // ============================================================
+    // DINÂMICA SOCIAL — Consequências do vestiário
+    // Moral cai por promessas não cumpridas, tempo de jogo, forma do time
+    // Cascata: capitão infeliz arrasta aliados e grupo social
+    // ============================================================
+    updatedTeams = updatedTeams.map(team => {
+      const result = applyWeeklyMoraleDynamics(team);
+      return result.team;
+    });
+
+    // ============================================================
     // PROCESSAMENTO DE MISSÕES DE SCOUTING
     // ============================================================
     let updatedScoutKnowledge = state.scoutKnowledge;
@@ -511,10 +598,11 @@ export const createCoreSlice = (set: Set, get: Get) => ({
       }
     }
 
-    // Build final inbox: all new messages (injury, installment, bonus, scout) + weekly message + existing
+    // Build final inbox: all new messages (injury, installment, bonus, scout, AI) + weekly message + existing
     const finalInbox = [
       ...newInboxMessages,
       ...scoutInboxMessages,
+      ...aiResult.inboxMessages,
       inboxToSend,
       ...state.inbox,
     ];
@@ -534,9 +622,45 @@ export const createCoreSlice = (set: Set, get: Get) => ({
       scoutKnowledge: updatedScoutKnowledge,
       scoutMissions: updatedScoutMissions,
       scoutReports: updatedScoutReports,
+      completedTransfers: [...state.completedTransfers, ...aiCompletedTransfers],
     });
 
     get().updatePromiseCountdown();
     get().captureWeeklyAttributeSnapshot();
+  },
+
+  startNextSeason: () => {
+    const state = get();
+    const nextSeason = state.currentSeason + 1;
+
+    // Reset team stats for new season
+    let updatedTeams = state.teams.map(team => ({
+      ...team,
+      points: 0,
+      played: 0,
+      won: 0,
+      drawn: 0,
+      lost: 0,
+      goalsFor: 0,
+      goalsAgainst: 0,
+      squad: team.squad.map(player => ({
+        ...player,
+        seasonGoals: 0,
+        seasonAssists: 0,
+      })),
+    }));
+
+    const newMatches = generateWeekMatches(updatedTeams, 1);
+    const newStandings = calculateLeagueStandings(updatedTeams, newMatches, 0);
+
+    set({
+      currentWeek: 0,
+      currentSeason: nextSeason,
+      teams: updatedTeams,
+      matches: newMatches,
+      leagueTable: newStandings,
+      seasonSummary: null,
+      gameOver: false,
+    });
   },
 });

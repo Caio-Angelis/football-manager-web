@@ -2,6 +2,7 @@ import type { GameStore, MatchEvent, MatchStats } from '../../types/game';
 import {
   simulateMinute, initLiveMatchState,
   calculatePlayerMatchRatings, applyMatchResultToTeams,
+  generatePostMatchReport,
 } from '../helpers/matchEngine';
 import { calculateLeagueStandings } from '../helpers/league';
 
@@ -72,6 +73,7 @@ export const createMatchSlice = (set: Set, get: Get) => ({
         goalDetails: newLiveState.goalDetails,
       };
       const withRatings = calculatePlayerMatchRatings(homeTeam, awayTeam, result);
+      const postMatchReport = generatePostMatchReport(homeTeam, awayTeam, result, newLiveState.actions);
 
       updatedMatches[matchIndex] = {
         ...match,
@@ -88,6 +90,7 @@ export const createMatchSlice = (set: Set, get: Get) => ({
         stats: withRatings.stats,
         playerRatings: withRatings.playerRatings,
         bestPlayer: withRatings.bestPlayer,
+        postMatchReport,
       };
 
       const updatedTeams = applyMatchResultToTeams(state.teams, match.homeTeam, match.awayTeam, result);
@@ -214,6 +217,7 @@ export const createMatchSlice = (set: Set, get: Get) => ({
       goalDetails: liveState.goalDetails,
     };
     const withRatings = calculatePlayerMatchRatings(homeTeam, awayTeam, result);
+    const postMatchReport = generatePostMatchReport(homeTeam, awayTeam, result, liveState.actions);
 
     const updatedMatches = [...state.matches];
     updatedMatches[matchIndex] = {
@@ -231,6 +235,7 @@ export const createMatchSlice = (set: Set, get: Get) => ({
       stats: withRatings.stats,
       playerRatings: withRatings.playerRatings,
       bestPlayer: withRatings.bestPlayer,
+      postMatchReport,
     };
 
     const updatedTeams = applyMatchResultToTeams(state.teams, match.homeTeam, match.awayTeam, result);

@@ -1,6 +1,7 @@
 import React from 'react';
 import { StatBar } from '../ui/StatBar';
 import type { Player } from '../../types/game';
+import { getFullName } from '../../utils/player';
 
 interface PlayerDetailPanelProps {
   player: Player | null;
@@ -46,7 +47,7 @@ export const PlayerDetailPanel: React.FC<PlayerDetailPanelProps> = ({
           {player.position}
         </div>
         <div className="fm-player-detail-panel__name">
-          <h2>{player.name} {player.surname}</h2>
+          <h2>{getFullName(player)}</h2>
           <span className="fm-player-detail-panel__meta">
             {player.age} anos • {player.nationality}
           </span>

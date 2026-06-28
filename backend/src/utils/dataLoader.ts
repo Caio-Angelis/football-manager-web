@@ -24,6 +24,7 @@ interface JsonPlayer {
   defesa: number;
   fisico: number;
   over_geral: number;
+  idade?: number;
 }
 
 interface JsonTeam {
@@ -231,14 +232,14 @@ function convertPlayer(json: JsonPlayer, teamId: string, index: number): Player 
 
   const overall = json.over_geral;
   const currentAbility = Math.round(overall * 2);
-  const age = 18 + Math.floor(Math.random() * 17);
+  const age = json.idade ?? (18 + Math.floor(Math.random() * 17));
   const potentialAbility = age < 23
     ? Math.max(currentAbility, Math.round(currentAbility * 1.2 + Math.random() * 20))
     : currentAbility + Math.floor(Math.random() * 10);
 
   const nameParts = json.nome.split(' ');
   const name = nameParts[0] ?? json.nome;
-  const surname = nameParts.slice(1).join(' ') || (nameParts[0] ?? json.nome);
+  const surname = nameParts.slice(1).join(' ') || '';
 
   const prof = POSITION_PROFICIENCY[gamePosition]!;
   const secondaryPositions: string[] = [];
@@ -310,6 +311,8 @@ function convertPlayer(json: JsonPlayer, teamId: string, index: number): Player 
     injuryHistory: [],
     fatigueLog: [],
     fame: Math.min(100, overall * 0.8 + Math.random() * 20),
+    seasonGoals: 0,
+    seasonAssists: 0,
   };
 }
 

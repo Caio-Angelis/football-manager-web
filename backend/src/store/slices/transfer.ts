@@ -3,8 +3,10 @@ import type {
   IncomingTransfer, InstallmentClause, InstallmentPayment, PlayerBonus,
   ContractClause, TransferAgreement, CompletedTransfer,
   CounterOffer, InboxMessage, DeferredTransfer, NegotiationResult,
+  ContractNegotiationResult,
 } from '../../types/game';
 import { recalcWageBill } from '../helpers/transfer';
+import { getFullName } from '../../utils/playerName';
 
 type Set = (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void;
 type Get = () => GameStore;
@@ -88,7 +90,7 @@ export const createTransferSlice = (set: Set, get: Get) => ({
     const transferAgreement: TransferAgreement = {
       id: `ta_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       playerId,
-      playerName: `${player.name} ${player.surname}`,
+      playerName: getFullName(player),
       fromTeamId: sellerTeamId,
       toTeamId: state.selectedTeam,
       transferFee: fee,
@@ -121,7 +123,7 @@ export const createTransferSlice = (set: Set, get: Get) => ({
     const completedTransfer: CompletedTransfer = {
       id: `ct_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       playerId,
-      playerName: `${player.name} ${player.surname}`,
+      playerName: getFullName(player),
       position: player.position,
       age: player.age,
       nationality: player.nationality,
@@ -208,7 +210,7 @@ export const createTransferSlice = (set: Set, get: Get) => ({
         status: 'walked_away',
         marketValue,
         offerPrice,
-        message: `O ${seller.name} encerrou as negociações. Eles não estão mais interessados em vender ${player.name} ${player.surname} neste momento.`,
+        message: `O ${seller.name} encerrou as negociações. Eles não estão mais interessados em vender ${getFullName(player)} neste momento.`,
         playerWillingness: willingness,
         willingnessLabel,
         negotiationRound,
@@ -228,7 +230,7 @@ export const createTransferSlice = (set: Set, get: Get) => ({
       status: 'accepted',
       marketValue,
       offerPrice,
-      message: `O ${seller.name} aceitou a sua proposta de R$ ${offerPrice}M por ${player.name} ${player.surname}!`,
+      message: `O ${seller.name} aceitou a sua proposta de R$ ${offerPrice}M por ${getFullName(player)}!`,
       playerWillingness: willingness,
       willingnessLabel,
       negotiationRound,
@@ -275,7 +277,7 @@ export const createTransferSlice = (set: Set, get: Get) => ({
       if (roll < acceptChance) return acceptedResult();
       const counterPrice = Math.round(marketValue * (1.05 + Math.random() * 0.1) * 10) / 10;
       return counteredResult(1.05 + Math.random() * 0.1,
-        `O ${seller.name} reconhece o valor mas contra-propôs R$ ${counterPrice}M pelo ${player.name} ${player.surname}.`);
+        `O ${seller.name} reconhece o valor mas contra-propôs R$ ${counterPrice}M pelo ${getFullName(player)}.`);
     }
 
     // Oferta entre 90% e 100%
@@ -286,7 +288,7 @@ export const createTransferSlice = (set: Set, get: Get) => ({
       if (roll < counterChance) {
         const counterPrice = Math.round(marketValue * (0.95 + Math.random() * 0.1) * 10) / 10;
         return counteredResult(0.95 + Math.random() * 0.1,
-          `O ${seller.name} contra-propôs R$ ${counterPrice}M pelo ${player.name} ${player.surname}.`);
+          `O ${seller.name} contra-propôs R$ ${counterPrice}M pelo ${getFullName(player)}.`);
       }
       return rejectedResult(`O ${seller.name} recusou a proposta de R$ ${offerPrice}M. Valor de mercado: R$ ${marketValue}M.`);
     }
@@ -297,7 +299,7 @@ export const createTransferSlice = (set: Set, get: Get) => ({
       if (roll < counterChance) {
         const counterPrice = Math.round(marketValue * (0.95 + Math.random() * 0.1) * 10) / 10;
         return counteredResult(0.95 + Math.random() * 0.1,
-          `O ${seller.name} contra-propôs R$ ${counterPrice}M pelo ${player.name} ${player.surname}.`);
+          `O ${seller.name} contra-propôs R$ ${counterPrice}M pelo ${getFullName(player)}.`);
       }
       return rejectedResult(`O ${seller.name} recusou a proposta de R$ ${offerPrice}M. Valor de mercado: R$ ${marketValue}M.`);
     }
@@ -308,7 +310,7 @@ export const createTransferSlice = (set: Set, get: Get) => ({
       if (roll < counterChance) {
         const counterPrice = Math.round(marketValue * (0.9 + Math.random() * 0.1) * 10) / 10;
         return counteredResult(0.9 + Math.random() * 0.1,
-          `O ${seller.name} achou a proposta baixa, mas contra-propôs R$ ${counterPrice}M pelo ${player.name} ${player.surname}.`);
+          `O ${seller.name} achou a proposta baixa, mas contra-propôs R$ ${counterPrice}M pelo ${getFullName(player)}.`);
       }
       return rejectedResult(`O ${seller.name} recusou a proposta de R$ ${offerPrice}M. Valor de mercado: R$ ${marketValue}M.`);
     }
@@ -317,7 +319,7 @@ export const createTransferSlice = (set: Set, get: Get) => ({
     return rejectedResult(`O ${seller.name} recusou categoricamente a proposta de R$ ${offerPrice}M. Valor de mercado: R$ ${marketValue}M.`);
   },
 
-  acceptOffer: (playerId: string, sellerTeamId: string, offerPrice: number): boolean => {
+  acceptOffer: (playerId: string, sellerTeamId: string, offerPrice: number, agreedSalary: number): boolean => {
     const state = get();
     if (!state.selectedTeam) return false;
 
@@ -338,7 +340,7 @@ export const createTransferSlice = (set: Set, get: Get) => ({
     buyer.budget -= fee;
 
     const contractWeeks = 52 + Math.floor(Math.random() * 156);
-    const weeklySalary = Math.round(player.salary * (1.0 + Math.random() * 0.5));
+    const weeklySalary = agreedSalary;
     const releaseClause = Math.round(fee * (1.2 + Math.random() * 0.3) * 10) / 10;
 
     const contract: ContractClause = {
@@ -357,7 +359,7 @@ export const createTransferSlice = (set: Set, get: Get) => ({
     const transferAgreement: TransferAgreement = {
       id: `ta_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       playerId,
-      playerName: `${player.name} ${player.surname}`,
+      playerName: getFullName(player),
       fromTeamId: sellerTeamId,
       toTeamId: state.selectedTeam,
       transferFee: fee,
@@ -387,7 +389,7 @@ export const createTransferSlice = (set: Set, get: Get) => ({
     const completedTransfer: CompletedTransfer = {
       id: `ct_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       playerId,
-      playerName: `${player.name} ${player.surname}`,
+      playerName: getFullName(player),
       position: player.position,
       age: player.age,
       nationality: player.nationality,
@@ -408,6 +410,151 @@ export const createTransferSlice = (set: Set, get: Get) => ({
       completedTransfers: [...state.completedTransfers, completedTransfer],
     });
     return true;
+  },
+
+  negotiatePlayerContract: (playerId: string, sellerTeamId: string, offeredSalary: number, negotiationRound: number): ContractNegotiationResult => {
+    const state = get();
+    if (!state.selectedTeam) {
+      return { status: 'rejected', offeredSalary, expectedSalary: 0, message: 'Nenhum time selecionado.', negotiationRound, maxRounds: 4 };
+    }
+
+    const sellerIdx = state.teams.findIndex(t => t.id === sellerTeamId);
+    if (sellerIdx === -1) {
+      return { status: 'rejected', offeredSalary, expectedSalary: 0, message: 'Time vendedor não encontrado.', negotiationRound, maxRounds: 4 };
+    }
+
+    const seller = state.teams[sellerIdx];
+    const player = seller.squad.find(p => p.id === playerId);
+    if (!player) {
+      return { status: 'rejected', offeredSalary, expectedSalary: 0, message: 'Jogador não encontrado.', negotiationRound, maxRounds: 4 };
+    }
+
+    const buyer = state.teams.find(t => t.id === state.selectedTeam);
+    const maxRounds = 4;
+
+    // === EXPECTED SALARY ===
+    // Base: current salary, adjusted by willingness and reputation
+    let willingness = 50;
+    if (player.age < 21) willingness -= 15;
+    else if (player.age > 29) willingness += 20;
+    if (player.squadStatus === 'Excess') willingness += 25;
+    else if (player.squadStatus === 'Rotation') willingness += 10;
+    else if (player.squadStatus === 'Key Player') willingness -= 15;
+    if (player.morale < 40) willingness += 20;
+    else if (player.morale > 75) willingness -= 10;
+    if (buyer) {
+      const repDiff = buyer.reputation - seller.reputation;
+      willingness += repDiff * 0.3;
+    }
+    willingness = Math.max(5, Math.min(95, Math.round(willingness)));
+
+    // Expected salary: current salary + premium based on willingness
+    // High willingness = less demanding (lower expected)
+    // Low willingness = more demanding (higher expected)
+    const premiumFactor = 1.5 - (willingness - 50) * 0.006; // 0.8-1.5 range
+    const expectedSalary = Math.round(player.salary * premiumFactor);
+
+    const ratio = offeredSalary / expectedSalary;
+    const roll = Math.random();
+
+    // Fatigue factor for repeated rounds
+    const fatigueFactor = Math.max(0, (negotiationRound - 1) * 0.05);
+
+    // Offer >= expected
+    if (ratio >= 1.0) {
+      const acceptChance = 0.92 - fatigueFactor;
+      if (roll < acceptChance) {
+        return {
+          status: 'accepted',
+          offeredSalary,
+          expectedSalary,
+          message: `${getFullName(player)} aceitou a proposta de R$ ${offeredSalary}K/semana!`,
+          negotiationRound,
+          maxRounds,
+        };
+      }
+      const counterSalary = Math.round(expectedSalary * (1.05 + Math.random() * 0.1));
+      return {
+        status: 'countered',
+        offeredSalary,
+        expectedSalary,
+        counterSalary,
+        message: `${getFullName(player)} contra-propôs R$ ${counterSalary}K/semana.`,
+        negotiationRound,
+        maxRounds,
+      };
+    }
+
+    // Offer between 80% and 100%
+    if (ratio >= 0.8) {
+      const acceptChance = 0.5 - fatigueFactor;
+      const counterChance = acceptChance + 0.4;
+      if (roll < acceptChance) {
+        return {
+          status: 'accepted',
+          offeredSalary,
+          expectedSalary,
+          message: `${getFullName(player)} aceitou a proposta de R$ ${offeredSalary}K/semana.`,
+          negotiationRound,
+          maxRounds,
+        };
+      }
+      if (roll < counterChance) {
+        const counterSalary = Math.round(expectedSalary * (0.95 + Math.random() * 0.1));
+        return {
+          status: 'countered',
+          offeredSalary,
+          expectedSalary,
+          counterSalary,
+          message: `${getFullName(player)} contra-propôs R$ ${counterSalary}K/semana.`,
+          negotiationRound,
+          maxRounds,
+        };
+      }
+      return {
+        status: 'rejected',
+        offeredSalary,
+        expectedSalary,
+        message: `${getFullName(player)} recusou a proposta de R$ ${offeredSalary}K/semana.`,
+        negotiationRound,
+        maxRounds,
+      };
+    }
+
+    // Offer between 60% and 80%
+    if (ratio >= 0.6) {
+      const counterChance = 0.3 - fatigueFactor;
+      if (roll < counterChance) {
+        const counterSalary = Math.round(expectedSalary * (0.9 + Math.random() * 0.1));
+        return {
+          status: 'countered',
+          offeredSalary,
+          expectedSalary,
+          counterSalary,
+          message: `${getFullName(player)} achou a proposta baixa, mas contra-propôs R$ ${counterSalary}K/semana.`,
+          negotiationRound,
+          maxRounds,
+        };
+      }
+      return {
+        status: 'rejected',
+        offeredSalary,
+        expectedSalary,
+        message: `${getFullName(player)} recusou a proposta de R$ ${offeredSalary}K/semana. Valor esperado: R$ ${expectedSalary}K/semana.`,
+        negotiationRound,
+        maxRounds,
+      };
+    }
+
+    // Offer too low (< 60%)
+    return {
+      status: 'rejected',
+      offeredSalary,
+      expectedSalary,
+      message: `${getFullName(player)} recusou categoricamente a proposta de R$ ${offeredSalary}K/semana.`,
+      negotiationRound,
+      maxRounds,
+    };
   },
 
   acceptIncomingTransfer: (playerId: string) => {
@@ -486,7 +633,7 @@ export const createTransferSlice = (set: Set, get: Get) => ({
     const completedTransfer: CompletedTransfer = {
       id: `ct_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       playerId,
-      playerName: `${player.name} ${player.surname}`,
+      playerName: getFullName(player),
       position: player.position,
       age: player.age,
       nationality: player.nationality,
@@ -511,7 +658,33 @@ export const createTransferSlice = (set: Set, get: Get) => ({
   },
 
   rejectIncomingTransfer: (playerId: string) => {
-    set({ incomingTransfers: get().incomingTransfers.filter(o => o.playerId !== playerId) });
+    const state = get();
+    const offer = state.incomingTransfers.find(o => o.playerId === playerId);
+    set({ incomingTransfers: state.incomingTransfers.filter(o => o.playerId !== playerId) });
+
+    if (!offer || !state.selectedTeam) return;
+
+    const teamIdx = state.teams.findIndex(t => t.id === state.selectedTeam);
+    if (teamIdx === -1) return;
+
+    const team = { ...state.teams[teamIdx] };
+    const player = team.squad.find(p => p.id === playerId);
+    if (!player) return;
+
+    const moraleDrop = player.squadStatus === 'Key Player' ? 15 : 10;
+    const updatedSquad = team.squad.map(p => {
+      if (p.id === playerId) {
+        return { ...p, morale: Math.max(0, p.morale - moraleDrop) };
+      }
+      if (player.teamMates?.includes(p.id) && p.morale > 30) {
+        return { ...p, morale: Math.max(0, p.morale - 5) };
+      }
+      return p;
+    });
+
+    const updatedTeams = [...state.teams];
+    updatedTeams[teamIdx] = { ...team, squad: updatedSquad };
+    set({ teams: updatedTeams });
   },
 
   deferTransfer: (playerId: string) => {

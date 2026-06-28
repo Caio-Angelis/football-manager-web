@@ -13,7 +13,8 @@
       "drible": 28,
       "defesa": 78,
       "fisico": 76,
-      "over_geral": 67
+      "over_geral": 67,
+      "idade": 24
     },
     {
       "nome": "Guilherme",
@@ -27,7 +28,8 @@
       "drible": 25,
       "defesa": 76,
       "fisico": 74,
-      "over_geral": 65
+      "over_geral": 65,
+      "idade": 22
     },
     {
       "nome": "João Schmidt",
@@ -41,7 +43,8 @@
       "drible": 50,
       "defesa": 72,
       "fisico": 72,
-      "over_geral": 66
+      "over_geral": 66,
+      "idade": 29
     },
     {
       "nome": "Zé Ivaldo",
@@ -55,7 +58,8 @@
       "drible": 38,
       "defesa": 78,
       "fisico": 78,
-      "over_geral": 70
+      "over_geral": 70,
+      "idade": 28
     },
     {
       "nome": "Gonzalo Escobar",
@@ -69,7 +73,8 @@
       "drible": 58,
       "defesa": 62,
       "fisico": 65,
-      "over_geral": 64
+      "over_geral": 64,
+      "idade": 24
     },
     {
       "nome": "Soteldo",
@@ -83,7 +88,8 @@
       "drible": 80,
       "defesa": 35,
       "fisico": 55,
-      "over_geral": 69
+      "over_geral": 69,
+      "idade": 27
     },
     {
       "nome": "Diego Pituca",
@@ -97,7 +103,8 @@
       "drible": 50,
       "defesa": 70,
       "fisico": 72,
-      "over_geral": 65
+      "over_geral": 65,
+      "idade": 32
     },
     {
       "nome": "Tomás Rincón",
@@ -111,7 +118,8 @@
       "drible": 48,
       "defesa": 72,
       "fisico": 75,
-      "over_geral": 66
+      "over_geral": 66,
+      "idade": 37
     },
     {
       "nome": "Tiquinho Soares",
@@ -125,7 +133,8 @@
       "drible": 55,
       "defesa": 35,
       "fisico": 78,
-      "over_geral": 64
+      "over_geral": 64,
+      "idade": 34
     },
     {
       "nome": "Neymar",
@@ -139,7 +148,8 @@
       "drible": 82,
       "defesa": 40,
       "fisico": 62,
-      "over_geral": 75
+      "over_geral": 75,
+      "idade": 33
     },
     {
       "nome": "Luan Peres",
@@ -153,7 +163,8 @@
       "drible": 35,
       "defesa": 76,
       "fisico": 78,
-      "over_geral": 68
+      "over_geral": 68,
+      "idade": 30
     },
     {
       "nome": "Thaciano",
@@ -167,7 +178,8 @@
       "drible": 62,
       "defesa": 45,
       "fisico": 62,
-      "over_geral": 63
+      "over_geral": 63,
+      "idade": 29
     },
     {
       "nome": "Lautaro Díaz",
@@ -181,7 +193,8 @@
       "drible": 65,
       "defesa": 30,
       "fisico": 65,
-      "over_geral": 64
+      "over_geral": 64,
+      "idade": 26
     },
     {
       "nome": "JP Chermont",
@@ -195,7 +208,8 @@
       "drible": 55,
       "defesa": 58,
       "fisico": 62,
-      "over_geral": 61
+      "over_geral": 61,
+      "idade": 19
     },
     {
       "nome": "João Pedro",
@@ -209,7 +223,8 @@
       "drible": 38,
       "defesa": 75,
       "fisico": 76,
-      "over_geral": 68
+      "over_geral": 68,
+      "idade": 22
     },
     {
       "nome": "Zé Rafael",
@@ -223,7 +238,8 @@
       "drible": 60,
       "defesa": 52,
       "fisico": 65,
-      "over_geral": 63
+      "over_geral": 63,
+      "idade": 30
     },
     {
       "nome": "Evandro",
@@ -237,7 +253,8 @@
       "drible": 55,
       "defesa": 48,
       "fisico": 60,
-      "over_geral": 60
+      "over_geral": 60,
+      "idade": 38
     },
     {
       "nome": "Igor Vinícius",
@@ -251,7 +268,8 @@
       "drible": 48,
       "defesa": 58,
       "fisico": 62,
-      "over_geral": 57
+      "over_geral": 57,
+      "idade": 28
     },
     {
       "nome": "Matheus Nascimento",
@@ -265,7 +283,8 @@
       "drible": 62,
       "defesa": 30,
       "fisico": 62,
-      "over_geral": 61
+      "over_geral": 61,
+      "idade": 21
     },
     {
       "nome": "Mendoza",
@@ -279,7 +298,8 @@
       "drible": 58,
       "defesa": 28,
       "fisico": 65,
-      "over_geral": 60
+      "over_geral": 60,
+      "idade": 30
     }
   ]
 }

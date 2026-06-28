@@ -3,7 +3,8 @@ import { useGameStore } from '../../store/gameStore';
 import { PlayerCard } from '../squad/PlayerCard';
 import { Button } from '../ui/Button';
 import { ScoutReportCard } from './ScoutReportCard';
-import type { IncomingTransfer, Player, InstallmentClause, PlayerBonus, TransferAgreement, NegotiationResult } from '../../types/game';
+import { getFullName } from '../../utils/player';
+import type { IncomingTransfer, Player, InstallmentClause, PlayerBonus, TransferAgreement, NegotiationResult, ContractNegotiationResult } from '../../types/game';
 
 const SquadStatusOptions = ['Key Player', 'Regular Starter', 'Rotation', 'Young Talent', 'Excess'];
 
@@ -221,7 +222,7 @@ export const TransferMarket: React.FC<{
     assignScout, acceptIncomingTransfer, rejectIncomingTransfer, deferTransfer, reinstateDeferredTransfer, rejectDeferredTransfer, updateTeam,
     negotiateCounterOffer, pendingInstallments, incomingBonuses, payInstallment, checkBonuses, claimBonus,
     transferAgreements, terminateTransferAgreement, completedTransfers,
-    makeOffer, acceptOffer,
+    makeOffer, acceptOffer, negotiatePlayerContract,
   } = useGameStore();
 
   const [filter, setFilter] = useState('');
@@ -259,6 +260,13 @@ export const TransferMarket: React.FC<{
   const [negotiationLoading, setNegotiationLoading] = useState(false);
   const [negotiationRound, setNegotiationRound] = useState(1);
   const [negotiationHistory, setNegotiationHistory] = useState<{ round: number; offerPrice: number; result: NegotiationResult }[]>([]);
+
+  // Estado da negociação de contrato com o jogador (salário)
+  const [contractPhase, setContractPhase] = useState(false);
+  const [contractNegotiationResult, setContractNegotiationResult] = useState<ContractNegotiationResult | null>(null);
+  const [contractNegotiationRound, setContractNegotiationRound] = useState(1);
+  const [contractHistory, setContractHistory] = useState<{ round: number; offeredSalary: number; result: ContractNegotiationResult }[]>([]);
+  const [salaryOffer, setSalaryOffer] = useState('');
 
   // Item 8: Debounce de 300ms na busca de jogadores
   const filterRef = useRef(debouncedFilter);
@@ -306,7 +314,7 @@ export const TransferMarket: React.FC<{
       if (positionFilter && player.position !== positionFilter) return false;
       // Name filter
       if (debouncedFilter) {
-        return `${player.name} ${player.surname}`.toLowerCase().includes(debouncedFilter.toLowerCase());
+        return getFullName(player).toLowerCase().includes(debouncedFilter.toLowerCase());
       }
       return true;
     })
@@ -322,7 +330,7 @@ export const TransferMarket: React.FC<{
   const getPlayerName = (playerId: string) => {
     for (const t of teams) {
       const p = t.squad.find(pl => pl.id === playerId);
-      if (p) return `${p.name} ${p.surname}`;
+      if (p) return getFullName(p);
     }
     return `Jogador Vendido (${playerId.slice(0, 8)})`;
   };
@@ -333,7 +341,7 @@ export const TransferMarket: React.FC<{
     if (!seller || !player) return;
     setNegotiationModal({
       playerId,
-      playerName: `${player.name} ${player.surname}`,
+      playerName: getFullName(player),
       sellerTeamId,
       sellerTeamName: seller.name,
       marketValue: player.marketValue,
@@ -342,6 +350,11 @@ export const TransferMarket: React.FC<{
     setNegotiationResult(null);
     setNegotiationRound(1);
     setNegotiationHistory([]);
+    setContractPhase(false);
+    setContractNegotiationResult(null);
+    setContractNegotiationRound(1);
+    setContractHistory([]);
+    setSalaryOffer('');
   };
 
   const handleMakeOffer = async () => {
@@ -370,11 +383,55 @@ export const TransferMarket: React.FC<{
     setOfferAmount(String(value));
   };
 
-  const handleAcceptCounter = async () => {
-    if (!negotiationModal || !negotiationResult?.counterPrice) return;
+  const handleQuickSalaryOffer = (percentage: number) => {
+    if (!contractNegotiationResult) return;
+    const value = Math.round(contractNegotiationResult.expectedSalary * percentage);
+    setSalaryOffer(String(value));
+  };
+
+  const handleNegotiateContract = async () => {
+    if (!negotiationModal) return;
+    const salary = parseFloat(salaryOffer);
+    if (isNaN(salary) || salary <= 0) {
+      addToast?.('Salário inválido.', 'warning');
+      return;
+    }
     setNegotiationLoading(true);
     try {
-      const success = await acceptOffer(negotiationModal.playerId, negotiationModal.sellerTeamId, negotiationResult.counterPrice);
+      const result = await negotiatePlayerContract(negotiationModal.playerId, negotiationModal.sellerTeamId, salary, contractNegotiationRound);
+      setContractNegotiationResult(result);
+      setContractHistory(prev => [...prev, { round: contractNegotiationRound, offeredSalary: salary, result }]);
+      addToast?.(result.message, result.status === 'rejected' ? 'warning' : 'info');
+    } catch {
+      addToast?.('Erro ao negociar contrato.', 'error');
+    } finally {
+      setNegotiationLoading(false);
+    }
+  };
+
+  const handleAcceptContractCounter = async () => {
+    if (!negotiationModal || !contractNegotiationResult?.counterSalary) return;
+    setSalaryOffer(String(contractNegotiationResult.counterSalary));
+    setNegotiationLoading(true);
+    try {
+      const result = await negotiatePlayerContract(negotiationModal.playerId, negotiationModal.sellerTeamId, contractNegotiationResult.counterSalary, contractNegotiationRound);
+      setContractNegotiationResult(result);
+      setContractHistory(prev => [...prev, { round: contractNegotiationRound, offeredSalary: contractNegotiationResult.counterSalary!, result }]);
+      addToast?.(result.message, result.status === 'rejected' ? 'warning' : 'info');
+    } catch {
+      addToast?.('Erro ao negociar contrato.', 'error');
+    } finally {
+      setNegotiationLoading(false);
+    }
+  };
+
+  const handleFinalizeTransfer = async () => {
+    if (!negotiationModal || !contractNegotiationResult) return;
+    const price = parseFloat(offerAmount);
+    const salary = contractNegotiationResult.offeredSalary;
+    setNegotiationLoading(true);
+    try {
+      const success = await acceptOffer(negotiationModal.playerId, negotiationModal.sellerTeamId, price, salary);
       if (success) {
         updateTeam(selectedTeam!, (t) => ({
           ...t,
@@ -383,11 +440,37 @@ export const TransferMarket: React.FC<{
           ),
         }));
         addToast?.('Jogador contratado com sucesso!', 'success');
-        setNegotiationModal(null);
-        setNegotiationResult(null);
-        setNegotiationHistory([]);
+        closeNegotiation();
       } else {
         addToast?.('Orçamento insuficiente para esta contratação.', 'warning');
+      }
+    } catch {
+      addToast?.('Erro ao contratar jogador.', 'error');
+    } finally {
+      setNegotiationLoading(false);
+    }
+  };
+
+  const handleAcceptCounter = async () => {
+    if (!negotiationModal || !negotiationResult?.counterPrice) return;
+    setNegotiationLoading(true);
+    try {
+      const result = await makeOffer(negotiationModal.playerId, negotiationModal.sellerTeamId, negotiationResult.counterPrice, negotiationRound);
+      if (result.status === 'accepted') {
+        setNegotiationResult(result);
+        setNegotiationHistory(prev => [...prev, { round: negotiationRound, offerPrice: negotiationResult.counterPrice!, result }]);
+        // Transition to contract negotiation phase
+        const estSalary = result.contractPreview?.estimatedSalary ?? 50;
+        setSalaryOffer(String(estSalary));
+        setContractPhase(true);
+        setContractNegotiationResult(null);
+        setContractNegotiationRound(1);
+        setContractHistory([]);
+        addToast?.('Clube aceitou! Agora negocie o contrato com o jogador.', 'info');
+      } else {
+        setNegotiationResult(result);
+        setNegotiationHistory(prev => [...prev, { round: negotiationRound, offerPrice: negotiationResult.counterPrice!, result }]);
+        addToast?.(result.message, result.status === 'rejected' || result.status === 'walked_away' ? 'warning' : 'info');
       }
     } catch {
       addToast?.('Erro ao aceitar contra-oferta.', 'error');
@@ -401,23 +484,25 @@ export const TransferMarket: React.FC<{
     const price = parseFloat(offerAmount);
     setNegotiationLoading(true);
     try {
-      const success = await acceptOffer(negotiationModal.playerId, negotiationModal.sellerTeamId, price);
-      if (success) {
-        updateTeam(selectedTeam!, (t) => ({
-          ...t,
-          squad: t.squad.map(p =>
-            p.id === negotiationModal.playerId ? { ...p, squadStatus: selectedStatus } : p,
-          ),
-        }));
-        addToast?.('Jogador contratado com sucesso!', 'success');
-        setNegotiationModal(null);
-        setNegotiationResult(null);
-        setNegotiationHistory([]);
+      const result = await makeOffer(negotiationModal.playerId, negotiationModal.sellerTeamId, price, negotiationRound);
+      if (result.status === 'accepted') {
+        setNegotiationResult(result);
+        setNegotiationHistory(prev => [...prev, { round: negotiationRound, offerPrice: price, result }]);
+        // Transition to contract negotiation phase
+        const estSalary = result.contractPreview?.estimatedSalary ?? 50;
+        setSalaryOffer(String(estSalary));
+        setContractPhase(true);
+        setContractNegotiationResult(null);
+        setContractNegotiationRound(1);
+        setContractHistory([]);
+        addToast?.('Clube aceitou! Agora negocie o contrato com o jogador.', 'info');
       } else {
-        addToast?.('Orçamento insuficiente para esta contratação.', 'warning');
+        setNegotiationResult(result);
+        setNegotiationHistory(prev => [...prev, { round: negotiationRound, offerPrice: price, result }]);
+        addToast?.(result.message, result.status === 'rejected' || result.status === 'walked_away' ? 'warning' : 'info');
       }
     } catch {
-      addToast?.('Erro ao contratar jogador.', 'error');
+      addToast?.('Erro ao enviar proposta.', 'error');
     } finally {
       setNegotiationLoading(false);
     }
@@ -429,6 +514,11 @@ export const TransferMarket: React.FC<{
     setOfferAmount('');
     setNegotiationRound(1);
     setNegotiationHistory([]);
+    setContractPhase(false);
+    setContractNegotiationResult(null);
+    setContractNegotiationRound(1);
+    setContractHistory([]);
+    setSalaryOffer('');
   };
 
   const handleNegotiate = async (playerId: string) => {
@@ -562,8 +652,7 @@ export const TransferMarket: React.FC<{
             <div className="fm-transfer-market__selection-bar">
               <span>
                 Jogador selecionado:{' '}
-                {marketPlayers.find(m => m.player.id === selectedPlayerId)?.player.name}{' '}
-                {(marketPlayers.find(m => m.player.id === selectedPlayerId)?.player.surname)}
+                {getFullName(marketPlayers.find(m => m.player.id === selectedPlayerId)?.player!)}
               </span>
               <Button onClick={() => handleAssignScout(selectedPlayerId)}>Confirmar</Button>
               <Button variant="secondary" onClick={() => setSelectedPlayerId(null)}>Cancelar</Button>
@@ -958,7 +1047,7 @@ export const TransferMarket: React.FC<{
                 </div>
               )}
 
-              {negotiationResult?.playerWillingness != null && (
+              {!contractPhase && negotiationResult?.playerWillingness != null && (
                 <div className="fm-negotiation-modal__willingness">
                   <div className="fm-negotiation-modal__willingness-header">
                     <span>Vontade do jogador: </span>
@@ -973,13 +1062,14 @@ export const TransferMarket: React.FC<{
                 </div>
               )}
 
-              {negotiationResult?.maxRounds != null && (
+              {!contractPhase && negotiationResult?.maxRounds != null && (
                 <div className="fm-negotiation-modal__rounds">
                   Ronda {negotiationResult.negotiationRound} de {negotiationResult.maxRounds}
                 </div>
               )}
 
-              {!negotiationResult && (
+              {/* === FASE 1: NEGOCIAÇÃO COM O CLUBE === */}
+              {!contractPhase && !negotiationResult && (
                 <div className="fm-negotiation-modal__offer-form">
                   <label htmlFor="offer-amount">Sua proposta (R$ milhões):</label>
                   <div className="fm-negotiation-modal__quick-offers">
@@ -1010,7 +1100,7 @@ export const TransferMarket: React.FC<{
                 </div>
               )}
 
-              {negotiationResult && (
+              {!contractPhase && negotiationResult && (
                 <div className="fm-negotiation-modal__result">
                   <div className={`fm-negotiation-modal__result-status fm-negotiation-modal__result-status--${negotiationResult.status}`}>
                     {negotiationResult.status === 'accepted' && '✅ Proposta Aceita!'}
@@ -1037,7 +1127,7 @@ export const TransferMarket: React.FC<{
                       onClick={handleAcceptOffer}
                       disabled={negotiationLoading}
                     >
-                      {negotiationLoading ? 'Processando...' : 'Confirmar Contratação'}
+                      {negotiationLoading ? 'Processando...' : 'Continuar para Negociar Contrato'}
                     </Button>
                   )}
 
@@ -1083,6 +1173,127 @@ export const TransferMarket: React.FC<{
                       Fechar
                     </Button>
                   )}
+                </div>
+              )}
+
+              {/* === FASE 2: NEGOCIAÇÃO DE CONTRATO COM O JOGADOR === */}
+              {contractPhase && (
+                <div className="fm-negotiation-modal__contract-phase">
+                  <div className="fm-negotiation-modal__phase-banner">
+                    ✅ Clube aceitou a transferência de R$ {parseFloat(offerAmount)}M.
+                    Agora negocie o salário com o jogador.
+                  </div>
+
+                  {contractHistory.length > 0 && (
+                    <div className="fm-negotiation-modal__history">
+                      <h4>Histórico de Negociação Salarial</h4>
+                      {contractHistory.map((h, i) => (
+                        <div key={i} className="fm-negotiation-modal__history-item">
+                          <span className="fm-negotiation-modal__history-round">R{h.round}</span>
+                          <span className="fm-negotiation-modal__history-price">R$ {h.offeredSalary}K/sem</span>
+                          <span className={`fm-negotiation-modal__history-status fm-negotiation-modal__history-status--${h.result.status}`}>
+                            {h.result.status === 'accepted' ? '✅' : h.result.status === 'rejected' ? '❌' : `🔄 R$ ${h.result.counterSalary}K/sem`}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {contractNegotiationResult?.maxRounds != null && (
+                    <div className="fm-negotiation-modal__rounds">
+                      Ronda {contractNegotiationResult.negotiationRound} de {contractNegotiationResult.maxRounds}
+                    </div>
+                  )}
+
+                  {!contractNegotiationResult && (
+                    <div className="fm-negotiation-modal__offer-form">
+                      <label htmlFor="salary-amount">Proposta de salário (R$ mil/semana):</label>
+                      <div className="fm-negotiation-modal__quick-offers">
+                        <button className="fm-negotiation-modal__quick-offer" onClick={() => handleQuickSalaryOffer(0.8)}>80%</button>
+                        <button className="fm-negotiation-modal__quick-offer" onClick={() => handleQuickSalaryOffer(0.9)}>90%</button>
+                        <button className="fm-negotiation-modal__quick-offer" onClick={() => handleQuickSalaryOffer(1.0)}>100%</button>
+                        <button className="fm-negotiation-modal__quick-offer" onClick={() => handleQuickSalaryOffer(1.1)}>110%</button>
+                      </div>
+                      <input
+                        id="salary-amount"
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={salaryOffer}
+                        onChange={(e) => setSalaryOffer(e.target.value)}
+                        disabled={negotiationLoading}
+                      />
+                      <Button
+                        variant="primary"
+                        onClick={handleNegotiateContract}
+                        disabled={negotiationLoading}
+                      >
+                        {negotiationLoading ? 'Enviando...' : 'Propor Salário'}
+                      </Button>
+                    </div>
+                  )}
+
+                  {contractNegotiationResult && (
+                    <div className="fm-negotiation-modal__result">
+                      <div className={`fm-negotiation-modal__result-status fm-negotiation-modal__result-status--${contractNegotiationResult.status}`}>
+                        {contractNegotiationResult.status === 'accepted' && '✅ Contrato Aceito!'}
+                        {contractNegotiationResult.status === 'rejected' && '❌ Contrato Recusado'}
+                        {contractNegotiationResult.status === 'countered' && '🔄 Contra-oferta do Jogador'}
+                      </div>
+                      <p className="fm-negotiation-modal__result-message">{contractNegotiationResult.message}</p>
+
+                      {contractNegotiationResult.status === 'accepted' && (
+                        <Button
+                          variant="success"
+                          onClick={handleFinalizeTransfer}
+                          disabled={negotiationLoading}
+                        >
+                          {negotiationLoading ? 'Processando...' : 'Finalizar Contratação'}
+                        </Button>
+                      )}
+
+                      {contractNegotiationResult.status === 'countered' && contractNegotiationResult.counterSalary && (
+                        <div className="fm-negotiation-modal__counter-actions">
+                          <Button
+                            variant="success"
+                            onClick={handleAcceptContractCounter}
+                            disabled={negotiationLoading}
+                          >
+                            {negotiationLoading ? 'Processando...' : `Aceitar R$ ${contractNegotiationResult.counterSalary}K/sem`}
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            onClick={() => {
+                              setContractNegotiationResult(null);
+                              setSalaryOffer(String(contractNegotiationResult.counterSalary));
+                              setContractNegotiationRound(prev => prev + 1);
+                            }}
+                            disabled={negotiationLoading}
+                          >
+                            Renegociar
+                          </Button>
+                        </div>
+                      )}
+
+                      {contractNegotiationResult.status === 'rejected' && (
+                        <Button
+                          variant="secondary"
+                          onClick={() => { setContractNegotiationResult(null); setContractNegotiationRound(prev => prev + 1); }}
+                          disabled={negotiationLoading}
+                        >
+                          Fazer Nova Proposta
+                        </Button>
+                      )}
+                    </div>
+                  )}
+
+                  <Button
+                    variant="secondary"
+                    onClick={closeNegotiation}
+                    disabled={negotiationLoading}
+                  >
+                    Cancelar Negociação
+                  </Button>
                 </div>
               )}
             </div>
