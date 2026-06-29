@@ -12,6 +12,7 @@ export interface FinancialReport {
   ticketRevenue: number; // em milhões
   sponsorshipRevenue: number; // em milhões
   totalIncome: number; // em milhões
+  facilityCosts: number; // em milhões (semanal)
   totalExpenses: number; // em milhões
   profit: number; // em milhões
   transferSpending: number; // em milhões

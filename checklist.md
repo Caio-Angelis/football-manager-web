@@ -406,13 +406,13 @@
 
 ---
 
-## Itens Pendentes / Pontos de Atenção
+## Itens Resolvidos
 
-- [ ] Verificar consistência de variáveis CSS entre `styles.css` e `styles-supplement.css` (alguns valores hard-coded em vez de usar variáveis)
-- [ ] Auditar uso de `oklch()` para compatibilidade com navegadores antigos
-- [ ] Verificar duplicação de estilos entre `styles.css` e `styles-supplement.css` (ex: negotiation modal aparece em ambos)
-- [ ] Considerar consolidação de overrides do Night Pitch theme (alguns componentes têm overrides redundantes)
-- [ ] Avaliar performance de `backdrop-filter: blur()` em dispositivos móveis de baixo desempenho
-- [ ] Verificar acessibilidade: contraste de cores no Night Pitch theme (texto branco em fundos verdes escuros)
-- [ ] Validar breakpoints: gap entre 768px e 1024px pode precisar de ajustes intermediários
-- [ ] Considerar adicionar `@media (prefers-color-scheme: dark)` para auto-detectar tema do sistema
+- [x] Verificar consistência de variáveis CSS entre `styles.css` e `styles-supplement.css` (alguns valores hard-coded em vez de usar variáveis)
+- [x] Auditar uso de `oklch()` para compatibilidade com navegadores antigos
+- [x] Verificar duplicação de estilos entre `styles.css` e `styles-supplement.css` (ex: negotiation modal aparece em ambos)
+- [x] Considerar consolidação de overrides do Night Pitch theme (alguns componentes têm overrides redundantes)
+- [x] Avaliar performance de `backdrop-filter: blur()` em dispositivos móveis de baixo desempenho
+- [x] Verificar acessibilidade: contraste de cores no Night Pitch theme (texto branco em fundos verdes escuros)
+- [x] Validar breakpoints: gap entre 768px e 1024px pode precisar de ajustes intermediários
+- [x] Considerar adicionar `@media (prefers-color-scheme: dark)` para auto-detectar tema do sistema

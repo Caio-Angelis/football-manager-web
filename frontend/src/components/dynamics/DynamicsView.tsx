@@ -1,7 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import type { Player } from '../../types/game';
 import { getFullName } from '../../utils/player';
+import { useSortable } from '../../hooks/useSortable';
+
+type DynamicsSortKey = 'name' | 'playingTime' | 'contract' | 'morale' | 'performance' | 'squadStatus' | 'coachTreatment' | 'trustLevel';
 
 const HIERARCHY_LEVELS = [
   { key: 'Key Player', label: 'Líderes de Equipa' },
@@ -64,6 +67,30 @@ export const DynamicsView: React.FC = () => {
     return <div className="fm-empty">Selecione um time para ver dinâmicas</div>;
   }
 
+  const { sortState, toggleSort } = useSortable<DynamicsSortKey>('name', 'asc');
+
+  const sortedSquad = useMemo(() => {
+    const list = [...team.squad];
+    list.sort((a, b) => {
+      let cmp: number;
+      const sa = getSatisfaction(a);
+      const sb = getSatisfaction(b);
+      switch (sortState.key) {
+        case 'name': cmp = getFullName(a).localeCompare(getFullName(b)); break;
+        case 'playingTime': cmp = sa.playingTime - sb.playingTime; break;
+        case 'contract': cmp = sa.contract - sb.contract; break;
+        case 'morale': cmp = sa.morale - sb.morale; break;
+        case 'performance': cmp = sa.performance - sb.performance; break;
+        case 'squadStatus': cmp = (a.squadStatus || '').localeCompare(b.squadStatus || ''); break;
+        case 'coachTreatment': cmp = (a.coachTreatment?.type || '').localeCompare(b.coachTreatment?.type || ''); break;
+        case 'trustLevel': cmp = (a.coachTreatment?.trustLevel ?? 0) - (b.coachTreatment?.trustLevel ?? 0); break;
+        default: cmp = 0;
+      }
+      return sortState.direction === 'asc' ? cmp : -cmp;
+    });
+    return list;
+  }, [team.squad, sortState]);
+
   const leaders = team.squad.filter(p => Number(p.mental?.leadership ?? 0) >= 15);
   const influential = team.squad.filter(p => {
     const l = Number(p.mental?.leadership ?? 0);
@@ -123,18 +150,18 @@ export const DynamicsView: React.FC = () => {
         <table className="fm-satisfaction-table">
           <thead>
             <tr>
-              <th>Jogador</th>
-              <th>Tempo de Jogo</th>
-              <th>Contrato</th>
-              <th>Moral</th>
-              <th>Forma</th>
-              <th>Status</th>
-              <th>Trat. Treinador</th>
-              <th>Confiança</th>
+              <th className="fm-satisfaction-table__th--sortable" onClick={() => toggleSort('name')}>Jogador {sortState.key === 'name' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
+              <th className="fm-satisfaction-table__th--sortable" onClick={() => toggleSort('playingTime')}>Tempo de Jogo {sortState.key === 'playingTime' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
+              <th className="fm-satisfaction-table__th--sortable" onClick={() => toggleSort('contract')}>Contrato {sortState.key === 'contract' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
+              <th className="fm-satisfaction-table__th--sortable" onClick={() => toggleSort('morale')}>Moral {sortState.key === 'morale' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
+              <th className="fm-satisfaction-table__th--sortable" onClick={() => toggleSort('performance')}>Forma {sortState.key === 'performance' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
+              <th className="fm-satisfaction-table__th--sortable" onClick={() => toggleSort('squadStatus')}>Status {sortState.key === 'squadStatus' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
+              <th className="fm-satisfaction-table__th--sortable" onClick={() => toggleSort('coachTreatment')}>Trat. Treinador {sortState.key === 'coachTreatment' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
+              <th className="fm-satisfaction-table__th--sortable" onClick={() => toggleSort('trustLevel')}>Confiança {sortState.key === 'trustLevel' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
             </tr>
           </thead>
           <tbody>
-            {team.squad.map((player) => {
+            {sortedSquad.map((player) => {
               const s = getSatisfaction(player);
               const ct = player.coachTreatment;
               return (

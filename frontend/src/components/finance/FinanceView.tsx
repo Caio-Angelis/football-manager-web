@@ -1,6 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { getFullName } from '../../utils/player';
+import { calculateTicketRevenue, calculateSponsorshipRevenue, calculateFacilityCosts, weeklyWages, calculateWageLimit } from '../../utils/finance';
+import { useSortable } from '../../hooks/useSortable';
+
+type WageSortKey = 'name' | 'position' | 'salary' | 'contractClause' | 'contractEnd';
 
 export const FinanceView: React.FC = () => {
   const { selectedTeam, teams, currentSeason, currentWeek } = useGameStore();
@@ -10,14 +14,32 @@ export const FinanceView: React.FC = () => {
     return <div className="fm-empty">Selecione um time para ver finanças</div>;
   }
 
-  const ticketRevenue = (team.reputation / 100) * 0.5;
-  const sponsorship = (team.reputation / 100) * 0.3;
-  const facilityCosts = team.facilitiesLevel * 0.1;
-  const weeklyWages = team.wageBill * (12 / 52);
+  const { sortState, toggleSort } = useSortable<WageSortKey>('salary', 'desc');
+
+  const sortedSquad = useMemo(() => {
+    const list = [...team.squad];
+    list.sort((a, b) => {
+      let cmp: number;
+      if (sortState.key === 'name') {
+        cmp = getFullName(a).localeCompare(getFullName(b));
+      } else if (sortState.key === 'position') {
+        cmp = a.position.localeCompare(b.position);
+      } else {
+        cmp = (a as any)[sortState.key] - (b as any)[sortState.key];
+      }
+      return sortState.direction === 'asc' ? cmp : -cmp;
+    });
+    return list;
+  }, [team.squad, sortState]);
+
+  const ticketRevenue = calculateTicketRevenue(team.reputation);
+  const sponsorship = calculateSponsorshipRevenue(team.reputation);
+  const facilityCosts = calculateFacilityCosts(team.facilitiesLevel);
+  const weeklyWageCost = weeklyWages(team.wageBill);
   const totalIncome = ticketRevenue + sponsorship;
-  const totalExpenses = weeklyWages + facilityCosts;
+  const totalExpenses = weeklyWageCost + facilityCosts;
   const balance = totalIncome - totalExpenses;
-  const wageBudgetLimit = team.budget * 0.4;
+  const wageBudgetLimit = calculateWageLimit(team.reputation);
 
   const projection = Array.from({ length: 6 }, (_, i) => {
     const week = currentWeek + i + 1;
@@ -87,7 +109,7 @@ export const FinanceView: React.FC = () => {
           </div>
           <div className="fm-finance-ledger__row fm-finance-ledger__row--expense">
             <span>Salários (semanal)</span>
-            <span>- R$ {weeklyWages.toFixed(2)}M</span>
+            <span>- R$ {weeklyWageCost.toFixed(2)}M</span>
           </div>
           <div className="fm-finance-ledger__row fm-finance-ledger__row--expense">
             <span>Infraestruturas (semanal)</span>
@@ -101,17 +123,15 @@ export const FinanceView: React.FC = () => {
         <table className="fm-wages-table">
           <thead>
             <tr>
-              <th>Jogador</th>
-              <th>Posição</th>
-              <th>Salário</th>
-              <th>Cláusula</th>
-              <th>Contrato</th>
+              <th className="fm-wages-table__th--sortable" onClick={() => toggleSort('name')}>Jogador {sortState.key === 'name' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
+              <th className="fm-wages-table__th--sortable" onClick={() => toggleSort('position')}>Posição {sortState.key === 'position' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
+              <th className="fm-wages-table__th--sortable" onClick={() => toggleSort('salary')}>Salário {sortState.key === 'salary' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
+              <th className="fm-wages-table__th--sortable" onClick={() => toggleSort('contractClause')}>Cláusula {sortState.key === 'contractClause' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
+              <th className="fm-wages-table__th--sortable" onClick={() => toggleSort('contractEnd')}>Contrato {sortState.key === 'contractEnd' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
             </tr>
           </thead>
           <tbody>
-            {[...team.squad]
-              .sort((a, b) => b.salary - a.salary)
-              .map((player) => (
+            {sortedSquad.map((player) => (
                 <tr key={player.id}>
                   <td>{getFullName(player)}</td>
                   <td>{player.position}</td>

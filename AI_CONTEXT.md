@@ -101,7 +101,7 @@ football-manager-web/
 │       │   │   ├── saves.ts         # saveGame, loadGame, deleteSave (disco)
 │       │   │   ├── youth.ts         # academy, reserve team
 │       │   │   └── attributes.ts    # snapshot, progression, delta
-│       │   └── helpers/         # Lógica pura extraída dos slices (9 helpers)
+│       │   └── helpers/         # Lógica pura extraída dos slices (10 helpers)
 │       │       ├── matchEngine.ts   # simulateFullMatch, simulateMinute, initLiveMatchState, generatePostMatchReport, calculateTeamStrength, tacticalBonus, calculatePlayerMatchRatings, generateWeekMatches, applyMatchResultToTeams
 │       │       ├── league.ts        # calculateLeagueStandings
 │       │       ├── inbox.ts         # generateInboxMessage
@@ -110,7 +110,8 @@ football-manager-web/
 │       │       ├── transfer.ts      # maybeGenerateIncomingTransfer, recalcWageBill
 │       │       ├── scouting.ts      # maskAttributeValue, processScoutMissions, generateScoutReportForMission, calculateScoutGrade
 │       │       ├── aiManager.ts     # processAIWeeklyDecisions — transferências AI-vs-AI, ajustes táticos, renovações de contrato
-│       │       └── moraleDynamics.ts # applyWeeklyMoraleDynamics — 6 motores de moral (promessas, tempo de jogo, forma, cascata social, regressão)
+│       │       ├── moraleDynamics.ts # applyWeeklyMoraleDynamics — 6 motores de moral (promessas, tempo de jogo, forma, cascata social, regressão)
+│       │       └── finance.ts       # calculateMarketValue, calculatePlayerSalary, calculateTeamBudget, calculateTransferBudget, calculateTicketRevenue, calculateSponsorshipRevenue, calculateFacilityCosts, weeklyWages, calculateWageLimit
 │       └── tests/
 │           ├── errors.test.ts
 │           └── schemas.test.ts
@@ -131,13 +132,15 @@ football-manager-web/
         ├── types/
         │   └── game.ts         # Tipos espelhados do backend
         ├── hooks/
-        │   └── useTheme.ts     # Theme preference + system listener
+        │   ├── useTheme.ts     # Theme preference + system listener
+        │   └── useSortable.ts  # Reusable table sorting hook (sort key + direction toggle)
         ├── utils/
         │   ├── theme.ts        # resolveTheme, applyTheme, getStoredThemePreference
-        │   └── player.ts       # getFullName() — nome completo do jogador (mirror do backend)
-        ├── styles.css             # ~105KB, variáveis --fm-*, light/dark via [data-theme]
-        ├── styles-supplement.css  # ~107KB, estilos complementares (componentes, telas, responsivo)
-        ├── styles-mobile.css      # ~7KB, media queries (1024/768/640/480px)
+        │   ├── player.ts       # getFullName() — nome completo do jogador (mirror do backend)
+        │   └── finance.ts      # Mirror frontend do finance helper (revenue, expenses, wage limit)
+        ├── styles.css             # ~105KB, design tokens oklch() com fallbacks hex, light/dark via [data-theme], badge tokens semânticos
+        ├── styles-supplement.css  # ~107KB, estilos complementares, Night Pitch theme, auto dark via prefers-color-scheme
+        ├── styles-mobile.css      # ~8KB, media queries (1024/900/768/640/480px), reduced backdrop-filter em mobile
         ├── smoke/
         │   ├── setup.ts
         │   └── gameFlows.test.ts  # Smoke tests (Vitest)
@@ -275,7 +278,7 @@ Tipos são definidos no backend em 13 arquivos de domínio sob `backend/src/type
 - `FatigueLogEntry`, `Recommendation`, `DegradedCondition`, `InjuryReport`
 
 ### Outros
-- `InboxMessage` (`inbox.ts`), `BoardReply` + `FinancialReport` (`financial.ts`)
+- `InboxMessage` (`inbox.ts`), `BoardReply` + `FinancialReport` (`financial.ts`) — `FinancialReport` inclui `facilityCosts`
 - `TrainingSession`, `WeeklyTrainingPlan` (`training.ts`)
 - `SocialNode`, `SocialTree` (`social.ts`)
 - `FormResult`, `LeagueStandings` (`league.ts`)
@@ -297,6 +300,7 @@ Carrega times reais do Brasileirão a partir de arquivos JSON em `DataBase jogad
 | `loadTeamsFromDatabase()` | Lê todos os `*.json` de `DataBase jogadores/`, converte para `Team[]` |
 | `convertPlayer()` | Converte `JsonPlayer` (6 stats + over_geral) → `Player` completo |
 | `convertTeam()` | Converte `JsonTeam` → `Team` com reputação baseada no overall médio |
+| `assignBoardExpectations()` | Atribui `boardExpectation` por percentis da reputação (top 10% title, próximos 30% top4, próximos 40% midtable, bottom 20% relegation) |
 | `buildAttributes()` | Deriva atributos técnicos, mentais, físicos e GK dos 6 stats básicos |
 | `to20()` | Converte escala 0-100 → 1-20 |
 
@@ -381,7 +385,7 @@ activeLoans (LoanDeal[]), biddingWars (BiddingWar[])
 | Youth | `youth.ts` | `generateYouthPlayers`, `promoteYouthPlayer`, `setAcademyTraining`, reserva |
 | Attributes | `attributes.ts` | `captureWeeklyAttributeSnapshot`, `getAttributeDelta`, `getPlayerAttributeProgression` |
 
-### Helpers (9) — Lógica pura extraída
+### Helpers (10) — Lógica pura extraída
 
 | Helper | Arquivo | Funções |
 |--------|---------|---------|
@@ -394,6 +398,7 @@ activeLoans (LoanDeal[]), biddingWars (BiddingWar[])
 | Scouting | `scouting.ts` | `maskAttributeValue`, `maskPlayerAttributes`, `getBestScout`, `generateDefaultScouts`, `processScoutMissions`, `generateScoutReportForMission`, `calculateScoutGrade` |
 | AI Manager | `aiManager.ts` | `processAIWeeklyDecisions` — orquestra `processAITransfers` (janelas 1-12 e 20-26, AI-vs-AI), `processAITactics` (ajustes a cada 4 semanas: rebaixamento 50/30/20 attacking/balanced/defensive, título 40% attacking em boa forma, mid-table 50% defensive após derrotas; demissão de técnico com nova formação), `processAIContracts` (renovação automática) |
 | Morale Dynamics | `moraleDynamics.ts` | `applyWeeklyMoraleDynamics` — 6 motores: promessas expiradas, tempo de jogo vs. status, forma do time, cascata do capitão, cascata de grupo social, regressão à média |
+| Finance | `finance.ts` | `calculateMarketValue` (exponencial por overall), `calculatePlayerSalary`, `calculateTeamBudget`, `calculateTransferBudget`, `calculateTicketRevenue`, `calculateSponsorshipRevenue`, `calculateFacilityCosts`, `weeklyWages`, `calculateWageLimit` — espelhado em `frontend/src/utils/finance.ts` |
 
 ### Motor de Partida (`helpers/matchEngine.ts`)
 
@@ -563,6 +568,12 @@ activeLoans (LoanDeal[]), biddingWars (BiddingWar[])
 - **Aplicação:** `document.documentElement.dataset.theme` + `colorScheme`
 - **Componente:** `ThemeToggle` (radio group compact)
 
+### Ordenação de Tabelas (`frontend/src/hooks/useSortable.ts`)
+
+- **Hook reutilizável** `useSortable<T>(initialKey, initialDirection)` — gerencia `SortState<T>` (key + direction) e `toggleSort(key)` que alterna asc/desc
+- Aplicado em: `SquadTable`, `FinanceView` (folha salarial), `DynamicsView` (satisfação), `LeagueTable`, `MatchCenter` (classificação inline)
+- Cabeçalhos clicáveis com indicador ↑/↓; CSS `--sortable` classes com `cursor: pointer` e hover
+
 ### Componentes UI
 
 **Button (`ui/Button.tsx`):** Variantes `primary`, `secondary`, `success`; estados disabled, loading
@@ -585,15 +596,19 @@ activeLoans (LoanDeal[]), biddingWars (BiddingWar[])
 ### SquadView (`squad/SquadView.tsx`)
 
 - Cabeçalho: nome, formação, tática, mentalidade, estatísticas
-- `SquadTable`: Posição, Nome, Idade, CA, PA, Salário, Status
+- `SquadTable`: Pos, Nome, Idade, CA, Forma, Cond., Moral, Status, Valor, Salário, Lesão — **cabeçalhos clicáveis para ordenação** (asc/desc) via `useSortable`
 - `PlayerDetailPanel`: drawer lateral (desktop) / overlay (mobile)
 - `PlayerCard`: card resumido do jogador
 
 ### MatchCenter (`match/MatchCenter.tsx`)
 
 - Calendário, resultados, classificações, partidas ao vivo
-- `MatchEventDisplay`, `MatchStatsDisplay`, `LiveDataHub`
-- Live mode: `setInterval` 2s → `generateLiveMatchMinute()`
+- `MatchEventDisplay`, `MatchActionDisplay`, `StatBar`, `MatchStatsDisplay`, `LiveDataHub`
+- **Match cards:** badges de status (Agendada/Ao Vivo/Finalizada), tag "Seu Jogo", placar com VS central
+- **Live mode:** `setInterval` 2s → `generateLiveMatchMinute()`; scoreboard com nomes dos times + barra de progresso (minuto/90)
+- **Estatísticas:** barras de comparação dual (casa vs fora) com xG, posse, chutes, passes
+- **Player ratings:** `PlayerRatingBadge` com badge circular colorido por faixa (9+ excelente, 7-8 bom, 5-6 médio, 3-4 fraco), grid responsivo
+- **Standings:** indicadores de zona (Libertadores top 4, Sul-Americana 5-6, Rebaixamento últimos 4) com marcadores coloridos + legenda
 - Substituições (máx 5) + Gritos + Finalizar
 - **Visualização 2D** (`MatchPitch2D`) integrada no modo ao vivo e no modal de detalhes
 - **Relatório pós-jogo** (`PostMatchReportView`) exibido após conclusão da partida
@@ -864,7 +879,7 @@ npm run format:check # prettier --check src
 4. **Lógica pura:** helper correspondente em `backend/src/store/helpers/`
 5. **Nova action:** adicionar ao slice + schema Zod em `schemas.ts` + thin client em `frontend/src/store/gameStore.ts`
 6. **Nova tela:** componente em `frontend/src/components/` + rota em `App.tsx` + `NAV_ITEMS`
-7. **Estilos:** `frontend/src/styles.css` (variáveis `--fm-*`, light/dark via `[data-theme]`)
+7. **Estilos:** `frontend/src/styles.css` (design tokens oklch() com fallbacks hex, badge tokens semânticos, light/dark via `[data-theme]`) + `styles-supplement.css` (Night Pitch theme, `prefers-color-scheme: dark` auto) + `styles-mobile.css` (breakpoint intermediário 900px, reduced backdrop-filter)
 8. **Saves:** `backend/src/services/saveService.ts` + slice `saves.ts` + `SaveSlot.tsx` (frontend)
 9. **Tema:** `frontend/src/utils/theme.ts` + `hooks/useTheme.ts` + `ThemeToggle.tsx`
 10. **API:** nova rota em `backend/src/routes/game.ts`

@@ -1,6 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import type { Player } from '../../types/game';
 import { getFullName } from '../../utils/player';
+import { useSortable } from '../../hooks/useSortable';
 
 interface SquadTableProps {
   players: Player[];
@@ -15,8 +16,7 @@ interface SquadTableProps {
   record: { points: number; played: number; won: number; drawn: number; lost: number };
 }
 
-type SortKey = 'position' | 'name' | 'age' | 'currentAbility' | 'form' | 'fitness' | 'morale' | 'marketValue' | 'salary';
-type SortDirection = 'asc' | 'desc';
+type SortKey = 'position' | 'name' | 'age' | 'currentAbility' | 'form' | 'fitness' | 'morale' | 'squadStatus' | 'marketValue' | 'salary' | 'injury';
 
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: 'position', label: 'Posição' },
@@ -26,8 +26,10 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: 'form', label: 'Forma' },
   { key: 'fitness', label: 'Condição' },
   { key: 'morale', label: 'Moral' },
+  { key: 'squadStatus', label: 'Status' },
   { key: 'marketValue', label: 'Valor' },
   { key: 'salary', label: 'Salário' },
+  { key: 'injury', label: 'Lesão' },
 ];
 
 const POSITION_ORDER: Record<string, number> = { GK: 0, DEF: 1, MID: 2, FWD: 3 };
@@ -52,14 +54,20 @@ export const SquadTable: React.FC<SquadTableProps> = ({
   week,
   record,
 }) => {
-  const [sortKey, setSortKey] = useState<SortKey>('position');
-  const [sortDir, setSortDir] = useState<SortDirection>('asc');
+  const { sortState, toggleSort } = useSortable<SortKey>('position', 'asc');
+  const sortKey = sortState.key;
+  const sortDir = sortState.direction;
   const [search, setSearch] = useState('');
   const [filterPos, setFilterPos] = useState<string>('');
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [isNarrow, setIsNarrow] = useState(
     typeof window !== 'undefined' ? window.innerWidth < 1024 : false
   );
+
+  const handleSort = useCallback((key: SortKey) => {
+    toggleSort(key);
+    setShowSortMenu(false);
+  }, [toggleSort]);
 
   useEffect(() => {
     const handleResize = () => setIsNarrow(window.innerWidth < 1024);
@@ -80,6 +88,10 @@ export const SquadTable: React.FC<SquadTableProps> = ({
         cmp = getFullName(a).localeCompare(getFullName(b));
       } else if (sortKey === 'position') {
         cmp = (POSITION_ORDER[a.position] ?? 99) - (POSITION_ORDER[b.position] ?? 99);
+      } else if (sortKey === 'squadStatus') {
+        cmp = (a.squadStatus || '').localeCompare(b.squadStatus || '');
+      } else if (sortKey === 'injury') {
+        cmp = (a.injury?.active ? a.injury.days : 0) - (b.injury?.active ? b.injury.days : 0);
       } else {
         const aVal = (a as any)[sortKey] as number;
         const bVal = (b as any)[sortKey] as number;
@@ -134,8 +146,7 @@ export const SquadTable: React.FC<SquadTableProps> = ({
             {filterPos || 'Posição'} ▾
           </button>
           <div className="fm-squad-table__sort-wrapper">
-            <button
-              className="fm-squad-table__filter-btn"
+            <button className="fm-squad-table__filter-btn"
               onClick={() => setShowSortMenu(prev => !prev)}
             >
               {SORT_OPTIONS.find(o => o.key === sortKey)?.label ?? 'Ordenar'} ({sortDir === 'asc' ? '↑' : '↓'}) ▾
@@ -146,15 +157,7 @@ export const SquadTable: React.FC<SquadTableProps> = ({
                   <button
                     key={opt.key}
                     className={`fm-squad-table__sort-option${sortKey === opt.key ? ' fm-squad-table__sort-option--active' : ''}`}
-                    onClick={() => {
-                      if (sortKey === opt.key) {
-                        setSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
-                      } else {
-                        setSortKey(opt.key);
-                        setSortDir('asc');
-                      }
-                      setShowSortMenu(false);
-                    }}
+                    onClick={() => handleSort(opt.key)}
                   >
                     {opt.label} {sortKey === opt.key ? (sortDir === 'asc' ? '↑' : '↓') : ''}
                   </button>
@@ -170,17 +173,17 @@ export const SquadTable: React.FC<SquadTableProps> = ({
         <table className="fm-squad-table__grid">
           <thead>
             <tr>
-              <th className="fm-squad-table__th">Pos</th>
-              {!isNarrow && <th className="fm-squad-table__th">Nome</th>}
-              {!isNarrow && <th className="fm-squad-table__th">Idade</th>}
-              {!isNarrow && <th className="fm-squad-table__th">CA</th>}
-              <th className="fm-squad-table__th">Forma</th>
-              <th className="fm-squad-table__th">Cond.</th>
-              {!isNarrow && <th className="fm-squad-table__th">Moral</th>}
-              <th className="fm-squad-table__th">Status</th>
-              {!isNarrow && <th className="fm-squad-table__th">Valor</th>}
-              {!isNarrow && <th className="fm-squad-table__th">Salário</th>}
-              <th className="fm-squad-table__th">Lesão</th>
+              <th className="fm-squad-table__th fm-squad-table__th--sortable" onClick={() => handleSort('position')}>Pos {sortKey === 'position' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
+              {!isNarrow && <th className="fm-squad-table__th fm-squad-table__th--sortable" onClick={() => handleSort('name')}>Nome {sortKey === 'name' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>}
+              {!isNarrow && <th className="fm-squad-table__th fm-squad-table__th--sortable" onClick={() => handleSort('age')}>Idade {sortKey === 'age' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>}
+              {!isNarrow && <th className="fm-squad-table__th fm-squad-table__th--sortable" onClick={() => handleSort('currentAbility')}>CA {sortKey === 'currentAbility' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>}
+              <th className="fm-squad-table__th fm-squad-table__th--sortable" onClick={() => handleSort('form')}>Forma {sortKey === 'form' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
+              <th className="fm-squad-table__th fm-squad-table__th--sortable" onClick={() => handleSort('fitness')}>Cond. {sortKey === 'fitness' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
+              {!isNarrow && <th className="fm-squad-table__th fm-squad-table__th--sortable" onClick={() => handleSort('morale')}>Moral {sortKey === 'morale' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>}
+              <th className="fm-squad-table__th fm-squad-table__th--sortable" onClick={() => handleSort('squadStatus')}>Status {sortKey === 'squadStatus' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
+              {!isNarrow && <th className="fm-squad-table__th fm-squad-table__th--sortable" onClick={() => handleSort('marketValue')}>Valor {sortKey === 'marketValue' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>}
+              {!isNarrow && <th className="fm-squad-table__th fm-squad-table__th--sortable" onClick={() => handleSort('salary')}>Salário {sortKey === 'salary' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>}
+              <th className="fm-squad-table__th fm-squad-table__th--sortable" onClick={() => handleSort('injury')}>Lesão {sortKey === 'injury' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
             </tr>
           </thead>
           <tbody>

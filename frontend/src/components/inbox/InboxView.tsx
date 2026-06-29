@@ -475,12 +475,12 @@ export const FinancialReportModal: React.FC<FinancialReportModalProps> = ({ repo
               <div className="fm-financial-report__grid">
                 <div className="fm-financial-report__field">
                   <span className="fm-financial-report__label">Salários (semanal):</span>
-                  <span className="fm-financial-report__value">{formatCurrency(report.wageBill * (12 / 52))}</span>
+                  <span className="fm-financial-report__value">{formatCurrency(report.totalExpenses - report.facilityCosts)}</span>
                 </div>
                 <div className="fm-financial-report__field">
-                  <span className="fm-financial-report__label">Outras:</span>
+                  <span className="fm-financial-report__label">Infraestruturas (semanal):</span>
                   <span className="fm-financial-report__value">
-                    {formatCurrency(Math.max(0, report.totalExpenses - report.wageBill * (12 / 52)))}
+                    {formatCurrency(report.facilityCosts)}
                   </span>
                 </div>
                 <div className="fm-financial-report__field fm-financial-report__field--total">

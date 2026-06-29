@@ -36,7 +36,7 @@ export function getTacticalBonus(team: Team): number {
 }
 
 export function calculateTeamStrength(team: Team): number {
-  const starting11 = team.squad.slice(0, 11);
+  const starting11 = startingXI(team);
   let totalStrength = 0;
 
   starting11.forEach(player => {
@@ -70,8 +70,8 @@ export function calculateTeamStrength(team: Team): number {
 }
 
 export function getPossessionBias(home: Team, away: Team): number {
-  const homePass = home.squad.slice(0, 11).reduce((s, p) => s + (p.technical?.passing ?? 10), 0);
-  const awayPass = away.squad.slice(0, 11).reduce((s, p) => s + (p.technical?.passing ?? 10), 0);
+  const homePass = startingXI(home).reduce((s, p) => s + (p.technical?.passing ?? 10), 0);
+  const awayPass = startingXI(away).reduce((s, p) => s + (p.technical?.passing ?? 10), 0);
   const homeTactic = home.passingStyle === 'short' ? 0.05 : home.passingStyle === 'direct' ? -0.03 : 0;
   const awayTactic = away.passingStyle === 'short' ? 0.05 : away.passingStyle === 'direct' ? -0.03 : 0;
   const total = homePass + awayPass + 1;
@@ -113,7 +113,12 @@ function avgDefined(values: (number | undefined)[]): number {
   return count > 0 ? sum / count : 8;
 }
 
-function startingXI(team: Team) {
+function startingXI(team: Team): Player[] {
+  const ids = team.startingXI;
+  if (ids && ids.length > 0) {
+    const players = ids.map(id => team.squad.find(p => p.id === id)).filter(Boolean) as Player[];
+    if (players.length > 0) return players;
+  }
   return team.squad.slice(0, 11);
 }
 

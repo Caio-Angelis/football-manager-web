@@ -6,6 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { useGameStore } from './src/store/gameStore';
 import { updatePlayerAttributes } from './src/store/helpers/training';
+import { calculateTicketRevenue, calculateSponsorshipRevenue, calculateFacilityCosts, weeklyWages } from './src/store/helpers/finance';
 import type { Team } from './src/types/game';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -81,14 +82,13 @@ function resetTacticTracker(): void {
 
 function applyFinancesToAllTeams(teams: Team[]): Team[] {
   return teams.map(team => {
-    const ticketRevenue = (team.reputation / 100) * 700;
-    const sponsorship = (team.reputation / 100) * 500;
-    const tvRights = (team.reputation / 100) * 400;
-    const totalRevenue = ticketRevenue + sponsorship + tvRights;
-    const weeklyWages = team.wageBill * (12 / 52);
+    const ticketRevenue = calculateTicketRevenue(team.reputation);
+    const sponsorship = calculateSponsorshipRevenue(team.reputation);
+    const facilityCosts = calculateFacilityCosts(team.facilitiesLevel);
+    const wageCost = weeklyWages(team.wageBill);
     return {
       ...team,
-      budget: Math.max(0, team.budget + totalRevenue - weeklyWages),
+      budget: Math.max(0, team.budget + ticketRevenue + sponsorship - wageCost - facilityCosts),
     };
   });
 }

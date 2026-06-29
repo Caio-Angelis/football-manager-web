@@ -1,6 +1,6 @@
 import type { GameStore, Team, InboxMessage, SeasonSummary } from '../../types/game';
 import { generateTeam, generateYouthIntake } from '../../utils/playerGenerator';
-import { loadTeamsFromDatabase } from '../../utils/dataLoader';
+import { loadTeamsFromDatabase, assignBoardExpectations } from '../../utils/dataLoader';
 import {
   simulateFullMatch, simulateMinute, calculatePlayerMatchRatings,
   generateWeekMatches, applyMatchResultToTeams, generatePostMatchReport,
@@ -13,6 +13,7 @@ import { maybeGenerateIncomingTransfer, recalcWageBill, processBiddingWars } fro
 import { processScoutMissions, generateDefaultScouts, decayScoutKnowledge, generateScoutRecommendations, processLoans } from '../helpers/scouting';
 import { processAIWeeklyDecisions } from '../helpers/aiManager';
 import { applyWeeklyMoraleDynamics } from '../helpers/moraleDynamics';
+import { calculateTicketRevenue, calculateSponsorshipRevenue, calculateFacilityCosts, weeklyWages } from '../helpers/finance';
 
 type Set = (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void;
 type Get = () => GameStore;
@@ -47,6 +48,8 @@ export const createCoreSlice = (set: Set, get: Get) => ({
         }
       });
     }
+
+    assignBoardExpectations(teams);
 
     const initialMatches = generateWeekMatches(teams, 1);
     const initialStandings = calculateLeagueStandings(teams, initialMatches, 0);
@@ -114,11 +117,13 @@ export const createCoreSlice = (set: Set, get: Get) => ({
         const teamIdx = updatedTeams.findIndex(t => t.id === state.selectedTeam);
         if (teamIdx !== -1) {
           const team = updatedTeams[teamIdx];
-          const ticketRevenue = (team.reputation / 100) * 0.5;
-          const sponsorship = (team.reputation / 100) * 0.3;
+          const ticketRevenue = calculateTicketRevenue(team.reputation);
+          const sponsorship = calculateSponsorshipRevenue(team.reputation);
+          const facilityCosts = calculateFacilityCosts(team.facilitiesLevel);
+          const wageCost = weeklyWages(team.wageBill);
           updatedTeams[teamIdx] = {
             ...team,
-            budget: Math.max(0, team.budget + ticketRevenue + sponsorship - team.wageBill * (12 / 52)),
+            budget: Math.max(0, team.budget + ticketRevenue + sponsorship - wageCost - facilityCosts),
           };
         }
       }
@@ -323,11 +328,13 @@ export const createCoreSlice = (set: Set, get: Get) => ({
       const teamIdx = updatedTeams.findIndex(t => t.id === state.selectedTeam);
       if (teamIdx !== -1) {
         const team = updatedTeams[teamIdx];
-        const ticketRevenue = (team.reputation / 100) * 0.5;
-        const sponsorship = (team.reputation / 100) * 0.3;
+        const ticketRevenue = calculateTicketRevenue(team.reputation);
+        const sponsorship = calculateSponsorshipRevenue(team.reputation);
+        const facilityCosts = calculateFacilityCosts(team.facilitiesLevel);
+        const wageCost = weeklyWages(team.wageBill);
         updatedTeams[teamIdx] = {
           ...team,
-          budget: Math.max(0, team.budget + ticketRevenue + sponsorship - team.wageBill * (12 / 52)),
+          budget: Math.max(0, team.budget + ticketRevenue + sponsorship - wageCost - facilityCosts),
         };
       }
     }

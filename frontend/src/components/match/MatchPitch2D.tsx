@@ -39,7 +39,14 @@ interface DiscPos {
 const LINE_DEPTHS = { gk: 6, def: 21, mid: 35, fwd: 46 };
 
 function buildPositions(team: Team, side: 'home' | 'away'): DiscPos[] {
-  const xi = team.squad.slice(0, 11);
+  const ids = team.startingXI;
+  let xi: Player[];
+  if (ids && ids.length > 0) {
+    xi = ids.map(id => team.squad.find(p => p.id === id)).filter(Boolean) as Player[];
+    if (xi.length === 0) xi = team.squad.slice(0, 11);
+  } else {
+    xi = team.squad.slice(0, 11);
+  }
   if (xi.length === 0) return [];
 
   const gk = xi.find(p => p.position === 'GK') ?? xi[0];

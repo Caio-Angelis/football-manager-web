@@ -1,5 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import type { LeagueStandings } from '../../types/game';
+import { useSortable } from '../../hooks/useSortable';
+
+type StandingsSortKey = 'position' | 'teamName' | 'played' | 'wins' | 'draws' | 'losses' | 'goalsFor' | 'goalsAgainst' | 'goalDifference' | 'points';
 
 interface LeagueTableProps {
   standings: LeagueStandings[];
@@ -29,7 +32,23 @@ const FORM_LABELS: Record<string, string> = {
 const formClass = (r: string) =>
   r === 'W' ? 'fm-form-badge--W' : r === 'D' ? 'fm-form-badge--D' : 'fm-form-badge--L';
 
-export const LeagueTable: React.FC<LeagueTableProps> = ({ standings, userTeamId }) => (
+export const LeagueTable: React.FC<LeagueTableProps> = ({ standings, userTeamId }) => {
+  const { sortState, toggleSort } = useSortable<StandingsSortKey>('position', 'asc');
+
+  const sortedStandings = useMemo(() => {
+    const list = [...standings];
+    list.sort((a, b) => {
+      let cmp: number;
+      switch (sortState.key) {
+        case 'teamName': cmp = a.teamName.localeCompare(b.teamName); break;
+        default: cmp = (a as any)[sortState.key] - (b as any)[sortState.key];
+      }
+      return sortState.direction === 'asc' ? cmp : -cmp;
+    });
+    return list;
+  }, [standings, sortState]);
+
+  return (
   <div className="fm-league-view">
     <header className="fm-league-view__header">
       <h1>Classificação</h1>
@@ -41,22 +60,22 @@ export const LeagueTable: React.FC<LeagueTableProps> = ({ standings, userTeamId 
         <table className="fm-league-table__grid">
           <thead>
             <tr>
-              <th className="fm-league-table__th fm-league-table__th--pos">#</th>
-              <th className="fm-league-table__th fm-league-table__th--team">Time</th>
-              <th className="fm-league-table__th fm-league-table__th--num">J</th>
-              <th className="fm-league-table__th fm-league-table__th--num">V</th>
-              <th className="fm-league-table__th fm-league-table__th--num">E</th>
-              <th className="fm-league-table__th fm-league-table__th--num fm-league-table__col--hide-sm">D</th>
-              <th className="fm-league-table__th fm-league-table__th--num fm-league-table__col--hide-sm">GP</th>
-              <th className="fm-league-table__th fm-league-table__th--num fm-league-table__col--hide-sm">GC</th>
-              <th className="fm-league-table__th fm-league-table__th--num">SG</th>
-              <th className="fm-league-table__th fm-league-table__th--pts">P</th>
+              <th className="fm-league-table__th fm-league-table__th--pos fm-league-table__th--sortable" onClick={() => toggleSort('position')}># {sortState.key === 'position' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
+              <th className="fm-league-table__th fm-league-table__th--team fm-league-table__th--sortable" onClick={() => toggleSort('teamName')}>Time {sortState.key === 'teamName' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
+              <th className="fm-league-table__th fm-league-table__th--num fm-league-table__th--sortable" onClick={() => toggleSort('played')}>J {sortState.key === 'played' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
+              <th className="fm-league-table__th fm-league-table__th--num fm-league-table__th--sortable" onClick={() => toggleSort('wins')}>V {sortState.key === 'wins' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
+              <th className="fm-league-table__th fm-league-table__th--num fm-league-table__th--sortable" onClick={() => toggleSort('draws')}>E {sortState.key === 'draws' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
+              <th className="fm-league-table__th fm-league-table__th--num fm-league-table__col--hide-sm fm-league-table__th--sortable" onClick={() => toggleSort('losses')}>D {sortState.key === 'losses' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
+              <th className="fm-league-table__th fm-league-table__th--num fm-league-table__col--hide-sm fm-league-table__th--sortable" onClick={() => toggleSort('goalsFor')}>GP {sortState.key === 'goalsFor' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
+              <th className="fm-league-table__th fm-league-table__th--num fm-league-table__col--hide-sm fm-league-table__th--sortable" onClick={() => toggleSort('goalsAgainst')}>GC {sortState.key === 'goalsAgainst' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
+              <th className="fm-league-table__th fm-league-table__th--num fm-league-table__th--sortable" onClick={() => toggleSort('goalDifference')}>SG {sortState.key === 'goalDifference' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
+              <th className="fm-league-table__th fm-league-table__th--pts fm-league-table__th--sortable" onClick={() => toggleSort('points')}>P {sortState.key === 'points' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
               <th className="fm-league-table__th fm-league-table__th--form">Forma</th>
               <th className="fm-league-table__th fm-league-table__th--zone fm-league-table__col--hide-xs">Zona</th>
             </tr>
           </thead>
           <tbody>
-            {standings.map((s) => {
+            {sortedStandings.map((s) => {
               const zone = s.zone ?? 'safe';
               const isUser = s.teamId === userTeamId;
               const rowClass = [
@@ -117,4 +136,5 @@ export const LeagueTable: React.FC<LeagueTableProps> = ({ standings, userTeamId 
       </footer>
     </div>
   </div>
-);
+  );
+};

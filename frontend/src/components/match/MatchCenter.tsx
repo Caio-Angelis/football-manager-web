@@ -4,6 +4,9 @@ import { Button } from '../ui/Button';
 import { MatchPitch2D } from './MatchPitch2D';
 import { PostMatchReportView } from './PostMatchReportView';
 import type { MatchEvent, MatchStats, PlayerMatchRating, MatchAction } from '../../types/game';
+import { useSortable } from '../../hooks/useSortable';
+
+type MatchStandingsSortKey = 'name' | 'points' | 'played' | 'won' | 'drawn' | 'lost' | 'goalsFor' | 'goalsAgainst' | 'goalDifference';
 
 const EVENT_ICONS: Record<string, string> = {
   goal: '⚽', shot: '👟', save: '🧤', corner: '🚩', foul: '🛑',
@@ -48,37 +51,48 @@ const MatchActionDisplay: React.FC<{ action: MatchAction }> = ({ action }) => (
   </div>
 );
 
+const StatBar: React.FC<{ label: string; homeValue: number; awayValue: number; format?: (v: number) => string }> = ({
+  label, homeValue, awayValue, format,
+}) => {
+  const total = homeValue + awayValue;
+  const homePct = total > 0 ? (homeValue / total) * 100 : 50;
+  const awayPct = 100 - homePct;
+  const fmt = format ?? ((v: number) => String(v));
+  return (
+    <div className="fm-stat-bar">
+      <span className="fm-stat-bar__home-value">{fmt(homeValue)}</span>
+      <div className="fm-stat-bar__center">
+        <span className="fm-stat-bar__label">{label}</span>
+        <div className="fm-stat-bar__track">
+          <div className="fm-stat-bar__fill fm-stat-bar__fill--home" style={{ width: `${homePct}%` }} />
+          <div className="fm-stat-bar__fill fm-stat-bar__fill--away" style={{ width: `${awayPct}%` }} />
+        </div>
+      </div>
+      <span className="fm-stat-bar__away-value">{fmt(awayValue)}</span>
+    </div>
+  );
+};
+
 const MatchStatsDisplay: React.FC<{ stats: MatchStats; homeTeamName: string; awayTeamName: string }> = ({
   stats, homeTeamName, awayTeamName,
 }) => (
   <div className="fm-match-stats">
     <h3>Estatísticas da Partida</h3>
-    <div className="fm-stats-row">
-      <div className="fm-stats-row__team">{homeTeamName}</div>
-      <div className="fm-stats-row__bar">
-        <span className="fm-stats-row__xg-value">xG: {stats.homeXG.toFixed(2)}</span>
-        <div className="fm-stats-row__progress">
-          <div className="fm-stats-row__progress-fill" style={{ width: `${stats.homePossession}%` }} />
-        </div>
-        <span className="fm-stats-row__xg-value">xG: {stats.awayXG.toFixed(2)}</span>
-      </div>
-      <div className="fm-stats-row__team">{awayTeamName}</div>
+    <div className="fm-match-stats__teams">
+      <span className="fm-match-stats__team-name">{homeTeamName}</span>
+      <span className="fm-match-stats__vs">VS</span>
+      <span className="fm-match-stats__team-name">{awayTeamName}</span>
     </div>
-    <div className="fm-stats-row">
-      <span>Posse</span>
-      <span>{stats.homePossession}% — {stats.awayPossession}%</span>
+    <div className="fm-match-stats__xg-row">
+      <span className="fm-match-stats__xg fm-match-stats__xg--home">xG {stats.homeXG.toFixed(2)}</span>
+      <span className="fm-match-stats__xg-label">Expected Goals</span>
+      <span className="fm-match-stats__xg fm-match-stats__xg--away">xG {stats.awayXG.toFixed(2)}</span>
     </div>
-    <div className="fm-stats-row">
-      <span>Chutes</span>
-      <span>{stats.homeShots} — {stats.awayShots}</span>
-    </div>
-    <div className="fm-stats-row">
-      <span>No alvo</span>
-      <span>{stats.homeShotsOnTarget} — {stats.awayShotsOnTarget}</span>
-    </div>
-    <div className="fm-stats-row">
-      <span>Passes</span>
-      <span>{stats.homePasses} — {stats.awayPasses}</span>
+    <div className="fm-match-stats__bars">
+      <StatBar label="Posse" homeValue={stats.homePossession} awayValue={stats.awayPossession} format={(v) => `${v}%`} />
+      <StatBar label="Chutes" homeValue={stats.homeShots} awayValue={stats.awayShots} />
+      <StatBar label="No Alvo" homeValue={stats.homeShotsOnTarget} awayValue={stats.awayShotsOnTarget} />
+      <StatBar label="Passes" homeValue={stats.homePasses} awayValue={stats.awayPasses} />
     </div>
   </div>
 );
@@ -178,6 +192,7 @@ const PlayerRatingsDisplay: React.FC<{ ratings: PlayerMatchRating[]; bestPlayerI
 
 export const MatchCenter: React.FC = () => {
   const { matches, teams, selectedTeam, currentWeek, currentSeason, simulateMatch, advanceWeek, applyMatchIntervention, generateLiveMatchMinute, finishMatch } = useGameStore();
+  const { sortState: standingsSort, toggleSort: toggleStandingsSort } = useSortable<MatchStandingsSortKey>('points', 'desc');
   const [selectedMatchIndex, setSelectedMatchIndex] = useState<number | null>(null);
   const [liveMatchWatching, setLiveMatchWatching] = useState<number | null>(null);
   const [matchSpeed, setMatchSpeed] = useState<number>(1);
@@ -241,20 +256,30 @@ export const MatchCenter: React.FC = () => {
               const isUser = isUserMatch(match);
               const isCompleted = match.completed;
               const { isLive: isMatchLive, minute: liveMin } = getMatchData(match);
+              const statusLabel = isCompleted ? 'Finalizada' : isMatchLive ? 'Ao Vivo' : 'Agendada';
               return (
                 <div
                   key={index}
                   className={`fm-match ${isUser ? 'fm-match--user' : ''} ${isCompleted ? 'fm-match--completed' : ''} ${isMatchLive ? 'fm-match--live' : ''} ${selectedMatchIndex === index ? 'fm-match--selected' : ''}`}
                 >
+                  <div className="fm-match__header">
+                    <span className={`fm-match__badge fm-match__badge--${isCompleted ? 'completed' : isMatchLive ? 'live' : 'scheduled'}`}>
+                      {isMatchLive && <span className="fm-match__live-dot" />}
+                      {statusLabel}
+                    </span>
+                    {isUser && <span className="fm-match__user-tag">Seu Jogo</span>}
+                  </div>
                   <div className="fm-match__teams">
-                    <div className="fm-match__team">
+                    <div className="fm-match__team fm-match__team--home">
                       <div className="fm-match__team-name">{getTeamName(match.homeTeam)}</div>
                       <div className="fm-match__team-score">{isCompleted || isMatchLive ? match.homeGoals : '-'}</div>
                     </div>
-                    <div className="fm-match__vs">VS</div>
-                    <div className="fm-match__team">
-                      <div className="fm-match__team-name">{getTeamName(match.awayTeam)}</div>
+                    <div className="fm-match__vs">
+                      <span className="fm-match__vs-text">VS</span>
+                    </div>
+                    <div className="fm-match__team fm-match__team--away">
                       <div className="fm-match__team-score">{isCompleted || isMatchLive ? match.awayGoals : '-'}</div>
+                      <div className="fm-match__team-name">{getTeamName(match.awayTeam)}</div>
                     </div>
                   </div>
                   {isMatchLive && (
@@ -273,20 +298,20 @@ export const MatchCenter: React.FC = () => {
                     </div>
                   )}
                   {isCompleted && (
-                    <button className="fm-match__details-btn" onClick={() => setSelectedMatchIndex(index)}>
-                      Ver Detalhes
-                    </button>
+                    <div className="fm-match__action">
+                      <button className="fm-match__details-btn" onClick={() => setSelectedMatchIndex(index)}>
+                        Ver Detalhes
+                      </button>
+                    </div>
                   )}
                   {isMatchLive && (
                     <div className="fm-match__action">
                       <Button onClick={() => {
-                        // Iniciar: avança automaticamente com efeito de "lento" nos melhores momentos
                         setLiveMatchWatching(index);
                       }}>
                         Iniciar
                       </Button>
                       <Button onClick={() => {
-                        // Finalizar: pula direto para o fim sem simular minuto a minuto
                         finishMatch(index);
                         setLiveMatchWatching(null);
                       }} className="fm-match-finish-btn">
@@ -341,10 +366,22 @@ export const MatchCenter: React.FC = () => {
                 </div>
               </div>
             </div>
-            <div className="fm-match-live-view__score">
-              <span>{matches[liveMatchWatching].homeGoals}</span>
-              <span>-</span>
-              <span>{matches[liveMatchWatching].awayGoals}</span>
+            <div className="fm-match-live-view__scoreboard">
+              <div className="fm-match-live-view__side fm-match-live-view__side--home">
+                <span className="fm-match-live-view__side-name">{getTeamName(matches[liveMatchWatching].homeTeam)}</span>
+                <span className="fm-match-live-view__side-score">{matches[liveMatchWatching].homeGoals}</span>
+              </div>
+              <span className="fm-match-live-view__score-separator">-</span>
+              <div className="fm-match-live-view__side fm-match-live-view__side--away">
+                <span className="fm-match-live-view__side-score">{matches[liveMatchWatching].awayGoals}</span>
+                <span className="fm-match-live-view__side-name">{getTeamName(matches[liveMatchWatching].awayTeam)}</span>
+              </div>
+            </div>
+            <div className="fm-match-live-view__progress">
+              <div className="fm-match-live-view__progress-track">
+                <div className="fm-match-live-view__progress-fill" style={{ width: `${(matches[liveMatchWatching].liveMinute / 90) * 100}%` }} />
+              </div>
+              <span className="fm-match-live-view__progress-label">{matches[liveMatchWatching].liveMinute}' / 90'</span>
             </div>
             {(() => {
               const lm = matches[liveMatchWatching];
@@ -503,27 +540,48 @@ export const MatchCenter: React.FC = () => {
         <table className="fm-standings-table">
           <thead>
             <tr>
-              <th>#</th><th>Time</th><th>P</th><th>J</th><th>V</th><th>E</th><th>D</th>
-              <th>GM</th><th>GS</th><th>SG</th>
+              <th>#</th>
+              <th className="fm-standings-table__th--sortable" onClick={() => toggleStandingsSort('name')}>Time {standingsSort.key === 'name' ? (standingsSort.direction === 'asc' ? '↑' : '↓') : ''}</th>
+              <th className="fm-standings-table__th--sortable" onClick={() => toggleStandingsSort('points')}>P {standingsSort.key === 'points' ? (standingsSort.direction === 'asc' ? '↑' : '↓') : ''}</th>
+              <th className="fm-standings-table__th--sortable" onClick={() => toggleStandingsSort('played')}>J {standingsSort.key === 'played' ? (standingsSort.direction === 'asc' ? '↑' : '↓') : ''}</th>
+              <th className="fm-standings-table__th--sortable" onClick={() => toggleStandingsSort('won')}>V {standingsSort.key === 'won' ? (standingsSort.direction === 'asc' ? '↑' : '↓') : ''}</th>
+              <th className="fm-standings-table__th--sortable" onClick={() => toggleStandingsSort('drawn')}>E {standingsSort.key === 'drawn' ? (standingsSort.direction === 'asc' ? '↑' : '↓') : ''}</th>
+              <th className="fm-standings-table__th--sortable" onClick={() => toggleStandingsSort('lost')}>D {standingsSort.key === 'lost' ? (standingsSort.direction === 'asc' ? '↑' : '↓') : ''}</th>
+              <th className="fm-standings-table__th--sortable" onClick={() => toggleStandingsSort('goalsFor')}>GM {standingsSort.key === 'goalsFor' ? (standingsSort.direction === 'asc' ? '↑' : '↓') : ''}</th>
+              <th className="fm-standings-table__th--sortable" onClick={() => toggleStandingsSort('goalsAgainst')}>GS {standingsSort.key === 'goalsAgainst' ? (standingsSort.direction === 'asc' ? '↑' : '↓') : ''}</th>
+              <th className="fm-standings-table__th--sortable" onClick={() => toggleStandingsSort('goalDifference')}>SG {standingsSort.key === 'goalDifference' ? (standingsSort.direction === 'asc' ? '↑' : '↓') : ''}</th>
             </tr>
           </thead>
           <tbody>
             {[...teams].sort((a, b) => {
-              if (b.points !== a.points) return b.points - a.points;
-              const aGD = a.goalsFor - a.goalsAgainst;
-              const bGD = b.goalsFor - b.goalsAgainst;
-              if (bGD !== aGD) return bGD - aGD;
-              return b.goalsFor - a.goalsFor;
-            }).map((t, index) => (
-              <tr key={t.id} className={t.id === selectedTeam ? 'fm-standings-table--user' : ''}>
-                <td>{index + 1}</td><td>{t.name}</td><td>{t.points}</td><td>{t.played}</td>
-                <td>{t.won}</td><td>{t.drawn}</td><td>{t.lost}</td>
-                <td>{t.goalsFor}</td><td>{t.goalsAgainst}</td>
-                <td>{t.goalsFor - t.goalsAgainst}</td>
-              </tr>
-            ))}
+              let cmp: number;
+              if (standingsSort.key === 'name') {
+                cmp = a.name.localeCompare(b.name);
+              } else if (standingsSort.key === 'goalDifference') {
+                cmp = (a.goalsFor - a.goalsAgainst) - (b.goalsFor - b.goalsAgainst);
+              } else {
+                cmp = (a as any)[standingsSort.key] - (b as any)[standingsSort.key];
+              }
+              return standingsSort.direction === 'asc' ? cmp : -cmp;
+            }).map((t, index) => {
+              const zone = index < 4 ? 'libertadores' : index < 6 ? 'sul-americana' : index >= teams.length - 4 ? 'rebaixamento' : '';
+              return (
+                <tr key={t.id} className={`fm-standings-table__row ${t.id === selectedTeam ? 'fm-standings-table--user' : ''} ${zone ? `fm-standings-table__row--${zone}` : ''}`}>
+                  <td className="fm-standings-table__pos"><span className={`fm-standings-table__pos-marker ${zone ? `fm-standings-table__pos-marker--${zone}` : ''}`}>{index + 1}</span></td>
+                  <td className="fm-standings-table__team-name">{t.name}</td><td>{t.points}</td><td>{t.played}</td>
+                  <td>{t.won}</td><td>{t.drawn}</td><td>{t.lost}</td>
+                  <td>{t.goalsFor}</td><td>{t.goalsAgainst}</td>
+                  <td>{t.goalsFor - t.goalsAgainst}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
+        <div className="fm-standings-legend">
+          <span className="fm-standings-legend__item"><span className="fm-standings-legend__dot fm-standings-legend__dot--libertadores" />Libertadores</span>
+          <span className="fm-standings-legend__item"><span className="fm-standings-legend__dot fm-standings-legend__dot--sul-americana" />Sul-Americana</span>
+          <span className="fm-standings-legend__item"><span className="fm-standings-legend__dot fm-standings-legend__dot--rebaixamento" />Rebaixamento</span>
+        </div>
       </div>
     </div>
   );

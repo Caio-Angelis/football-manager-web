@@ -218,6 +218,7 @@ export interface Team {
   squad: Player[];
   formation: string; // '4-4-2', '4-3-3', '3-5-2', '5-2-2'
   tactic: string; // 'attacking', 'defensive', 'balanced'
+  startingXI: string[]; // IDs dos 11 titulares (ordem = slot da formação)
   
   // Performance na tabela de jogos (11.4)
   leaguePosition: number; // 1-20
@@ -709,6 +710,7 @@ export interface FinancialReport {
   ticketRevenue: number; // em milhões
   sponsorshipRevenue: number; // em milhões
   totalIncome: number; // em milhões
+  facilityCosts: number; // em milhões (semanal)
   totalExpenses: number; // em milhões
   profit: number; // em milhões
   transferSpending: number; // em milhões

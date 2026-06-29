@@ -3,32 +3,61 @@
   /* Perceptually uniform colors for consistent visual hierarchy */
   
   /* Primary Brand — Pitch Blue */
+  --color-primary: #3b7de8;
   --color-primary: oklch(0.62 0.22 264);
+  --color-primary-hover: #2e6bc4;
   --color-primary-hover: oklch(0.55 0.20 264);
+  --color-primary-active: #2459a0;
   --color-primary-active: oklch(0.48 0.18 264);
+  --color-primary-light: #b8d4f5;
   --color-primary-light: oklch(0.88 0.12 264);
   
   /* Success — Green */
+  --color-success: #2d9d5e;
   --color-success: oklch(0.65 0.18 158);
+  --color-success-hover: #248850;
   --color-success-hover: oklch(0.58 0.16 158);
   
   /* Warning — Amber */
+  --color-warning: #d99a2b;
   --color-warning: oklch(0.72 0.16 70);
+  --color-warning-hover: #c08423;
   --color-warning-hover: oklch(0.65 0.14 70);
   
   /* Danger — Red */
+  --color-danger: #d23b3b;
   --color-danger: oklch(0.55 0.22 30);
+  --color-danger-hover: #b83232;
   --color-danger-hover: oklch(0.48 0.20 30);
   
   /* Neutrals — Refined */
+  --color-text: #1f2329;
   --color-text: oklch(0.22 0.005 264);
+  --color-text-secondary: #5a5f6a;
   --color-text-secondary: oklch(0.48 0.005 264);
+  --color-text-tertiary: #8a8f9a;
   --color-text-tertiary: oklch(0.65 0.005 264);
-  
+
+  --color-surface: #f6f7f9;
   --color-surface: oklch(0.98 0.002 264);
+  --color-background: #f1f3f6;
   --color-background: oklch(0.97 0.002 264);
+  --color-border: #d3d7dd;
   --color-border: oklch(0.85 0.005 264);
+  --color-border-strong: #b0b6bf;
   --color-border-strong: oklch(0.75 0.005 264);
+
+  /* ===== Semantic Badge Tokens ===== */
+  --badge-success-bg: #d1fae6;
+  --badge-success-fg: #065435;
+  --badge-warning-bg: #fef3c7;
+  --badge-warning-fg: #92400e;
+  --badge-danger-bg: #fee2e2;
+  --badge-danger-fg: #991b1b;
+  --badge-neutral-bg: #e5e7eb;
+  --badge-neutral-fg: #374151;
+  --badge-purple-bg: #ede9fe;
+  --badge-purple-fg: #5b21b6;
   
   /* ===== Glassmorphism Tokens ===== */
   --glass-bg: rgba(255, 255, 255, 0.15);
@@ -844,6 +873,460 @@ body {
   background: var(--color-danger);
   animation: fm-pulse 1.5s ease-in-out infinite;
   box-shadow: 0 0 8px var(--color-danger);
+}
+
+/* ===== Match Card Header (badges) ===== */
+.fm-match__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.fm-match__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.fm-match__badge--scheduled {
+  background: var(--badge-neutral-bg);
+  color: var(--badge-neutral-fg);
+}
+
+.fm-match__badge--live {
+  background: var(--badge-danger-bg);
+  color: var(--badge-danger-fg);
+}
+
+.fm-match__badge--completed {
+  background: var(--badge-success-bg);
+  color: var(--badge-success-fg);
+}
+
+.fm-match__live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-danger);
+  animation: fm-pulse 1.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.fm-match__user-tag {
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.fm-match__team--home {
+  text-align: right;
+}
+
+.fm-match__team--away {
+  text-align: left;
+}
+
+.fm-match__vs-text {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.fm-match__team-score {
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* ===== Stat Bar (dual comparison) ===== */
+.fm-stat-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.fm-stat-bar__home-value,
+.fm-stat-bar__away-value {
+  flex: 0 0 50px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.fm-stat-bar__home-value {
+  text-align: right;
+}
+
+.fm-stat-bar__away-value {
+  text-align: left;
+}
+
+.fm-stat-bar__center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.fm-stat-bar__label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.fm-stat-bar__track {
+  display: flex;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--color-background);
+}
+
+.fm-stat-bar__fill--home {
+  background: var(--color-primary);
+  transition: width 0.4s ease;
+}
+
+.fm-stat-bar__fill--away {
+  background: var(--color-warning);
+  transition: width 0.4s ease;
+}
+
+/* ===== Match Stats (enhanced) ===== */
+.fm-match-stats__teams {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.fm-match-stats__team-name {
+  font-weight: 700;
+  font-size: var(--font-size-base);
+}
+
+.fm-match-stats__vs {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-background);
+}
+
+.fm-match-stats__xg-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 12px;
+  border-radius: var(--radius);
+  background: var(--color-background);
+}
+
+.fm-match-stats__xg {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.fm-match-stats__xg--home {
+  color: var(--color-primary);
+}
+
+.fm-match-stats__xg--away {
+  color: var(--color-warning);
+}
+
+.fm-match-stats__xg-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.fm-match-stats__bars {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ===== Live View Scoreboard ===== */
+.fm-match-live-view__scoreboard {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+  padding: 24px 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.fm-match-live-view__side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.fm-match-live-view__side--home {
+  text-align: right;
+}
+
+.fm-match-live-view__side--away {
+  text-align: left;
+}
+
+.fm-match-live-view__side-name {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+}
+
+.fm-match-live-view__side-score {
+  font-size: 48px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.fm-match-live-view__score-separator {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+/* ===== Live View Progress Bar ===== */
+.fm-match-live-view__progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+}
+
+.fm-match-live-view__progress-track {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-background);
+  overflow: hidden;
+}
+
+.fm-match-live-view__progress-fill {
+  height: 100%;
+  background: var(--color-success);
+  border-radius: 2px;
+  transition: width 0.5s ease;
+}
+
+.fm-match-live-view__progress-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+/* ===== Player Ratings ===== */
+.fm-player-ratings {
+  margin: 20px 0;
+}
+
+.fm-player-ratings h3 {
+  margin-bottom: 16px;
+  font-size: var(--font-size-lg);
+}
+
+.fm-player-ratings__best-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, rgba(217, 154, 43, 0.12), rgba(217, 154, 43, 0.04));
+  border: 1px solid rgba(217, 154, 43, 0.3);
+  font-weight: 600;
+  font-size: var(--font-size-base);
+}
+
+.fm-player-ratings__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+}
+
+.fm-player-rating {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  transition: all 0.15s ease;
+}
+
+.fm-player-rating:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-hover);
+}
+
+.fm-player-rating__badge {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 2px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fm-player-rating__score {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.fm-player-rating__info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.fm-player-rating__name {
+  font-weight: 600;
+  font-size: var(--font-size-base);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fm-player-rating__position {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.fm-player-rating__label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-tertiary);
+}
+
+.fm-player-rating__goal {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* ===== Standings Zone Indicators ===== */
+.fm-standings-table__row {
+  transition: background 0.15s ease;
+}
+
+.fm-standings-table__row:hover {
+  background: var(--hover-subtle);
+}
+
+.fm-standings-table__row--libertadores {
+  border-left: 3px solid var(--color-primary);
+}
+
+.fm-standings-table__row--sul-americana {
+  border-left: 3px solid var(--color-warning);
+}
+
+.fm-standings-table__row--rebaixamento {
+  border-left: 3px solid var(--color-danger);
+}
+
+.fm-standings-table__pos {
+  width: 32px;
+}
+
+.fm-standings-table__pos-marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.fm-standings-table__pos-marker--libertadores {
+  background: var(--badge-purple-bg);
+  color: var(--badge-purple-fg);
+}
+
+.fm-standings-table__pos-marker--sul-americana {
+  background: var(--badge-warning-bg);
+  color: var(--badge-warning-fg);
+}
+
+.fm-standings-table__pos-marker--rebaixamento {
+  background: var(--badge-danger-bg);
+  color: var(--badge-danger-fg);
+}
+
+.fm-standings-table__team-name {
+  text-align: left;
+  font-weight: 600;
+}
+
+/* ===== Standings Legend ===== */
+.fm-standings-legend {
+  display: flex;
+  gap: 20px;
+  margin-top: 12px;
+  padding: 12px 16px;
+  flex-wrap: wrap;
+}
+
+.fm-standings-legend__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.fm-standings-legend__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.fm-standings-legend__dot--libertadores {
+  background: var(--color-primary);
+}
+
+.fm-standings-legend__dot--sul-americana {
+  background: var(--color-warning);
+}
+
+.fm-standings-legend__dot--rebaixamento {
+  background: var(--color-danger);
 }
 
 /* ===== Standings Table ===== */
@@ -2358,42 +2841,7 @@ input:focus-visible {
   box-shadow: 0 0 0 2px var(--color-primary);
 }
 
-/* ===== CSS Variables (Design Tokens) ===== */
-:root {
-  --color-primary: #1a73e8;
-  --color-primary-hover: #1557b0;
-  --color-secondary: #5f6368;
-  --color-success: #0f9d58;
-  --color-background: #f9fafb;
-  --color-surface: #ffffff;
-  --color-text: #202124;
-  --color-text-secondary: #5f6368;
-  --color-border: #dadfe6;
-  --color-shadow: rgba(0, 0, 0, 0.1);
-  --color-warning: #f59e0b;
-  --color-danger: #ef4444;
-  
-  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-size-sm: 12px;
-  --font-size-base: 14px;
-  --font-size-lg: 16px;
-  --font-size-xl: 24px;
-  
-  --spacing-sm: 8px;
-  --spacing-md: 16px;
-  --spacing-lg: 24px;
-  --spacing-xl: 32px;
-  
-  --radius: 8px;
-  --radius-lg: 12px;
-}
-
-/* ===== Base Reset ===== */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+/* ===== Legacy component styles (kept for components not yet migrated to supplement) ===== */
 
 .fm-sidebar__header {
   padding: 16px 20px;
@@ -2431,7 +2879,7 @@ input:focus-visible {
 
 .fm-sidebar__nav-item__badge {
   margin-left: auto;
-  background: #ef4444;
+  background: var(--color-danger);
   color: #fff;
   font-size: 11px;
   padding: 2px 8px;
@@ -2561,28 +3009,28 @@ input:focus-visible {
 }
 
 .fm-player-card__status--key-player {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--badge-warning-bg);
+  color: var(--badge-warning-fg);
 }
 
 .fm-player-card__status--regular-starter {
-  background: #d1fae6;
-  color: #065435;
+  background: var(--badge-success-bg);
+  color: var(--badge-success-fg);
 }
 
 .fm-player-card__status--rotation {
-  background: #e5e7eb;
-  color: #374151;
+  background: var(--badge-neutral-bg);
+  color: var(--badge-neutral-fg);
 }
 
 .fm-player-card__status--young-talent {
-  background: #ede9fe;
-  color: #5b21b6;
+  background: var(--badge-purple-bg);
+  color: var(--badge-purple-fg);
 }
 
 .fm-player-card__status--excess {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--badge-danger-bg);
+  color: var(--badge-danger-fg);
 }
 
 .fm-squad-view__header p {
@@ -2667,9 +3115,9 @@ input:focus-visible {
 }
 
 .fm-btn--danger {
-  background: #ef4444;
+  background: var(--color-danger);
   color: #fff;
-  border-color: #ef4444;
+  border-color: var(--color-danger);
 }
 
 /* ===== Match Center ===== */
@@ -2723,7 +3171,7 @@ input:focus-visible {
 
 .fm-match-card__live {
   margin-left: auto;
-  color: #ef4444;
+  color: var(--color-danger);
   font-size: 12px;
   font-weight: 600;
 }
@@ -2761,7 +3209,7 @@ input:focus-visible {
 .fm-live-data-hub__live-indicator {
   width: 8px;
   height: 8px;
-  background: #ef4444;
+  background: var(--color-danger);
   border-radius: 50%;
   animation: pulse 1.5s infinite;
 }
@@ -2769,7 +3217,7 @@ input:focus-visible {
 .fm-live-data-hub__title {
   font-size: 14px;
   font-weight: 600;
-  color: #ef4444;
+  color: var(--color-danger);
 }
 
 /* ===== Match Stats ===== */
@@ -2826,43 +3274,43 @@ input:focus-visible {
 }
 
 .fm-match-event__type--goal {
-  background: #d1fae6;
-  color: #065435;
+  background: var(--badge-success-bg);
+  color: var(--badge-success-fg);
 }
 
 .fm-match-event__type--shot {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--badge-warning-bg);
+  color: var(--badge-warning-fg);
 }
 
 .fm-match-event__type--save {
-  background: #ede9fe;
-  color: #5b21b6;
+  background: var(--badge-purple-bg);
+  color: var(--badge-purple-fg);
 }
 
 .fm-match-event__type--foul {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--badge-danger-bg);
+  color: var(--badge-danger-fg);
 }
 
 .fm-match-event__type--yellow {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--badge-warning-bg);
+  color: var(--badge-warning-fg);
 }
 
 .fm-match-event__type--red {
-  background: #ef4444;
+  background: var(--color-danger);
   color: #fff;
 }
 
 .fm-match-event__type--corner {
-  background: #e5e7eb;
-  color: #374151;
+  background: var(--badge-neutral-bg);
+  color: var(--badge-neutral-fg);
 }
 
 .fm-match-event__type--substitution {
-  background: #d1fae6;
-  color: #065435;
+  background: var(--badge-success-bg);
+  color: var(--badge-success-fg);
 }
 
 .fm-transfer-market__actions {
@@ -2904,7 +3352,7 @@ input:focus-visible {
 }
 
 .fm-scout-report-card__stars {
-  color: #f59e0b;
+  color: var(--color-warning);
   font-size: 14px;
 }
 
@@ -3035,18 +3483,18 @@ input:focus-visible {
 }
 
 .fm-transfer-agreement__status--active {
-  background: #d1fae6;
-  color: #065435;
+  background: var(--badge-success-bg);
+  color: var(--badge-success-fg);
 }
 
 .fm-transfer-agreement__status--terminated {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--badge-danger-bg);
+  color: var(--badge-danger-fg);
 }
 
 .fm-transfer-agreement__status--expired {
-  background: #e5e7eb;
-  color: #374151;
+  background: var(--badge-neutral-bg);
+  color: var(--badge-neutral-fg);
 }
 
 .fm-inbox-view__header h1 {
@@ -3228,13 +3676,13 @@ input:focus-visible {
 }
 
 .fm-board-reply__satisfaction--positive {
-  background: #d1fae6;
-  color: #065435;
+  background: var(--badge-success-bg);
+  color: var(--badge-success-fg);
 }
 
 .fm-board-reply__satisfaction--negative {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--badge-danger-bg);
+  color: var(--badge-danger-fg);
 }
 
 /* ===== Training View ===== */
@@ -3320,7 +3768,7 @@ input:focus-visible {
 
 .fm-training-type--active {
   border-color: var(--color-primary);
-  background: rgba(26, 115, 232, 0.08);
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
 }
 
 .fm-training-type__icon {
@@ -3544,18 +3992,18 @@ input:focus-visible {
 }
 
 .fm-form-badge--w {
-  background: #d1fae6;
-  color: #065435;
+  background: var(--badge-success-bg);
+  color: var(--badge-success-fg);
 }
 
 .fm-form-badge--d {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--badge-warning-bg);
+  color: var(--badge-warning-fg);
 }
 
 .fm-form-badge--l {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--badge-danger-bg);
+  color: var(--badge-danger-fg);
 }
 
 /* ===== Social Tree ===== */
@@ -3666,7 +4114,7 @@ input:focus-visible {
 }
 
 .fm-finance-view__summary-card__value--negative {
-  color: #ef4444;
+  color: var(--color-danger);
 }
 
 .fm-finance-view__section {
@@ -3712,7 +4160,7 @@ input:focus-visible {
 }
 
 .fm-finance-card__value--negative {
-  color: #ef4444;
+  color: var(--color-danger);
 }
 
 .fm-finance-ledger {
@@ -3778,7 +4226,7 @@ input:focus-visible {
 .fm-finance-chart__bar {
   width: 100%;
   max-width: 48px;
-  background: linear-gradient(180deg, var(--color-primary), #1557b0);
+  background: linear-gradient(180deg, var(--color-primary), var(--color-primary-hover));
   border-radius: 4px 4px 0 0;
   min-height: 4px;
 }
@@ -3810,13 +4258,13 @@ input:focus-visible {
 }
 
 .fm-wage-control__fill--over {
-  background: #ef4444;
+  background: var(--color-danger);
 }
 
 .fm-wage-control__warning {
   margin-top: 8px;
   font-size: 13px;
-  color: #ef4444;
+  color: var(--color-danger);
 }
 
 .fm-wage-control__editor {
@@ -4910,7 +5358,7 @@ input:focus-visible {
   letter-spacing: 0.04em;
   padding: 2px 7px;
   border-radius: var(--radius-full);
-  background: rgba(26, 115, 232, 0.12);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
   color: var(--color-primary);
 }
 
@@ -4963,21 +5411,21 @@ input:focus-visible {
 }
 
 .fm-league-table__zone-badge--title { background: rgba(255, 215, 0, 0.12); color: #b8860b; }
-.fm-league-table__zone-badge--europe { background: rgba(26, 115, 232, 0.12); color: var(--color-primary); }
+.fm-league-table__zone-badge--europe { background: color-mix(in srgb, var(--color-primary) 12%, transparent); color: var(--color-primary); }
 .fm-league-table__zone-badge--safe { background: var(--color-background); color: var(--color-text-secondary); }
-.fm-league-table__zone-badge--relegation { background: rgba(239, 68, 68, 0.12); color: #dc2626; }
+.fm-league-table__zone-badge--relegation { background: color-mix(in srgb, var(--color-danger) 12%, transparent); color: var(--color-danger); }
 
 .fm-league-table__row--title { background: rgba(255, 215, 0, 0.04); }
-.fm-league-table__row--europe { background: rgba(26, 115, 232, 0.04); }
+.fm-league-table__row--europe { background: color-mix(in srgb, var(--color-primary) 4%, transparent); }
 .fm-league-table__row--relegation,
-.fm-league-table__row--relegated { background: rgba(239, 68, 68, 0.05); }
+.fm-league-table__row--relegated { background: color-mix(in srgb, var(--color-danger) 5%, transparent); }
 
 .fm-league-table__row--user {
-  background: rgba(26, 115, 232, 0.08);
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
 }
 
 .fm-league-table__row--user:hover {
-  background: rgba(26, 115, 232, 0.12);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
 }
 
 .fm-league-table__legend {
@@ -4997,8 +5445,8 @@ input:focus-visible {
 .fm-relegation-badge {
   display: inline-block;
   padding: 2px 7px;
-  background: rgba(239, 68, 68, 0.15);
-  color: #dc2626;
+  background: color-mix(in srgb, var(--color-danger) 15%, transparent);
+  color: var(--color-danger);
   font-size: 10px;
   font-weight: 700;
   border-radius: var(--radius-full);

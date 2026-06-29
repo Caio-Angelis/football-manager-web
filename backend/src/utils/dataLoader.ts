@@ -6,6 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import type { Player, PlayerAttribute, GKAttributes, HiddenAttributes, Team } from '../types/game';
 import { createDefaultTacticsConfig } from './playerGenerator';
+import { calculateMarketValue, calculatePlayerSalary, calculateTeamBudget, calculateTransferBudget } from '../store/helpers/finance';
 
 // ============================================================
 // TIPOS DA DATABASE JSON
@@ -265,8 +266,8 @@ function convertPlayer(json: JsonPlayer, teamId: string, index: number): Player 
     temperament: Math.floor(Math.random() * 5) + 1,
   };
 
-  const marketValue = parseFloat((overall * 0.05 + Math.random() * 1.5).toFixed(2));
-  const salary = Math.floor(marketValue * 10000 + Math.random() * 30000);
+  const marketValue = calculateMarketValue(overall);
+  const salary = calculatePlayerSalary(marketValue);
 
   return {
     id: `${teamId}_p${index}`,
@@ -324,6 +325,7 @@ function convertTeam(json: JsonTeam, teamId: string): Team {
   const displayName = getTeamDisplayName(json.time);
   const reputation = calculateTeamReputation(json.jogadores);
   const squad = json.jogadores.map((jp, i) => convertPlayer(jp, teamId, i));
+  const budget = calculateTeamBudget(reputation);
 
   return {
     id: teamId,
@@ -331,7 +333,7 @@ function convertTeam(json: JsonTeam, teamId: string): Team {
     division: 'Série A',
     league: 'Brasileirão',
     reputation,
-    budget: reputation * 2 + Math.random() * 50,
+    budget,
     wageBill: 0,
     facilitiesLevel: Math.floor(reputation / 10),
     youthFacilitiesLevel: Math.floor(reputation / 15),
@@ -346,6 +348,7 @@ function convertTeam(json: JsonTeam, teamId: string): Team {
     squad,
     formation: '4-3-3',
     tactic: 'balanced',
+    startingXI: squad.slice(0, 11).map(p => p.id),
     teamMentality: 'balanced',
     attackWidth: 'balanced',
     passingStyle: 'mixed',
@@ -366,8 +369,8 @@ function convertTeam(json: JsonTeam, teamId: string): Team {
     counterPress: false,
     highLine: false,
     aggressiveTackling: false,
-    boardExpectation: reputation > 70 ? 'title' : reputation > 50 ? 'top4' : 'midtable',
-    transferBudget: reputation * 3 + Math.random() * 100,
+    boardExpectation: 'midtable',
+    transferBudget: calculateTransferBudget(budget),
     staffLevel: Math.floor(reputation / 10),
     scouts: [],
     boardPromises: [],
@@ -414,6 +417,41 @@ export function loadTeamsFromDatabase(): Team[] {
     } catch (err) {
       console.error(`[dataLoader] Error loading ${file}:`, err);
     }
+  }
+
+  return teams;
+}
+
+// ============================================================
+// ATRIBUIÇÃO DE METAS DA DIRETORIA — BASEADA EM PERCENTIS
+// ============================================================
+
+export function assignBoardExpectations(teams: Team[]): Team[] {
+  if (teams.length === 0) return teams;
+
+  const sorted = [...teams].sort((a, b) => b.reputation - a.reputation);
+  const n = sorted.length;
+
+  // Percentis: top 10% → title, next 30% → top4, next 40% → midtable, bottom 20% → relegation
+  const titleCutoff = Math.max(1, Math.round(n * 0.10));
+  const top4Cutoff = Math.max(titleCutoff + 1, Math.round(n * 0.40));
+  const midtableCutoff = Math.max(top4Cutoff + 1, Math.round(n * 0.80));
+
+  for (let i = 0; i < n; i++) {
+    const team = sorted[i];
+    let expectation: string;
+
+    if (i < titleCutoff) {
+      expectation = 'title';
+    } else if (i < top4Cutoff) {
+      expectation = 'top4';
+    } else if (i < midtableCutoff) {
+      expectation = 'midtable';
+    } else {
+      expectation = 'relegation';
+    }
+
+    team.boardExpectation = expectation;
   }
 
   return teams;

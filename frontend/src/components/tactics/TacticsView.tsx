@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useGameStore } from '../../store/gameStore';
-import type { PlayerInstruction, Team } from '../../types/game';
+import type { Player, PlayerInstruction, Team } from '../../types/game';
 
 // ============================================================
 // HELPERS
@@ -588,6 +588,76 @@ function getCollectiveInstructionValue(team: Team, key: string, fallback: string
 }
 
 // ============================================================
+// COMPONENTE: StarterSelection - Escolha de titulares vs banco
+// ============================================================
+
+const StarterSelection: React.FC<{
+  starters: Player[];
+  bench: Player[];
+  onAddStarter: (playerId: string) => void;
+  onRemoveStarter: (playerId: string) => void;
+}> = ({ starters, bench, onAddStarter, onRemoveStarter }) => {
+  const getPositionColor = (pos: string) => {
+    switch (pos) {
+      case 'GK': return '#2196F3';
+      case 'DEF': return '#4CAF50';
+      case 'MID': return '#FF9800';
+      case 'FWD': return '#F44336';
+      default: return '#9E9E9E';
+    }
+  };
+
+  return (
+    <div className="fm-starter-selection">
+      <div className="fm-starter-selection__column">
+        <h3 className="fm-starter-selection__title">Titulares ({starters.length}/11)</h3>
+        <div className="fm-starter-selection__list">
+          {starters.map((player, i) => (
+            <div key={player.id} className="fm-starter-selection__player fm-starter-selection__player--starter">
+              <span className="fm-starter-selection__slot">{i + 1}</span>
+              <span className="fm-starter-selection__pos" style={{ backgroundColor: getPositionColor(player.position) }}>
+                {player.position}
+              </span>
+              <span className="fm-starter-selection__name">{player.name}</span>
+              <span className="fm-starter-selection__ca">{Math.round(player.currentAbility / 2)}</span>
+              <button
+                className="fm-starter-selection__btn fm-starter-selection__btn--remove"
+                onClick={() => onRemoveStarter(player.id)}
+                title="Enviar ao banco"
+              >
+                ↓
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="fm-starter-selection__column">
+        <h3 className="fm-starter-selection__title">Banco ({bench.length})</h3>
+        <div className="fm-starter-selection__list">
+          {bench.map((player) => (
+            <div key={player.id} className="fm-starter-selection__player fm-starter-selection__player--bench">
+              <span className="fm-starter-selection__pos" style={{ backgroundColor: getPositionColor(player.position) }}>
+                {player.position}
+              </span>
+              <span className="fm-starter-selection__name">{player.name}</span>
+              <span className="fm-starter-selection__ca">{Math.round(player.currentAbility / 2)}</span>
+              <button
+                className="fm-starter-selection__btn fm-starter-selection__btn--add"
+                onClick={() => onAddStarter(player.id)}
+                disabled={starters.length >= 11}
+                title="Promover a titular"
+              >
+                ↑
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
 // COMPONENTE PRINCIPAL: TacticsView
 // ============================================================
 
@@ -598,14 +668,28 @@ export const TacticsView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'formation' | 'team' | 'players'>('formation');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
 
-  // Inicializar tacticsConfig se não existir (useEffect para evitar side-effect durante render)
+  // Inicializar startingXI e tacticsConfig se não existir
   useEffect(() => {
-    if (team && !team.tacticsConfig) {
+    if (!team) return;
+    const needsStartingXI = !team.startingXI || team.startingXI.length === 0;
+    const needsTacticsConfig = !team.tacticsConfig;
+    if (needsStartingXI || needsTacticsConfig) {
+      updateTeam(team.id, (t) => ({
+        ...t,
+        startingXI: t.startingXI?.length ? t.startingXI : t.squad.slice(0, 11).map(p => p.id),
+        tacticsConfig: t.tacticsConfig ?? { playerRoles: [], playerInstructions: [] },
+      }));
+      return;
+    }
+    // Auto-assign slots 0-10 to starters if none have slot assignments
+    const starterIds = team.startingXI;
+    const startersWithSlots = team.tacticsConfig.playerRoles.filter(r => starterIds.includes(r.playerId));
+    if (startersWithSlots.length === 0 && starterIds.length > 0) {
       updateTeam(team.id, (t) => ({
         ...t,
         tacticsConfig: {
-          playerRoles: [],
-          playerInstructions: [],
+          ...t.tacticsConfig!,
+          playerRoles: starterIds.map((playerId, slotIndex) => ({ playerId, slotIndex, role: '', duty: 'balance' })),
         },
       }));
     }
@@ -614,6 +698,44 @@ export const TacticsView: React.FC = () => {
   const updateFormation = (formation: string) => {
     if (!team) return;
     updateTeam(team.id, (t) => ({ ...t, formation }));
+  };
+
+  // Adicionar jogador ao starting XI (encontra slot livre)
+  const addStarter = (playerId: string) => {
+    if (!team || !team.tacticsConfig) return;
+    const currentXI = team.startingXI || [];
+    if (currentXI.length >= 11 || currentXI.includes(playerId)) return;
+
+    const occupiedSlots = new Set(
+      team.tacticsConfig.playerRoles
+        .filter(r => currentXI.includes(r.playerId))
+        .map(r => r.slotIndex)
+    );
+    const freeSlot = Array.from({ length: 11 }, (_, i) => i).find(s => !occupiedSlots.has(s)) ?? currentXI.length;
+
+    updateTeam(team.id, (t) => {
+      const roles = [...t.tacticsConfig!.playerRoles];
+      const existingIdx = roles.findIndex(r => r.playerId === playerId);
+      if (existingIdx !== -1) {
+        roles[existingIdx] = { ...roles[existingIdx], slotIndex: freeSlot };
+      } else {
+        roles.push({ playerId, slotIndex: freeSlot, role: '', duty: 'balance' });
+      }
+      return {
+        ...t,
+        startingXI: [...(t.startingXI || []), playerId],
+        tacticsConfig: { ...t.tacticsConfig!, playerRoles: roles },
+      };
+    });
+  };
+
+  // Remover jogador do starting XI
+  const removeStarter = (playerId: string) => {
+    if (!team) return;
+    updateTeam(team.id, (t) => ({
+      ...t,
+      startingXI: (t.startingXI || []).filter(id => id !== playerId),
+    }));
   };
 
   const updateTactic = (tactic: string) => {
@@ -772,10 +894,19 @@ export const TacticsView: React.FC = () => {
   }
 
   const playerPositionMap = getPlayerPositionMap();
-  const startingXI = team.squad.slice(0, 11);
+  const startingXIPlayers: Player[] = (() => {
+    const ids = team.startingXI;
+    if (ids && ids.length > 0) {
+      const players = ids.map(id => team.squad.find(p => p.id === id)).filter(Boolean) as Player[];
+      if (players.length > 0) return players;
+    }
+    return team.squad.slice(0, 11);
+  })();
+  const starterIdSet = new Set(startingXIPlayers.map(p => p.id));
+  const benchPlayers = team.squad.filter(p => !starterIdSet.has(p.id));
   const selectedPlayer = selectedPlayerId
-    ? startingXI.find(p => p.id === selectedPlayerId)
-    : startingXI[0];
+    ? startingXIPlayers.find(p => p.id === selectedPlayerId)
+    : startingXIPlayers[0];
 
   const TABS = [
     { id: 'formation' as const, label: 'Formação', icon: '⚽' },
@@ -819,9 +950,19 @@ export const TacticsView: React.FC = () => {
             <div className="fm-tactics-view__section fm-tactics-view__section--formation">
               <DraggableFormationVisual
                 formation={team.formation}
-                players={startingXI.map(p => ({ id: p.id, name: p.name, position: p.position }))}
+                players={startingXIPlayers.map(p => ({ id: p.id, name: p.name, position: p.position }))}
                 playerPositions={playerPositionMap}
                 onUpdatePlayerPosition={updatePlayerPosition}
+              />
+            </div>
+
+            <div className="fm-tactics-view__section">
+              <h2>Escalação</h2>
+              <StarterSelection
+                starters={startingXIPlayers}
+                bench={benchPlayers}
+                onAddStarter={addStarter}
+                onRemoveStarter={removeStarter}
               />
             </div>
 
@@ -934,7 +1075,7 @@ export const TacticsView: React.FC = () => {
             <div className="fm-tactics-view__section">
               <h2>Roles e Tarefas</h2>
               <div className="fm-tactics-view__roles-grid">
-                {startingXI.map((player) => {
+                {startingXIPlayers.map((player) => {
                   const playerRole = getPlayerRole(player.id);
                   return (
                     <div key={player.id} className="fm-player-role-selector-card">
@@ -955,7 +1096,7 @@ export const TacticsView: React.FC = () => {
             <div className="fm-tactics-view__section">
               <h2>Instruções Individuais</h2>
               <div className="fm-tactics-view__player-picker">
-                {startingXI.map((player) => (
+                {startingXIPlayers.map((player) => (
                   <button
                     key={player.id}
                     className={`fm-tactics-view__player-chip ${selectedPlayer?.id === player.id ? 'fm-tactics-view__player-chip--active' : ''}`}

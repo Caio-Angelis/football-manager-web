@@ -599,6 +599,72 @@
   }
 }
 
+/* ===== Intermediate Breakpoint: 768px–1024px gap ===== */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .fm-main {
+    padding: 16px 20px;
+  }
+
+  .fm-squad-view__stats,
+  .fm-finance-view__summary {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+  }
+
+  .fm-training-view__calendar {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .fm-finance-view__projection {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .fm-social-tree__nodes {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+}
+
+/* ===== Reduced backdrop-filter for mobile performance ===== */
+@media (max-width: 768px) {
+  .fm-sidebar,
+  .fm-league-table,
+  .fm-league-view__header,
+  .fm-scout-report-card,
+  .fm-transfer-offer-card,
+  .fm-inbox-view__message,
+  .fm-toast,
+  .fm-error-boundary__content,
+  .fm-transfer-market__filters {
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+
+  .fm-league-table {
+    backdrop-filter: blur(6px) saturate(1.1);
+    -webkit-backdrop-filter: blur(6px) saturate(1.1);
+  }
+}
+
+@media (max-width: 480px) {
+  .fm-sidebar,
+  .fm-league-table,
+  .fm-league-view__header,
+  .fm-scout-report-card,
+  .fm-transfer-offer-card,
+  .fm-inbox-view__message,
+  .fm-toast,
+  .fm-error-boundary__content,
+  .fm-transfer-market__filters {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .fm-league-table {
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+}
+
 @media (max-width: 480px) {
   .fm-main h1 {
     font-size: 1.3rem;

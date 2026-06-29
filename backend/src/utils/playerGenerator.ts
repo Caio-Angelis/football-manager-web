@@ -2,6 +2,7 @@
 // Baseado na especificação Football Manager Web
 
 import type { Player, HiddenAttributes, Team, PlayerAttribute, GKAttributes, TeamTacticsConfig, InjuryHistory } from '../types/game';
+import { calculateMarketValue, calculatePlayerSalary, calculateTeamBudget, calculateTransferBudget } from '../store/helpers/finance';
 
 export function createDefaultTacticsConfig(): TeamTacticsConfig {
   return { playerRoles: [], playerInstructions: [] };
@@ -195,9 +196,10 @@ export function generatePlayer(options: {
     temperament: Math.floor(Math.random() * 5) + 1
   };
   
-  // Gerar valores de mercado e salário
-  const marketValue = parseFloat((overall * 0.5 + Math.random() * 2).toFixed(2));
-  const salary = Math.floor(marketValue * 10000 + Math.random() * 50000);
+  // Gerar valores de mercado e salário (overall do playerGenerator é ~10-200, converter para 0-100)
+  const overall100 = Math.min(100, Math.round(overall / 2));
+  const marketValue = calculateMarketValue(overall100);
+  const salary = calculatePlayerSalary(marketValue);
   
   // Gerar posição e proficiência
   const prof = POSITION_PROFICIENCY[position]!;
@@ -329,13 +331,15 @@ export function generateTeam(options: {
     squad.push(player);
   }
   
+  const budget = calculateTeamBudget(reputation);
+
   return {
     id: `t_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
     name,
     division: options.division || 'Série A',
     league: options.league || 'Brasileirão',
     reputation,
-    budget: reputation * 2 + Math.random() * 50,
+    budget,
     wageBill: 0,
     facilitiesLevel: Math.floor(reputation / 10),
     youthFacilitiesLevel: Math.floor(reputation / 15),
@@ -350,6 +354,7 @@ export function generateTeam(options: {
     squad,
     formation: ['4-4-2', '4-3-3', '3-5-2', '5-2-2'][Math.floor(Math.random() * 4)],
     tactic: 'balanced',
+    startingXI: squad.slice(0, 11).map(p => p.id),
     teamMentality: 'balanced',
     attackWidth: 'balanced',
     passingStyle: 'mixed',
@@ -370,8 +375,8 @@ export function generateTeam(options: {
     counterPress: false,
     highLine: false,
     aggressiveTackling: false,
-    boardExpectation: reputation > 70 ? 'title' : reputation > 50 ? 'top4' : 'midtable',
-    transferBudget: reputation * 3 + Math.random() * 100,
+    boardExpectation: 'midtable',
+    transferBudget: calculateTransferBudget(budget),
     staffLevel: Math.floor(reputation / 10),
     scouts: [],
     boardPromises: [],

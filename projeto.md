@@ -98,6 +98,14 @@ Ao final de cada partida, é gerado um **relatório pós-jogo** com análise tá
 
 O relatório é exibido no Centro de Partidas após a conclusão da partida (ao vivo ou simulada).
 
+### Interface do Centro de Partidas
+
+- **Cards de partida:** badges de status (Agendada/Ao Vivo/Finalizada) com cores semânticas, tag "Seu Jogo" para partidas do usuário, placar com VS central
+- **Placar ao vivo:** scoreboard com nomes dos times + barra de progresso de minuto (0-90')
+- **Estatísticas:** barras de comparação dual (casa em azul, fora em âmbar) para xG, posse, chutes, passes
+- **Ratings de jogadores:** badges circulares coloridos por faixa de nota (9+ verde, 7-8 lime, 5-6 amarelo, 3-4 laranja), grid responsivo, destaque para jogador da partida
+- **Classificação:** marcadores coloridos por zona (Libertadores roxo, Sul-Americana âmbar, Rebaixamento vermelho) + legenda
+
 ### Estatísticas de Partida
 
 A partida gera estatísticas coerentes:
@@ -444,30 +452,48 @@ A classificação é recalculada após cada rodada, considerando todas as partid
 
 ## Finanças
 
+### Fórmulas Centralizadas (shared finance helper)
+
+Todas as fórmulas financeiras estão centralizadas em `backend/src/store/helpers/finance.ts` (backend) e espelhadas em `frontend/src/utils/finance.ts` (frontend). Isso garante consistência entre simulação, UI e relatórios.
+
+### Valor de Mercado e Salário de Jogadores
+
+- **Valor de mercado** (`calculateMarketValue`): Escala exponencial baseada no overall (0-100):
+  - Overall < 60: aleatório (0 a 1M)
+  - 60-69: `(o-60) × 0.8 + aleatório` (até ~8M)
+  - 70-77: `(o-70) × 3 + 8 + aleatório` (até ~30M)
+  - 78-84: `(o-78) × 10 + 30 + aleatório` (até ~95M)
+  - 85+: `(o-85) × 25 + 95 + aleatório` (até ~200M+)
+- **Salário semanal** (`calculatePlayerSalary`): `max(5, marketValue × 20 + aleatório)` em milhares
+
 ### Receitas e Despesas Semanais
 
 A cada avanço de semana, o orçamento do clube é atualizado:
 
-- **Receitas (simulação headless):**
-  - Bilheteira: `(reputação/100) × 700`
-  - Patrocínio: `(reputação/100) × 500`
-  - Direitos de TV: `(reputação/100) × 400`
-  - Total: `(reputação/100) × 1600` por semana
-- **Receitas (frontend/advanceWeek normal):**
-  - Bilheteira: `(reputação/100) × 0.5`
-  - Patrocínio: `(reputação/100) × 0.3`
+- **Receitas:**
+  - Bilheteira: `(reputação/50)² × 1.5` por semana
+  - Patrocínio: `(reputação/50)² × 1.2` por semana
 - **Despesas:**
-  - Folha salarial: `wageBill × (12/52)` — equivalente mensal prorrateado
+  - Salários (semanal): `wageBill × (12/52)` — folha mensal prorrateada
+  - Infraestruturas: `facilitiesLevel × 0.2` por semana
+- **Balanço semanal:** `bilheteira + patrocínio - salários - infraestruturas`
 
-> **Nota:** As receitas da simulação headless são escaladas para corresponder à unidade do wageBill (milhares). O advanceWeek normal ainda usa os valores antigos. Ver `headless_sim.ts` para detalhes.
+### Orçamento e Limite Salarial
+
+- **Orçamento do time** (`calculateTeamBudget`): `(reputação/30)² × 20 + aleatório` (em milhões)
+- **Orçamento de transferências** (`calculateTransferBudget`): `40% a 60% do orçamento total`
+- **Limite salarial recomendado** (`calculateWageLimit`): `60% da renda mensal estimada`
+  - Renda mensal = `(bilheteira + patrocínio) × 52/12`
+  - Se a folha salarial exceder o limite, é exibido alerta "Folha acima do limite recomendado"
 
 ### Gestão Financeira
 
 - **Orçamento de transferência:** Usado para comprar jogadores. Reduz com compras à vista ou entrada de parceladas.
-- **Folha salarial:** Soma de todos os salários do elenco. Recalculada automaticamente após transferências.
+- **Folha salarial:** Soma de todos os salários do elenco (`recalcWageBill`). Recalculada automaticamente após transferências.
 - **Ajuste de salários:** O usuário pode ajustar o salário individual de cada jogador via slider na tela de Finanças.
 - **Projeção:** O sistema projeta o balanço financeiro para as próximas 6 semanas.
 - **Parcelas vencidas:** Se o orçamento não cobrir uma parcela, ela fica vencida e gera alerta no inbox.
+- **Relatório financeiro** (`FinancialReport`): Inclui `facilityCosts` como campo distinto de despesa.
 
 ---
 
@@ -521,7 +547,12 @@ As mensagens podem ter ações associadas (aceitar oferta, responder à diretori
 
 ## Diretoria
 
-- **Expectativa:** Define o que a diretoria espera do time (rebaixamento, meio de tabela, top 4, título)
+- **Expectativa:** Define o que a diretoria espera do time, baseada na **distribuição relativa** das reputações dentro da liga (percentis):
+  - Top 10% por reputação → Título
+  - Próximos 30% → G4 / Libertadores
+  - Próximos 40% → Meio de tabela
+  - Bottom 20% → Evitar rebaixamento
+  - Calculado por `assignBoardExpectations(teams)` em `initGame()`, após todos os times serem carregados/gerados
 - **Satisfação:** Varia de 0 a 100, baseada nos resultados e nas respostas do usuário às mensagens da diretoria
 - **Promessas da diretoria:** Objetivos com prazo (ex: "alcançar top 4 até a semana 20")
 
@@ -575,6 +606,26 @@ Quando há gol, a bola corre para o gol, os jogadores do time atacante avançam,
 - **3 modos:** Claro, Escuro, Sistema (segue a preferência do sistema operacional)
 - A preferência é armazenada em localStorage e aplicada antes da renderização do React (anti-flash).
 - O design segue uma estética funcional e densa, inspirada em ferramentas reais de gestão esportiva — não em jogos casuais.
+- **Design tokens:** Cores definidas em `oklch()` com fallbacks hex para navegadores antigos. Badge tokens semânticos (`--badge-success-bg/fg`, `--badge-warning-bg/fg`, etc.) centralizam cores de status.
+- **Night Pitch theme:** Override global via `.fm-app` com fundo verde escuro e glassmorphism. Contraste de texto melhorado para WCAG AA (opacidade mínima 0.55 para texto terciário, 0.65 para secundário).
+- **Auto dark mode:** `@media (prefers-color-scheme: dark)` aplica tema escuro automaticamente quando o usuário não definiu um tema explícito.
+- **Breakpoints responsivos:** 1024px, 900px (intermediário), 768px, 640px, 480px.
+- **Performance mobile:** `backdrop-filter: blur()` reduzido para 4px em tablets e desativado em telas ≤480px (exceto league table).
+
+---
+
+## Tabelas com Ordenação por Clique
+
+Todas as tabelas do jogo possuem **cabeçalhos clicáveis** para ordenação. Cada clique no cabeçalho alterna entre ordem crescente (↑) e decrescente (↓). O indicador de direção aparece ao lado do nome da coluna ativa.
+
+- **Hook reutilizável:** `useSortable` em `frontend/src/hooks/useSortable.ts` — gerencia estado de ordenação (chave + direção) com toggle.
+- **Tabelas com ordenação:**
+  - **SquadTable** (`/elenco`): Pos, Nome, Idade, CA, Forma, Cond., Moral, Status, Valor, Salário, Lesão
+  - **FinanceView** (`/financas`): Jogador, Posição, Salário, Cláusula, Contrato (Folha Salarial por Jogador)
+  - **DynamicsView** (`/dinamica`): Jogador, Tempo de Jogo, Contrato, Moral, Forma, Status, Trat. Treinador, Confiança
+  - **LeagueTable** (`/classificacao`): #, Time, J, V, E, D, GP, GC, SG, P
+  - **MatchCenter** (`/partidas`): Classificação inline com ordenação por Time, P, J, V, E, D, GM, GS, SG
+- **CSS:** Classes `--sortable` aplicam `cursor: pointer` e hover com cor de destaque.
 
 ---
 
