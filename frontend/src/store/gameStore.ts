@@ -12,7 +12,7 @@ import type {
 } from '../types/game';
 import { apiAction, apiPost } from '../api/client';
 import { getFullName } from '../utils/player';
-import { calculateTicketRevenue, calculateSponsorshipRevenue, calculateFacilityCosts, weeklyWages } from '../utils/finance';
+import { calculateTicketRevenue, calculateSponsorshipRevenue, calculateBroadcastingRevenue, calculateFacilityCosts, weeklyWages } from '../utils/finance';
 
 // ============================================================
 // HELPER FUNCTIONS (mirrored from backend for local getters)
@@ -284,9 +284,10 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     if (!team) return null;
     const ticketRevenue = calculateTicketRevenue(team.reputation);
     const sponsorship = calculateSponsorshipRevenue(team.reputation);
+    const broadcasting = calculateBroadcastingRevenue(team.reputation);
     const facilityCosts = calculateFacilityCosts(team.facilitiesLevel);
     const weeklyWageCost = weeklyWages(team.wageBill);
-    const totalIncome = ticketRevenue + sponsorship;
+    const totalIncome = ticketRevenue + sponsorship + broadcasting;
     const totalExpenses = weeklyWageCost + facilityCosts;
     const profit = totalIncome - totalExpenses;
     const transferSpending = state.transferAgreements
@@ -303,6 +304,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       wageBill: team.wageBill,
       ticketRevenue,
       sponsorshipRevenue: sponsorship,
+      broadcastingRevenue: broadcasting,
       totalIncome,
       facilityCosts,
       totalExpenses,

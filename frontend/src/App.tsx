@@ -18,16 +18,19 @@ import { ThemeToggle } from './components/ui/ThemeToggle';
 import type { ToastData } from './components/ui/Toast';
 import { TransferMarket as TransferMarketComponent } from './components/transfer/TransferMarket';
 import { SeasonSummaryModal } from './components/season/SeasonSummaryModal';
+import { Dashboard } from './components/dashboard/Dashboard';
+import './components/dashboard/Dashboard.css';
 import type { SaveSlotMetadata, Team } from './types/game';
 import {
   FolderOpen, Users, Calendar, BarChart3, ArrowLeftRight, ClipboardList,
-  Dumbbell, Activity, Inbox, Mic, Wallet, Building2,
+  Dumbbell, Activity, Inbox, Mic, Wallet, Building2, LayoutDashboard,
   ArrowLeft, Home, Save, ArrowRight, Globe,
 } from 'lucide-react';
 
 type NavIcon = React.ComponentType<{ size?: number | string }>;
 
 const NAV_ITEMS: { id: string; path: string; label: string; icon: NavIcon; badge?: boolean }[] = [
+  { id: 'dashboard', path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'squad', path: '/elenco', label: 'Elenco', icon: Users },
   { id: 'match', path: '/partidas', label: 'Partidas', icon: Calendar },
   { id: 'league', path: '/classificacao', label: 'Classificação', icon: BarChart3 },
@@ -356,7 +359,7 @@ export const App: React.FC = () => {
           </Button>
           <Button
             className="fm-button--home"
-            onClick={() => navigate('/elenco')}
+            onClick={() => navigate('/dashboard')}
           >
             <Home size={15} /> Início
           </Button>
@@ -386,7 +389,7 @@ export const App: React.FC = () => {
         </div>
         <div className="fm-main__content">
         <Routes>
-          <Route path="/" element={<Navigate to="/elenco" replace />} />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/elenco" element={<SquadView />} />
           <Route path="/partidas" element={<MatchCenter />} />
           <Route path="/classificacao" element={<LeagueTableWrapper />} />
@@ -397,8 +400,9 @@ export const App: React.FC = () => {
           <Route path="/caixa-de-entrada" element={<InboxView />} />
           <Route path="/imprensa" element={<PressCenter />} />
           <Route path="/financas" element={<FinanceView />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/clube" element={<ClubView team={team} />} />
-          <Route path="*" element={<Navigate to="/elenco" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
         </div>
       </main>

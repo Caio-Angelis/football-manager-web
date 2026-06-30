@@ -279,7 +279,7 @@ export function processBiddingWars(
       });
       inboxMessages.push({
         id: `bw_end_${war.id}_${currentWeek}`,
-        type: 'transfer',
+        type: 'news',
         subject: userWon
           ? `🎉 Você venceu a disputa por ${war.playerName}!`
           : `❌ Você perdeu a disputa por ${war.playerName}`,
@@ -327,7 +327,7 @@ export function processBiddingWars(
     if (!userWinning && updatedAIOffers.length > 0) {
       inboxMessages.push({
         id: `bw_round_${war.id}_${currentWeek}`,
-        type: 'transfer',
+        type: 'news',
         subject: `⚔️ Disputa por ${war.playerName} — Ronda ${newRound}`,
         body: `Outro clube ofereceu R$ ${highestAIOffer}M por ${war.playerName}. Você precisa aumentar sua oferta para R$ ${Math.round(highestAIOffer * 1.05 * 10) / 10}M ou mais para continuar na disputa.`,
         timestamp: Date.now(),

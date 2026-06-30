@@ -227,17 +227,27 @@ export const createTransferSlice = (set: Set, get: Get) => ({
     };
 
     // Helper para construir resultado aceito
-    const acceptedResult = (): NegotiationResult => ({
-      status: 'accepted',
-      marketValue,
-      offerPrice,
-      message: `O ${seller.name} aceitou a sua proposta de R$ ${offerPrice}M por ${getFullName(player)}!`,
-      playerWillingness: willingness,
-      willingnessLabel,
-      negotiationRound,
-      maxRounds,
-      contractPreview,
-    });
+    const acceptedResult = (): NegotiationResult => {
+      // === GUERRA DE OFERTAS ===
+      // Só pode ser gerada na primeira ronda
+      if (negotiationRound === 1) {
+        const biddingWar = maybeGenerateBiddingWar(player, seller, offerPrice, state.teams, state.selectedTeam!, state.currentWeek);
+        if (biddingWar) {
+          set({ biddingWars: [...(state.biddingWars ?? []), biddingWar] });
+        }
+      }
+      return {
+        status: 'accepted',
+        marketValue,
+        offerPrice,
+        message: `O ${seller.name} aceitou a sua proposta de R$ ${offerPrice}M por ${getFullName(player)}!`,
+        playerWillingness: willingness,
+        willingnessLabel,
+        negotiationRound,
+        maxRounds,
+        contractPreview,
+      };
+    };
 
     // Helper para contra-oferta
     const counteredResult = (mult: number, msg: string): NegotiationResult => {
@@ -598,7 +608,6 @@ export const createTransferSlice = (set: Set, get: Get) => ({
         buyerBudget -= firstPaymentAmount;
         const remainingPayments = offer.installmentClause.payments.slice(1).map(p => ({
           ...p,
-          dueWeek: p.dueWeek + state.currentWeek,
         }));
         const remainingTotal = remainingPayments.reduce((sum, p) => sum + p.amount, 0);
         newPendingInstallments = [...state.pendingInstallments, {
@@ -753,6 +762,7 @@ export const createTransferSlice = (set: Set, get: Get) => ({
         installmentAmount,
         payments: [],
         status: 'active',
+        direction: 'receivable',
       };
 
       for (let i = 0; i < installmentCount; i++) {

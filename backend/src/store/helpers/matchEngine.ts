@@ -1,6 +1,7 @@
 // Motor de Partida — Cálculo de força, simulação e ratings
 
 import type { Team, Match, MatchEvent, MatchStats, PlayerMatchRating, Player, MatchAction, LiveMatchState, HeatMapZone, TacticalInsight, AssistantAdvice, PostMatchReport, SetPiecesConfig } from '../../types/game';
+import { calculateMatchPrizeMoney } from './finance';
 
 // ============================================================
 // CÁLCULO DE FORÇA DO TIME
@@ -1041,15 +1042,21 @@ export function applyMatchResultToTeams(
     homeTeam.points += 3;
     homeTeam.won++;
     awayTeam.lost++;
+    homeTeam.budget = parseFloat((homeTeam.budget + calculateMatchPrizeMoney('win', homeTeam.reputation)).toFixed(2));
+    awayTeam.budget = parseFloat((awayTeam.budget + calculateMatchPrizeMoney('loss', awayTeam.reputation)).toFixed(2));
   } else if (result.homeGoals < result.awayGoals) {
     awayTeam.points += 3;
     awayTeam.won++;
     homeTeam.lost++;
+    awayTeam.budget = parseFloat((awayTeam.budget + calculateMatchPrizeMoney('win', awayTeam.reputation)).toFixed(2));
+    homeTeam.budget = parseFloat((homeTeam.budget + calculateMatchPrizeMoney('loss', homeTeam.reputation)).toFixed(2));
   } else {
     homeTeam.points += 1;
     awayTeam.points += 1;
     homeTeam.drawn++;
     awayTeam.drawn++;
+    homeTeam.budget = parseFloat((homeTeam.budget + calculateMatchPrizeMoney('draw', homeTeam.reputation)).toFixed(2));
+    awayTeam.budget = parseFloat((awayTeam.budget + calculateMatchPrizeMoney('draw', awayTeam.reputation)).toFixed(2));
   }
 
   updated[homeIdx] = homeTeam;

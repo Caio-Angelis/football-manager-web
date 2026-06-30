@@ -562,7 +562,7 @@ export function processLoans(
             updatedLoans.push({ ...loan, remainingWeeks: 0, status: 'bought' });
             inboxMessages.push({
               id: `loan_bought_${loan.id}_${currentWeek}`,
-              type: 'transfer',
+              type: 'news',
               subject: `✅ Compra obrigatória: ${loan.playerName}`,
               body: `${loan.playerName} foi comprado automaticamente por R$ ${loan.buyOptionFee}M ao fim do empréstimo com ${loan.fromTeamName}.`,
               timestamp: Date.now(),
@@ -590,7 +590,7 @@ export function processLoans(
         updatedLoans.push({ ...loan, remainingWeeks: 0, status: 'completed' });
         inboxMessages.push({
           id: `loan_end_${loan.id}_${currentWeek}`,
-          type: 'transfer',
+          type: 'news',
           subject: `📋 Empréstimo finalizado: ${loan.playerName}`,
           body: `${loan.playerName} retornou ao ${loan.fromTeamName} ao fim do empréstimo de ${loan.durationWeeks} semanas.`,
           timestamp: Date.now(),

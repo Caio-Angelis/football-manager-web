@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../../store/gameStore';
 import { getFullName } from '../../utils/player';
-import { calculateTicketRevenue, calculateSponsorshipRevenue, calculateFacilityCosts, weeklyWages, calculateWageLimit } from '../../utils/finance';
+import { calculateTicketRevenue, calculateSponsorshipRevenue, calculateBroadcastingRevenue, calculateFacilityCosts, weeklyWages, calculateWageLimit } from '../../utils/finance';
 import { useSortable } from '../../hooks/useSortable';
 import { Globe, Users, ArrowRight } from 'lucide-react';
 
@@ -37,9 +37,10 @@ export const FinanceView: React.FC = () => {
 
   const ticketRevenue = calculateTicketRevenue(team.reputation);
   const sponsorship = calculateSponsorshipRevenue(team.reputation);
+  const broadcasting = calculateBroadcastingRevenue(team.reputation);
   const facilityCosts = calculateFacilityCosts(team.facilitiesLevel);
   const weeklyWageCost = weeklyWages(team.wageBill);
-  const totalIncome = ticketRevenue + sponsorship;
+  const totalIncome = ticketRevenue + sponsorship + broadcasting;
   const totalExpenses = weeklyWageCost + facilityCosts;
   const balance = totalIncome - totalExpenses;
   const wageBudgetLimit = calculateWageLimit(team.reputation);
@@ -128,6 +129,10 @@ export const FinanceView: React.FC = () => {
           <div className="fm-finance-ledger__row fm-finance-ledger__row--income">
             <span>Patrocínio (semanal)</span>
             <span>+ R$ {sponsorship.toFixed(2)}M</span>
+          </div>
+          <div className="fm-finance-ledger__row fm-finance-ledger__row--income">
+            <span>Transmissão (semanal)</span>
+            <span>+ R$ {broadcasting.toFixed(2)}M</span>
           </div>
           <div className="fm-finance-ledger__row fm-finance-ledger__row--expense">
             <span>Salários (semanal)</span>

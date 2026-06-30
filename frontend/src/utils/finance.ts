@@ -20,7 +20,17 @@ export function weeklyWages(wageBillMonthly: number): number {
 }
 
 export function calculateWageLimit(reputation: number): number {
-  const weeklyIncome = calculateTicketRevenue(reputation) + calculateSponsorshipRevenue(reputation);
+  const weeklyIncome = calculateTicketRevenue(reputation) + calculateSponsorshipRevenue(reputation) + calculateBroadcastingRevenue(reputation);
   const monthlyIncome = weeklyIncome * 52 / 12;
   return parseFloat((monthlyIncome * 0.6).toFixed(2));
+}
+
+export function calculateBroadcastingRevenue(reputation: number): number {
+  return parseFloat((Math.pow(reputation / 50, 2) * 1.5).toFixed(2));
+}
+
+export function calculateMatchPrizeMoney(result: 'win' | 'draw' | 'loss', reputation: number): number {
+  const base = Math.pow(reputation / 50, 2) * 1.0;
+  const multiplier = result === 'win' ? 3.0 : result === 'draw' ? 1.5 : 0.5;
+  return parseFloat((base * multiplier).toFixed(2));
 }

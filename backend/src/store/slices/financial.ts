@@ -1,5 +1,5 @@
 import type { GameStore, FinancialReport } from '../../types/game';
-import { calculateTicketRevenue, calculateSponsorshipRevenue, calculateFacilityCosts, weeklyWages } from '../helpers/finance';
+import { calculateTicketRevenue, calculateSponsorshipRevenue, calculateBroadcastingRevenue, calculateFacilityCosts, weeklyWages } from '../helpers/finance';
 
 type Set = (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void;
 type Get = () => GameStore;
@@ -13,9 +13,10 @@ export const createFinancialSlice = (set: Set, get: Get) => ({
     // Calculate revenue and expenses using shared helpers
     const ticketRevenue = calculateTicketRevenue(team.reputation);
     const sponsorship = calculateSponsorshipRevenue(team.reputation);
+    const broadcasting = calculateBroadcastingRevenue(team.reputation);
     const facilityCosts = calculateFacilityCosts(team.facilitiesLevel);
     const weeklyWageCost = weeklyWages(team.wageBill);
-    const totalIncome = ticketRevenue + sponsorship;
+    const totalIncome = ticketRevenue + sponsorship + broadcasting;
     const totalExpenses = weeklyWageCost + facilityCosts;
     const profit = totalIncome - totalExpenses;
 
@@ -37,6 +38,7 @@ export const createFinancialSlice = (set: Set, get: Get) => ({
       wageBill: team.wageBill,
       ticketRevenue,
       sponsorshipRevenue: sponsorship,
+      broadcastingRevenue: broadcasting,
       totalIncome,
       facilityCosts,
       totalExpenses,

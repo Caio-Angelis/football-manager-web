@@ -86,6 +86,13 @@ const ACTION_MAP: Record<string, MessageActions> = {
       { label: 'Marcar como Lido', variant: 'secondary', onClick: () => {} },
     ],
   },
+  news: {
+    type: 'news',
+    description: 'Notícia do mundo do futebol',
+    buttons: [
+      { label: 'Marcar como Lido', variant: 'secondary', onClick: () => {} },
+    ],
+  },
 };
 
 // ============================================================
@@ -100,6 +107,7 @@ const MESSAGE_ICONS: Record<string, string> = {
   youth: '🌱',
   training: '🏋️',
   financial: '📊',
+  news: '📰',
 };
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -706,7 +714,7 @@ export const InboxView: React.FC = () => {
             >
               Todas
             </button>
-            {['transfer', 'injury', 'suggestion', 'board', 'youth', 'training', 'financial'].map((type) => (
+            {['transfer', 'injury', 'suggestion', 'board', 'youth', 'training', 'financial', 'news'].map((type) => (
               <button
                 key={type}
                 className={`fm-inbox-view__filter-btn ${activeFilter === type ? 'fm-inbox-view__filter-btn--active' : ''}`}

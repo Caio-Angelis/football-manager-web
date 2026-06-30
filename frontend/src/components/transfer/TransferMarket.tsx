@@ -392,8 +392,9 @@ export const TransferMarket: React.FC<{
   };
 
   const handleQuickSalaryOffer = (percentage: number) => {
-    if (!contractNegotiationResult) return;
-    const value = Math.round(contractNegotiationResult.expectedSalary * percentage);
+    if (!negotiationModal) return;
+    const base = contractNegotiationResult?.expectedSalary ?? parseFloat(salaryOffer) ?? 50;
+    const value = Math.round(base * percentage);
     setSalaryOffer(String(value));
   };
 
@@ -488,32 +489,16 @@ export const TransferMarket: React.FC<{
   };
 
   const handleAcceptOffer = async () => {
-    if (!negotiationModal) return;
-    const price = parseFloat(offerAmount);
-    setNegotiationLoading(true);
-    try {
-      const result = await makeOffer(negotiationModal.playerId, negotiationModal.sellerTeamId, price, negotiationRound);
-      if (result.status === 'accepted') {
-        setNegotiationResult(result);
-        setNegotiationHistory(prev => [...prev, { round: negotiationRound, offerPrice: price, result }]);
-        // Transition to contract negotiation phase
-        const estSalary = result.contractPreview?.estimatedSalary ?? 50;
-        setSalaryOffer(String(estSalary));
-        setContractPhase(true);
-        setContractNegotiationResult(null);
-        setContractNegotiationRound(1);
-        setContractHistory([]);
-        addToast?.('Clube aceitou! Agora negocie o contrato com o jogador.', 'info');
-      } else {
-        setNegotiationResult(result);
-        setNegotiationHistory(prev => [...prev, { round: negotiationRound, offerPrice: price, result }]);
-        addToast?.(result.message, result.status === 'rejected' || result.status === 'walked_away' ? 'warning' : 'info');
-      }
-    } catch {
-      addToast?.('Erro ao enviar proposta.', 'error');
-    } finally {
-      setNegotiationLoading(false);
-    }
+    if (!negotiationModal || !negotiationResult) return;
+    if (negotiationResult.status !== 'accepted') return;
+    // Transition to contract negotiation phase using the already-accepted result
+    const estSalary = negotiationResult.contractPreview?.estimatedSalary ?? 50;
+    setSalaryOffer(String(estSalary));
+    setContractPhase(true);
+    setContractNegotiationResult(null);
+    setContractNegotiationRound(1);
+    setContractHistory([]);
+    addToast?.('Clube aceitou! Agora negocie o contrato com o jogador.', 'info');
   };
 
   const closeNegotiation = () => {
@@ -728,8 +713,8 @@ export const TransferMarket: React.FC<{
                           </Button>
                         )}
                         {player.contractClause && player.contractClause > 0 && team && team.budget >= player.contractClause && (
-                          <Button variant="primary" onClick={() => {
-                            const ok = activateReleaseClause(player.id, teamId);
+                          <Button variant="primary" onClick={async () => {
+                            const ok = await activateReleaseClause(player.id, teamId);
                             if (ok) addToast?.(`Cláusula ativada! ${getFullName(player)} contratado por R$ ${player.contractClause}M.`, 'success');
                             else addToast?.('Não foi possível ativar a cláusula.', 'warning');
                           }}>
@@ -1139,8 +1124,8 @@ export const TransferMarket: React.FC<{
                         Recallar
                       </Button>
                       {loan.buyOptionFee != null && (
-                        <Button variant="primary" onClick={() => {
-                          const ok = buyLoanedPlayer(loan.id);
+                        <Button variant="primary" onClick={async () => {
+                          const ok = await buyLoanedPlayer(loan.id);
                           if (ok) addToast?.(`${loan.playerName} comprado por R$ ${loan.buyOptionFee}M!`, 'success');
                           else addToast?.('Saldo insuficiente para comprar.', 'warning');
                         }}>
@@ -1361,11 +1346,11 @@ export const TransferMarket: React.FC<{
                         placeholder="Nova oferta (R$M)"
                         id={`bid-input-${war.id}`}
                       />
-                      <Button variant="primary" onClick={() => {
+                      <Button variant="primary" onClick={async () => {
                         const input = document.getElementById(`bid-input-${war.id}`) as HTMLInputElement;
                         const val = parseFloat(input?.value || '0');
                         if (val > war.userOffer) {
-                          const ok = raiseBid(war.id, val);
+                          const ok = await raiseBid(war.id, val);
                           if (ok) addToast?.(`Oferta aumentada para R$ ${val}M!`, 'success');
                           else addToast?.('Não foi possível aumentar a oferta.', 'warning');
                         } else {

@@ -74,7 +74,7 @@ export function weeklyWages(wageBillMonthly: number): number {
  * Baseado em 60% da receita mensal estimada.
  */
 export function calculateWageLimit(reputation: number): number {
-  const weeklyIncome = calculateTicketRevenue(reputation) + calculateSponsorshipRevenue(reputation);
+  const weeklyIncome = calculateTicketRevenue(reputation) + calculateSponsorshipRevenue(reputation) + calculateBroadcastingRevenue(reputation);
   const monthlyIncome = weeklyIncome * 52 / 12;
   return parseFloat((monthlyIncome * 0.6).toFixed(2));
 }
@@ -93,4 +93,24 @@ export function calculateTeamBudget(reputation: number): number {
  */
 export function calculateTransferBudget(budget: number): number {
   return parseFloat((budget * (0.4 + Math.random() * 0.2)).toFixed(1));
+}
+
+/**
+ * Receita semanal de direitos de transmissão (em milhões de R$).
+ * Cresce quadraticamente com a reputação do clube.
+ */
+export function calculateBroadcastingRevenue(reputation: number): number {
+  return parseFloat((Math.pow(reputation / 50, 2) * 1.5).toFixed(2));
+}
+
+/**
+ * Premiação por partida (em milhões de R$), baseada no resultado e reputação.
+ * Vitória: 3x base, Empate: 1.5x base, Derrota: 0.5x base.
+ * @param result 'win' | 'draw' | 'loss'
+ * @param reputation reputação do clube (1-100)
+ */
+export function calculateMatchPrizeMoney(result: 'win' | 'draw' | 'loss', reputation: number): number {
+  const base = Math.pow(reputation / 50, 2) * 1.0;
+  const multiplier = result === 'win' ? 3.0 : result === 'draw' ? 1.5 : 0.5;
+  return parseFloat((base * multiplier).toFixed(2));
 }

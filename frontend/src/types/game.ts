@@ -755,6 +755,7 @@ export interface FinancialReport {
   wageBill: number; // em milhões
   ticketRevenue: number; // em milhões
   sponsorshipRevenue: number; // em milhões
+  broadcastingRevenue: number; // em milhões
   totalIncome: number; // em milhões
   facilityCosts: number; // em milhões (semanal)
   totalExpenses: number; // em milhões
@@ -784,7 +785,7 @@ export interface BoardReply {
 
 export interface InboxMessage {
   id: string;
-  type: 'transfer' | 'injury' | 'suggestion' | 'board' | 'youth' | 'training' | 'financial';
+  type: 'transfer' | 'injury' | 'suggestion' | 'board' | 'youth' | 'training' | 'financial' | 'news';
   subject: string;
   body: string;
   timestamp: number;

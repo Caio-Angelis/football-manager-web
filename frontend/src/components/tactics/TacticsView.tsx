@@ -168,6 +168,10 @@ export const TacticsView: React.FC = () => {
   const [activeTab, setActiveTab] = useState('Overview');
   const [editOpen, setEditOpen] = useState(false);
   const [dragSlot, setDragSlot] = useState<number | null>(null);
+  const [dragBenchIndex, setDragBenchIndex] = useState<number | null>(null);
+  const [dragTableBenchId, setDragTableBenchId] = useState<string | null>(null);
+  const [dragOverSlot, setDragOverSlot] = useState<number | null>(null);
+  const [dragOverBench, setDragOverBench] = useState<number | null>(null);
   const [showAllSquad, setShowAllSquad] = useState(false);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
 
@@ -332,6 +336,22 @@ export const TacticsView: React.FC = () => {
     });
   };
 
+  const swapBenchToSlot = (benchPlayerId: string, slotIndex: number) => {
+    updateTeam(team.id, t => {
+      const roles = [...(t.tacticsConfig?.playerRoles ?? [])];
+      const idx = roles.findIndex(r => r.slotIndex === slotIndex);
+      const slot = FORMATIONS[formation][slotIndex];
+      const base = idx >= 0 ? roles[idx] : { slotIndex, role: '', duty: '' } as any;
+      const merged = { ...base, slotIndex, playerId: benchPlayerId, line: slot.line };
+      if (idx >= 0) roles[idx] = merged; else roles.push(merged);
+      const xi = FORMATIONS[formation].map((_, i) => {
+        const rr = roles.find(r => r.slotIndex === i);
+        return rr?.playerId ?? '';
+      }).filter(Boolean);
+      return { ...t, startingXI: xi, tacticsConfig: { ...t.tacticsConfig, playerRoles: roles } };
+    });
+  };
+
   return (
     <div className="fm-tactics-fm">
       {/* ============ TOP BAR ============ */}
@@ -414,13 +434,23 @@ export const TacticsView: React.FC = () => {
               return (
                 <div
                   key={i}
-                  className={`fmt-marker ${dragSlot === i ? 'fmt-marker--dragging' : ''}`}
+                  className={`fmt-marker ${dragSlot === i ? 'fmt-marker--dragging' : ''} ${dragOverSlot === i ? 'fmt-marker--drop-target' : ''}`}
                   style={{ left: `${slot.x * 100}%`, top: `${slot.y * 100}%` }}
                   draggable
                   onDragStart={() => setDragSlot(i)}
-                  onDragOver={e => e.preventDefault()}
-                  onDrop={() => { if (dragSlot !== null) swapSlots(dragSlot, i); setDragSlot(null); }}
-                  onDragEnd={() => setDragSlot(null)}
+                  onDragOver={e => { e.preventDefault(); setDragOverSlot(i); }}
+                  onDragLeave={() => setDragOverSlot(null)}
+                  onDrop={() => {
+                    if (dragBenchIndex !== null && benchPlayers[dragBenchIndex]) {
+                      swapBenchToSlot(benchPlayers[dragBenchIndex].id, i);
+                    } else if (dragTableBenchId) {
+                      swapBenchToSlot(dragTableBenchId, i);
+                    } else if (dragSlot !== null) {
+                      swapSlots(dragSlot, i);
+                    }
+                    setDragSlot(null); setDragBenchIndex(null); setDragTableBenchId(null); setDragOverSlot(null);
+                  }}
+                  onDragEnd={() => { setDragSlot(null); setDragBenchIndex(null); setDragTableBenchId(null); setDragOverSlot(null); }}
                 >
                   <span className={`fmt-marker__role fmt-marker__role--${slot.line}`}>{code} - {duty}</span>
                   <ShirtIcon className={`fmt-marker__shirt ${p ? '' : 'fmt-marker__shirt--empty'}`} />
@@ -454,7 +484,21 @@ export const TacticsView: React.FC = () => {
           {Array.from({ length: 7 }).map((_, i) => {
             const p = benchPlayers[i];
             return (
-              <div key={i} className="fmt-bench-item">
+              <div
+                key={i}
+                className={`fmt-bench-item ${dragBenchIndex === i ? 'fmt-bench-item--dragging' : ''} ${dragOverBench === i ? 'fmt-bench-item--drop-target' : ''}`}
+                draggable={!!p}
+                onDragStart={() => setDragBenchIndex(i)}
+                onDragOver={e => { e.preventDefault(); setDragOverBench(i); }}
+                onDragLeave={() => setDragOverBench(null)}
+                onDrop={() => {
+                  if (dragSlot !== null && p) {
+                    swapBenchToSlot(p.id, dragSlot);
+                  }
+                  setDragSlot(null); setDragBenchIndex(null); setDragTableBenchId(null); setDragOverBench(null);
+                }}
+                onDragEnd={() => { setDragSlot(null); setDragBenchIndex(null); setDragTableBenchId(null); setDragOverBench(null); }}
+              >
                 <ShirtIcon className={`fmt-bench-item__shirt ${p ? '' : 'fmt-marker__shirt--empty'}`} />
                 <span className="fmt-bench-item__label">{p ? (p.surname || p.name) : `Reserva ${String(i + 1).padStart(2, '0')}`}</span>
               </div>
@@ -527,7 +571,13 @@ export const TacticsView: React.FC = () => {
                   );
                 })}
                 {tableBench.map((p, i) => (
-                  <tr key={`b-${i}`} className="fmt-empty-row">
+                  <tr
+                    key={`b-${i}`}
+                    className={`fmt-empty-row fmt-table-bench-row ${dragTableBenchId === p.id ? 'fmt-table-bench-row--dragging' : ''}`}
+                    draggable
+                    onDragStart={() => setDragTableBenchId(p.id)}
+                    onDragEnd={() => { setDragTableBenchId(null); }}
+                  >
                     <td>
                       <div className="fmt-instr-cell">
                         <span className="fmt-row-bar fmt-row-bar--empty" />

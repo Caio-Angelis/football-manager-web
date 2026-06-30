@@ -4,7 +4,7 @@ import type { BoardReply } from './financial';
 
 export interface InboxMessage {
   id: string;
-  type: 'transfer' | 'injury' | 'suggestion' | 'board' | 'youth' | 'training' | 'financial';
+  type: 'transfer' | 'injury' | 'suggestion' | 'board' | 'youth' | 'training' | 'financial' | 'news';
   subject: string;
   body: string;
   timestamp: number;

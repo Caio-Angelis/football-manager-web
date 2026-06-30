@@ -8,6 +8,30 @@ O jogo roda com arquitetura cliente-servidor: um backend em Express mantém todo
 
 ---
 
+## Manager Dashboard
+
+A página inicial do jogo (rota `/dashboard`) é um **painel de comando** que consolida as informações mais importantes do clube numa única tela, eliminando a necessidade de navegar por múltiplas abas para entender o estado geral. O dashboard é dividido em três linhas de cards:
+
+### Linha 1 — Identidade, Próxima Partida e Ações Rápidas
+
+- **Card Hero:** Escudo do clube com borda colorida pela zona da tabela, nome, formação, tática, mentalidade, reputação e expectativa da diretoria. Estatísticas-chave (posição, pontos, jogos, saldo de gols) em destaque. Forma recente (últimos 5 jogos) com badges coloridas (V/E/D) e indicador de tendência (↑/→/↓) com pontuação de forma.
+- **Próxima Partida:** Mostra o confronto agendado (casa vs fora), comparação de força (CA médio dos titulares) com barra visual, informações do adversário (formação, tática, reputação) e botão direto para o Centro de Partidas. Se não houver partida, exibe botão para avançar a semana.
+- **Ações Rápidas:** Grid de 6 botões (Elenco, Táticas, Transferências, Treino, Tabela, Inbox) com badge de mensagens não lidas no Inbox.
+
+### Linha 2 — Saúde do Elenco, Financeiro e Mini-Tabela
+
+- **Saúde do Elenco:** 4 gauges circulares animados (SVG) mostrando Moral média, Físico médio, Forma média e CA médio do elenco. Resumo com total de jogadores e lesionados.
+- **Financeiro:** Orçamento atual e balanço semanal (receitas - despesas). Gráfico de projeção de orçamento para as próximas 8 semanas (Recharts AreaChart com gradiente verde/vermelho). Detalhamento de receitas e despesas semanais. Link para a tela de Finanças.
+- **Mini Classificação:** Top 5 da tabela + posição do usuário (se fora do top 5, com separador "···"). Colunas: posição, nome, pontos, jogos, saldo de gols. Linha do usuário destacada. Bordas coloridas por zona (Libertadores roxo, Sul-Americana âmbar, Rebaixamento vermelho).
+
+### Linha 3 — Artilheiros, Enfermaria e Atmosfera
+
+- **Artilheiros e Assistentes:** Top 3 goleadores e top 3 assistentes da temporada, com medalha de ranking, nome, posição e estatísticas.
+- **Enfermaria:** Lista de jogadores lesionados com severidade colorida (minor verde, moderate âmbar, severe vermelho), barra de progresso de recuperação e dias restantes. Mensagem positiva se o elenco estiver completo.
+- **Atmosfera do Clube:** Barras de progresso para Torcida (fanMood), Diretoria (boardSatisfaction) e Moral do Elenco, com labels descritivos. Stats resumidos (gols pró, gols contra, V-E-D).
+
+---
+
 ## Estrutura da Temporada
 
 - **Duração:** 38 rodadas (semanas) por temporada, representando um campeonato de pontos corridos. O jogo suporta até 3 temporadas consecutivas.
@@ -375,11 +399,13 @@ O usuário pode arrastar e soltar jogadores nas posições do campo. As formaç�
 
 A escalação de titulares oferece múltiplas formas de troca:
 - **Auto-preencher (Plus / Sugestão de seleção / Escolha rápida):** preenche automaticamente os 11 slots com os melhores jogadores por posição (ordenados por `currentAbility`), com fallback para qualquer jogador disponível se não houver candidato da posição ideal.
-- **Drag-and-drop:** arrasta um titular para outro slot no campo 2D para trocar jogadores entre posições (`swapSlots`).
+- **Drag-and-drop entre titulares:** arrasta um titular para outro slot no campo 2D para trocar jogadores entre posições (`swapSlots`).
+- **Drag-and-drop banco ↔ campo:** arrasta um reserva do banco lateral para uma posição titular no campo 2D e eles invertem — o reserva assume a vaga e o titular cai para o banco automaticamente (`swapBenchToSlot`). Também funciona arrastando do campo para o banco. Highlight visual azul indica o alvo do drop.
+- **Drag-and-drop tabela ↔ campo:** arrasta qualquer reserva da tabela de seleção à direita (incluindo jogadores fora do banco de 7) para uma posição titular no campo 2D — mesmo efeito de inversão via `swapBenchToSlot` (`dragTableBenchId`).
 - **Setas de navegação (↑/↓ na topbar):** ciclam formações sequencialmente sem precisar abrir o painel de edição.
 - **Salvar (ícone Download):** salva o jogo no slot 1 com feedback visual de status.
 
-O campo 2D vertical exibe marcadores com camisa, código do role e duty, coloridos por linha (GK/DEF verde, MID âmbar, FWD vermelho). O banco lateral mostra os nomes reais dos reservas. A tabela de seleção à direita permite filtrar entre titulares e elenco completo (botão Filter).
+O campo 2D vertical exibe marcadores com camisa, código do role e duty, coloridos por linha (GK/DEF verde, MID âmbar, FWD vermelho). O banco lateral mostra os nomes reais dos reservas e é **draggable** — arraste do banco para o campo (ou vice-versa) para trocar titular por reserva. A tabela de seleção à direita permite filtrar entre titulares e elenco completo (botão Filter).
 
 ### Sub-abas da tela de Táticas
 
@@ -593,17 +619,29 @@ A cada avanço de semana, o orçamento do clube é atualizado:
 - **Receitas:**
   - Bilheteira: `(reputação/50)² × 1.5` por semana
   - Patrocínio: `(reputação/50)² × 1.2` por semana
+  - Transmissão: `(reputação/50)² × 1.5` por semana
 - **Despesas:**
   - Salários (semanal): `wageBill × (12/52)` — folha mensal prorrateada
   - Infraestruturas: `facilitiesLevel × 0.2` por semana
-- **Balanço semanal:** `bilheteira + patrocínio - salários - infraestruturas`
+- **Balanço semanal:** `bilheteira + patrocínio + transmissão - salários - infraestruturas`
+
+### Premiação por Partida
+
+Além das receitas semanais fixas, cada partida disputada gera premiação baseada no resultado e reputação do clube (`calculateMatchPrizeMoney`):
+
+- **Base:** `(reputação/50)² × 1.0`
+- **Vitória:** base × 3.0
+- **Empate:** base × 1.5
+- **Derrota:** base × 0.5
+
+A premiação é creditada ao orçamento de ambos os times ao final da partida (em `applyMatchResultToTeams`). Times que vencem mais ganham significativamente mais, criando incentivo de desempenho.
 
 ### Orçamento e Limite Salarial
 
 - **Orçamento do time** (`calculateTeamBudget`): `(reputação/30)² × 20 + aleatório` (em milhões)
 - **Orçamento de transferências** (`calculateTransferBudget`): `40% a 60% do orçamento total`
 - **Limite salarial recomendado** (`calculateWageLimit`): `60% da renda mensal estimada`
-  - Renda mensal = `(bilheteira + patrocínio) × 52/12`
+  - Renda mensal = `(bilheteira + patrocínio + transmissão) × 52/12`
   - Se a folha salarial exceder o limite, é exibido alerta "Folha acima do limite recomendado"
 
 ### Gestão Financeira
@@ -613,7 +651,7 @@ A cada avanço de semana, o orçamento do clube é atualizado:
 - **Ajuste de salários:** O usuário pode ajustar o salário individual de cada jogador via slider na tela de Finanças.
 - **Projeção:** O sistema projeta o balanço financeiro para as próximas 6 semanas.
 - **Parcelas vencidas:** Se o orçamento não cobrir uma parcela, ela fica vencida e gera alerta no inbox.
-- **Relatório financeiro** (`FinancialReport`): Inclui `facilityCosts` como campo distinto de despesa.
+- **Relatório financeiro** (`FinancialReport`): Inclui `facilityCosts` como campo distinto de despesa e `broadcastingRevenue` como campo de receita.
 
 ---
 
@@ -733,7 +771,8 @@ A cada avanço de semana, `processWeeklyPressDecay` é chamado ao final do proce
 
 A cada semana, o sistema gera mensagens contextuais para o inbox:
 
-- **Transferências:** Ofertas recebidas, bônus ativados, parcelas vencidas
+- **Transferências:** Ofertas recebidas pelo time do usuário (com ações de aceitar/recusar/negociar/adiar)
+- **Notícias:** Transferências AI-vs-AI, cláusulas ativadas, empréstimos concluídos, bônus ativados, disputas — apenas informativo, sem ações
 - **Lesões:** Alertas de risco alto/crítico, jogadores lesionados
 - **Sugestões:** Recomendações de descanso, substituição
 - **Diretoria:** Expectativas da diretoria, cobranças por resultados
@@ -911,8 +950,9 @@ Não existe um sistema de "High Score" que avalie o patrimônio acumulado, títu
 
 ### Estado Atual
 
-- **Receitas semanais:** Bilheteira = `(reputação/100) × 0.5M` + Patrocínio = `(reputação/100) × 0.3M`. Um time médio (reputação 50) recebe ~0.4M por semana — ~45.6M em 3 temporadas (114 semanas).
-- **Despesas semanais:** Folha salarial = `wageBill × (12/52)` — prorrateado mensal.
+- **Receitas semanais:** Bilheteira = `(reputação/50)² × 1.5M` + Patrocínio = `(reputação/50)² × 1.2M` + Transmissão = `(reputação/50)² × 1.5M`. Um time médio (reputação 50) recebe ~4.2M por semana em receitas fixas.
+- **Premiação por partida:** Vitória = `(rep/50)² × 3.0M`, Empate = `(rep/50)² × 1.5M`, Derrota = `(rep/50)² × 0.5M`. Um time médio que vence 50% das 38 rodadas ganha ~38M adicionais na temporada.
+- **Despesas semanais:** Folha salarial = `wageBill × (12/52)` — prorrateado mensal. Infraestruturas = `facilitiesLevel × 0.2`.
 - **Orçamento inicial:** Definido pelo database/geração procedural, variando por tier.
 - **Contratos:** Duração de 1 a 4 anos (52 a 208 semanas). Cláusula de rescisão de 120-150% do valor da transferência.
 
@@ -1073,3 +1113,9 @@ cd backend && python run_batch.py
 - **#50** `fatigueLog`: Limitado a últimas 20 entradas em todos os pontos de adição (core.ts, injury.ts).
 - **#51** `attributeHistory`: Limitado a últimos 20 snapshots em `attributes.ts` e `core.ts`.
 - **#52** `inbox`: Limitado a últimas 100 mensagens em `advanceWeek` e no bloco de fim de campeonato.
+- **#53** `makeOffer` (backend): `maybeGenerateBiddingWar` agora é chamado quando a oferta é aceita na 1ª ronda. Antes a função era importada mas nunca invocada, então guerras de ofertas nunca eram geradas.
+- **#54** `handleAcceptOffer` (frontend): Botão "Continuar para Negociar Contrato" não re-envia `makeOffer`. Agora transiciona diretamente para a fase de contrato usando o `negotiationResult` já aceito.
+- **#55** `activateReleaseClause` / `buyLoanedPlayer` / `raiseBid` (frontend): Promises agora aguardadas com `await`. Antes o valor truthy da Promise fazia o toast de sucesso aparecer sempre, mesmo em falha.
+- **#56** `handleQuickSalaryOffer` (frontend): Funciona na primeira entrada da fase de contrato. Antes quebrava porque `contractNegotiationResult` era null; agora usa `salaryOffer` como fallback.
+- **#57** `acceptIncomingTransfer` (backend): `dueWeek` das parcelas não soma `currentWeek` duas vezes. Os pagamentos já têm `dueWeek` absoluto quando criados.
+- **#58** `negotiateCounterOffer` (backend): `InstallmentClause` agora inclui `direction: 'receivable'` para alinhar com o tipo esperado.

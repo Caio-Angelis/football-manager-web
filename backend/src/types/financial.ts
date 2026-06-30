@@ -11,6 +11,7 @@ export interface FinancialReport {
   wageBill: number; // em milhões
   ticketRevenue: number; // em milhões
   sponsorshipRevenue: number; // em milhões
+  broadcastingRevenue: number; // em milhões
   totalIncome: number; // em milhões
   facilityCosts: number; // em milhões (semanal)
   totalExpenses: number; // em milhões

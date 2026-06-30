@@ -13,7 +13,7 @@ import { maybeGenerateIncomingTransfer, recalcWageBill, processBiddingWars } fro
 import { processScoutMissions, generateDefaultScouts, decayScoutKnowledge, generateScoutRecommendations, processLoans } from '../helpers/scouting';
 import { processAIWeeklyDecisions } from '../helpers/aiManager';
 import { applyWeeklyMoraleDynamics } from '../helpers/moraleDynamics';
-import { calculateTicketRevenue, calculateSponsorshipRevenue, calculateFacilityCosts, weeklyWages } from '../helpers/finance';
+import { calculateTicketRevenue, calculateSponsorshipRevenue, calculateBroadcastingRevenue, calculateFacilityCosts, weeklyWages } from '../helpers/finance';
 import { updatePlayerAttributes } from '../helpers/training';
 import { weeklyFanMoodDecay, weeklyMediaPressureDecay } from '../helpers/press';
 import { getFullName } from '../../utils/playerName';
@@ -139,11 +139,12 @@ export const createCoreSlice = (set: Set, get: Get) => ({
           const team = updatedTeams[teamIdx];
           const ticketRevenue = calculateTicketRevenue(team.reputation);
           const sponsorship = calculateSponsorshipRevenue(team.reputation);
+          const broadcasting = calculateBroadcastingRevenue(team.reputation);
           const facilityCosts = calculateFacilityCosts(team.facilitiesLevel);
           const wageCost = weeklyWages(team.wageBill);
           updatedTeams[teamIdx] = {
             ...team,
-            budget: Math.max(0, team.budget + ticketRevenue + sponsorship - wageCost - facilityCosts),
+            budget: Math.max(0, team.budget + ticketRevenue + sponsorship + broadcasting - wageCost - facilityCosts),
           };
         }
       }
@@ -347,11 +348,12 @@ export const createCoreSlice = (set: Set, get: Get) => ({
         const team = updatedTeams[teamIdx];
         const ticketRevenue = calculateTicketRevenue(team.reputation);
         const sponsorship = calculateSponsorshipRevenue(team.reputation);
+        const broadcasting = calculateBroadcastingRevenue(team.reputation);
         const facilityCosts = calculateFacilityCosts(team.facilitiesLevel);
         const wageCost = weeklyWages(team.wageBill);
         updatedTeams[teamIdx] = {
           ...team,
-          budget: Math.max(0, team.budget + ticketRevenue + sponsorship - wageCost - facilityCosts),
+          budget: Math.max(0, team.budget + ticketRevenue + sponsorship + broadcasting - wageCost - facilityCosts),
         };
       }
     }
@@ -580,7 +582,7 @@ export const createCoreSlice = (set: Set, get: Get) => ({
       newlyTriggered.forEach(b => {
         newInboxMessages.push({
           id: `bonus_triggered_${Date.now()}_${b.playerId}_${Math.random().toString(36).substr(2, 5)}`,
-          type: 'transfer',
+          type: 'news',
           subject: '💰 Bónus Ativado!',
           body: `Um bónus de R$ ${b.bonusAmount}K foi ativado. Vá em Transferências > Bónus para reclamá-lo.`,
           timestamp: Date.now(),

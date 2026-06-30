@@ -207,7 +207,7 @@ function processAITransfers(
     if (isNotable) {
       inboxMessages.push({
         id: `ai_transfer_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        type: 'transfer',
+        type: 'news',
         subject: `📰 ${buyerTeam.name} contrata ${getFullName(player)}`,
         body: `${buyerTeam.name} fechou a contratação de ${getFullName(player)} (${player.position}, ${player.age} anos) vindo do ${sellerTeam.name} por R$ ${fee}M. O jogador tem CA ${player.currentAbility}.`,
         timestamp: Date.now(),
@@ -563,7 +563,7 @@ function processAIReleaseClauses(
     if (isUserPlayer || isNotable) {
       inboxMessages.push({
         id: `ai_rc_msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        type: 'transfer',
+        type: 'news',
         subject: isUserPlayer
           ? `💸 Cláusula ativada: ${getFullName(player)} saiu do seu time!`
           : `📰 ${buyerTeam.name} ativou cláusula de ${getFullName(player)}`,
@@ -687,7 +687,7 @@ function processAILoans(
     if (player.currentAbility > 120) {
       inboxMessages.push({
         id: `ai_loan_msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        type: 'transfer',
+        type: 'news',
         subject: `📋 ${borrowerTeam.name} empresta ${getFullName(player)}`,
         body: `${borrowerTeam.name} contratou ${getFullName(player)} (${player.position}, ${player.age} anos) por empréstimo de ${lenderTeam.name}. Taxa: R$ ${loanFee}M. Duração: ${durationWeeks} semanas.${hasBuyOption ? ` Cláusula de compra: R$ ${buyOptionFee}M.` : ''}`,
         timestamp: Date.now(),

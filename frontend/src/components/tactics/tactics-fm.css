@@ -167,6 +167,8 @@
   width: 76px; cursor: grab; user-select: none;
 }
 .fmt-marker--dragging { z-index: 50; cursor: grabbing; }
+.fmt-marker--drop-target { z-index: 49; }
+.fmt-marker--drop-target .fmt-marker__shirt { color: var(--t-accent); filter: drop-shadow(0 0 6px var(--t-accent)); }
 .fmt-marker__role { font-size: 10px; font-weight: 700; white-space: nowrap; }
 .fmt-marker__role--gk, .fmt-marker__role--def { color: var(--t-green); }
 .fmt-marker__role--mid { color: var(--t-amber); }
@@ -205,6 +207,9 @@
   cursor: pointer; opacity: .7; transition: opacity .15s;
 }
 .fmt-bench-item:hover { opacity: 1; }
+.fmt-bench-item--dragging { opacity: .4; cursor: grabbing; }
+.fmt-bench-item--drop-target { opacity: 1; }
+.fmt-bench-item--drop-target .fmt-bench-item__shirt { color: var(--t-accent); filter: drop-shadow(0 0 4px var(--t-accent)); }
 .fmt-bench-item__shirt { width: 22px; height: 22px; color: #5a6172; }
 .fmt-bench-item__label { font-size: 8px; color: var(--t-text-3); white-space: nowrap; }
 
@@ -287,6 +292,10 @@
 
 /* Empty filler rows */
 .fmt-table tr.fmt-empty-row td { color: var(--t-text-3); }
+.fmt-table-bench-row { cursor: grab; }
+.fmt-table-bench-row:active { cursor: grabbing; }
+.fmt-table-bench-row--dragging { opacity: .4; }
+.fmt-table-bench-row:hover { background: var(--t-panel-2) !important; }
 
 /* ===================== EDIT TACTIC PANEL ===================== */
 .fmt-edit-panel {

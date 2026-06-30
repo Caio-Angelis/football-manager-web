@@ -114,7 +114,7 @@ football-manager-web/
 │       │       ├── scouting.ts      # maskAttributeValue, processScoutMissions, generateScoutReportForMission, calculateScoutGrade
 │       │       ├── aiManager.ts     # processAIWeeklyDecisions — transferências AI-vs-AI, ajustes táticos, renovações de contrato
 │       │       ├── moraleDynamics.ts # applyWeeklyMoraleDynamics — 6 motores de moral (promessas, tempo de jogo, forma, cascata social, regressão)
-│       │       ├── finance.ts       # calculateMarketValue, calculatePlayerSalary, calculateTeamBudget, calculateTransferBudget, calculateTicketRevenue, calculateSponsorshipRevenue, calculateFacilityCosts, weeklyWages, calculateWageLimit
+│       │       ├── finance.ts       # calculateMarketValue, calculatePlayerSalary, calculateTeamBudget, calculateTransferBudget, calculateTicketRevenue, calculateSponsorshipRevenue, calculateBroadcastingRevenue, calculateFacilityCosts, weeklyWages, calculateWageLimit, calculateMatchPrizeMoney
 │       │       └── preMatchAnalysis.ts # generatePreMatchAnalysis — Monte Carlo (500 iterações), key matchups, recomendação tática
 │       └── tests/
 │           ├── errors.test.ts
@@ -128,7 +128,7 @@ football-manager-web/
     ├── vitest.config.ts        # happy-dom, setup smoke tests
     └── src/
         ├── main.tsx            # BrowserRouter + ErrorBoundary + fetch /api/state (importa app-fm.css e fm-shared.css por último)
-        ├── App.tsx             # Routes + sidebar + footer + toast system (sidebar/actionbar usam ícones lucide)
+        ├── App.tsx             # Routes + sidebar + footer + toast system (sidebar/actionbar usam ícones lucide). Dashboard é a página inicial padrão (/dashboard)
         ├── app-fm.css          # tema dark estilo Football Manager para o SHELL (sidebar/actionbar/fundo), escopado em .fm-shell-fm
         ├── fm-shared.css       # CSS compartilhado com variáveis e componentes base do padrão /taticas (escopado em .fms-page)
         ├── api/
@@ -189,6 +189,9 @@ football-manager-web/
             │   └── FinanceView.tsx
             ├── league/
             │   └── LeagueTable.tsx
+            ├── dashboard/
+            │   ├── Dashboard.tsx        # Manager Dashboard — visão geral com gauges, gráficos e quick actions
+            │   └── Dashboard.css        # Estilos do dashboard (dark theme, gauges, cards, mini-tabela)
             └── season/
                 └── SeasonSummaryModal.tsx  # Resumo de fim de temporada (colocação, zona, artilheiro)
 ```
@@ -286,7 +289,7 @@ Tipos são definidos no backend em 13 arquivos de domínio sob `backend/src/type
 - `FatigueLogEntry`, `Recommendation`, `DegradedCondition`, `InjuryReport`
 
 ### Outros
-- `InboxMessage` (`inbox.ts`), `BoardReply` + `FinancialReport` (`financial.ts`) — `FinancialReport` inclui `facilityCosts`
+- `InboxMessage` (`inbox.ts` — tipos: transfer/injury/suggestion/board/youth/training/financial/news), `BoardReply` + `FinancialReport` (`financial.ts`) — `FinancialReport` inclui `facilityCosts` e `broadcastingRevenue`
 - `TrainingSession`, `WeeklyTrainingPlan` (`training.ts`)
 - `SocialNode`, `SocialTree` (`social.ts`)
 - `FormResult`, `LeagueStandings` (`league.ts`)
@@ -409,7 +412,7 @@ isAdvancing (boolean) — lock contra chamadas concorrentes de advanceWeek
 | Scouting | `scouting.ts` | `maskAttributeValue`, `maskPlayerAttributes`, `getBestScout`, `generateDefaultScouts`, `processScoutMissions`, `generateScoutReportForMission`, `calculateScoutGrade` |
 | AI Manager | `aiManager.ts` | `processAIWeeklyDecisions` — orquestra `processAITransfers` (janelas 1-12 e 20-26, AI-vs-AI), `processAITactics` (ajustes a cada 4 semanas: rebaixamento 50/30/20 attacking/balanced/defensive, título 40% attacking em boa forma, mid-table 50% defensive após derrotas; demissão de técnico com nova formação), `processAIContracts` (renovação automática) |
 | Morale Dynamics | `moraleDynamics.ts` | `applyWeeklyMoraleDynamics` — 6 motores: promessas expiradas, tempo de jogo vs. status, forma do time, cascata do capitão, cascata de grupo social, regressão à média |
-| Finance | `finance.ts` | `calculateMarketValue` (exponencial por overall), `calculatePlayerSalary`, `calculateTeamBudget`, `calculateTransferBudget`, `calculateTicketRevenue`, `calculateSponsorshipRevenue`, `calculateFacilityCosts`, `weeklyWages`, `calculateWageLimit` — espelhado em `frontend/src/utils/finance.ts` |
+| Finance | `finance.ts` | `calculateMarketValue` (exponencial por overall), `calculatePlayerSalary`, `calculateTeamBudget`, `calculateTransferBudget`, `calculateTicketRevenue`, `calculateSponsorshipRevenue`, `calculateBroadcastingRevenue`, `calculateFacilityCosts`, `weeklyWages`, `calculateWageLimit`, `calculateMatchPrizeMoney` (win/draw/loss × reputação) — espelhado em `frontend/src/utils/finance.ts` |
 | Press | `press.ts` | `generatePressConference` (gera perguntas contextuais por categoria/tom), `calculatePressConferenceEffects` (mapeia tom de resposta → efeitos em moral/diretoria/torcida/mídia), `updateFanMood`, `updateMediaPressure`, `weeklyFanMoodDecay`, `weeklyMediaPressureDecay`, `getMediaPressurePerformanceModifier`, `getFanMoodRevenueModifier`, `RESPONSE_OPTIONS` (banco de respostas predefinidas por tom) |
 
 ### Motor de Partida (`helpers/matchEngine.ts`)
@@ -673,10 +676,10 @@ isAdvancing (boolean) — lock contra chamadas concorrentes de advanceWeek
 **Redesign estilo Football Manager (tema dark, escopado em `.fm-tactics-fm` via `tactics-fm.css`).** Layout fiel ao FM com dados reais do time:
 - **Topbar:** logo do clube, título "Táticas", subtítulo com próximo jogo (oponente + C/F), data (temporada/semana) e botão **Continuar** (`advanceWeek`); setas de navegação ciclam formações (`cycleFormation`); ícones Globe → `/clube` e Trophy → `/classificacao`
 - **Subtabs:** Overview, Player, Opposition, Set pieces, Roles, Numbers — Overview/Player mostram tabela de seleção; Opposition mostra análise do adversário; Roles mostra tabela de papéis/funções por slot; Set pieces tem painel completo de bolas paradas; Numbers é placeholder
-- **Campo vertical (`FORMATIONS`):** GK embaixo → ataque no topo; marcadores com camisa, código do role + duty (cores por linha: GK/DEF verde, MID âmbar, FWD vermelho); **drag-and-drop** troca jogadores entre slots (`swapSlots` → atualiza `startingXI` + `tacticsConfig.playerRoles`)
+- **Campo vertical (`FORMATIONS`):** GK embaixo → ataque no topo; marcadores com camisa, código do role + duty (cores por linha: GK/DEF verde, MID âmbar, FWD vermelho); **drag-and-drop** troca jogadores entre slots (`swapSlots` → atualiza `startingXI` + `tacticsConfig.playerRoles`) e entre banco e campo (`swapBenchToSlot` → reserva assume slot, titular cai para banco automaticamente); highlight visual de drop-target com brilho azul (`--t-accent`)
 - **Toolbar do campo:** "Editar tática" (toggle painel), botão Plus (auto-preencher escalão com melhores jogadores por posição via `autoFillBestXI`), botão Save (`saveGame(1)` com feedback de status)
-- **Indicadores:** Entrosamento / Intensidade / Resposta + banco lateral com nomes reais dos reservas (`benchPlayers`)
-- **Tabela de seleção:** colunas Instruções (barra colorida + role/duty), Nac, Habilidade (estrelas via `currentAbility`), Jogador, Posição, Con (fitness), Pre, Mor (cor por moral), Carga, Desempenho, Últ. 5, Méd; titulares por slot + reservas; botão "Sugestão de seleção" e "Escolha rápida" disparam `autoFillBestXI`; botão Filter alterna entre titulares e elenco completo (`showAllSquad`)
+- **Indicadores:** Entrosamento / Intensidade / Resposta + banco lateral com nomes reais dos reservas (`benchPlayers`); itens do banco são **draggable** — arrastar reserva para slot do campo inverte com titular; arrastar titular para banco também funciona
+- **Tabela de seleção:** colunas Instruções (barra colorida + role/duty), Nac, Habilidade (estrelas via `currentAbility`), Jogador, Posição, Con (fitness), Pre, Mor (cor por moral), Carga, Desempenho, Últ. 5, Méd; titulares por slot + reservas; botão "Sugestão de seleção" e "Escolha rápida" disparam `autoFillBestXI`; botão Filter alterna entre titulares e elenco completo (`showAllSquad`); **linhas de reserva são draggable** — arrastar qualquer reserva da tabela para o campo 2D inverte com o titular do slot (`swapBenchToSlot` via `dragTableBenchId`)
 - **Painel "Editar tática":** formação (chips), mentalidade, passe, ritmo (escreve em `team.formation/teamMentality/passingStyle/tempo`)
 - Mapas `ROLE_ABBR` / `DUTY_ABBR` traduzem roles/duties armazenados em `tacticsConfig.playerRoles` para abreviações FM
 - **Aba Set pieces (`SetPiecesPanel`):** painel com 2 colunas (Ataque/Defesa); Ataque: escanteios (cobrança: 1º poste, 2º poste, área, curto, borda — cobrador + alvo/cabeçador), faltas (tiro direto, cruzamento, curto, bola longa — cobrador), laterais (curto, longo, rápido), pênaltis (cobrador); Defesa: escanteios (marcação: individual/zonal/misto + contra-ataque sim/não), faltas (marcação + barreira: pequena/média/grande); selects de jogador mostram atributos relevantes (Cr=Crossing, Cab=Heading, Imp=Jumping, Fl=FreeKicks, Fin=Finishing, Com=Composure); persiste em `tacticsConfig.setPieces` via `updateSetPieces`
@@ -684,8 +687,9 @@ isAdvancing (boolean) — lock contra chamadas concorrentes de advanceWeek
 
 ### InboxView (`inbox/InboxView.tsx`)
 
-- 7 tipos de mensagem (Transfer, Lesão, Sugestão, Diretoria, Base, Treino, Financeiro)
+- 8 tipos de mensagem (Transfer, Lesão, Sugestão, Diretoria, Base, Treino, Financeiro, Notícia)
 - Filtros por tipo; modais funcionais (lesão, diretoria, financeiro)
+- Tipo `news` é apenas informativo (botão "Marcar como Lido"), usado para transferências AI-vs-AI, cláusulas ativadas, empréstimos concluídos, bônus ativados e disputas
 - `BOARD_REPLY_CATEGORIES` em `constants.ts`
 
 ### TrainingView (`training/TrainingView.tsx`)
@@ -950,4 +954,4 @@ Console sem erros. Ver também `IMPLMENTATION_CHECKLIST.md`.
 
 ---
 
-**Última atualização:** Junho 2026 — sistema multi-temporada (até 3, `startNextSeason`, `SeasonSummary`, `gameOver`); IA adversária ativa (helper `aiManager.ts` — transferências AI-vs-AI em janelas, ajustes táticos por zona da tabela, demissão de técnico, renovações de contrato); dinâmica de moral semanal (helper `moraleDynamics.ts` — 6 motores: promessas, tempo de jogo, forma, cascata do capitão, cascata de grupo social, regressão à média); motor de partida atualizado (`simulateFullMatch`/`simulateMinute`/`initLiveMatchState` — simulação passo a passo para todas as partidas); relatório pós-jogo (`generatePostMatchReport` — mapa de calor 3×3, insights táticos, conselhos do assistente, breakdown de passes); novos tipos `PostMatchReport`, `HeatMapZone`, `TacticalInsight`, `AssistantAdvice`, `SeasonSummary`; novos componentes `PostMatchReportView` e `SeasonSummaryModal`; helpers agora são 9 (era 7); `startNextSeason` sem schema Zod; **sistema de transferências expandido:** empréstimos (`LoanDeal` — loanPlayer, recallLoanedPlayer, buyLoanedPlayer), cláusulas de rescisão (`activateReleaseClause`), guerra de ofertas (`BiddingWar` — raiseBid, withdrawBid), shortlist (`ShortlistEntry` — addToShortlist, removeFromShortlist, getShortlist), recomendações de scouts (`ScoutRecommendation` — dismissScoutRecommendation), experiência de scouts (`Scout.experience`, `Scout.missionsCompleted`); novos campos no `GameState`: `shortlist`, `scoutRecommendations`, `activeLoans`, `biddingWars`; compatibilidade de saves atualizada em `saves.ts`; 9 novos schemas Zod (total 91); UI do `TransferMarket` com 4 novas abas (Empréstimos, Shortlist, Recomendações, Guerra de Ofertas) + botões de shortlist/cláusula nos cards do mercado + painel de olheiros com experiência
+**Última atualização:** Junho 2026 — sistema multi-temporada (até 3, `startNextSeason`, `SeasonSummary`, `gameOver`); IA adversária ativa (helper `aiManager.ts` — transferências AI-vs-AI em janelas, ajustes táticos por zona da tabela, demissão de técnico, renovações de contrato); dinâmica de moral semanal (helper `moraleDynamics.ts` — 6 motores: promessas, tempo de jogo, forma, cascata do capitão, cascata de grupo social, regressão à média); motor de partida atualizado (`simulateFullMatch`/`simulateMinute`/`initLiveMatchState` — simulação passo a passo para todas as partidas); relatório pós-jogo (`generatePostMatchReport` — mapa de calor 3×3, insights táticos, conselhos do assistente, breakdown de passes); novos tipos `PostMatchReport`, `HeatMapZone`, `TacticalInsight`, `AssistantAdvice`, `SeasonSummary`; novos componentes `PostMatchReportView` e `SeasonSummaryModal`; helpers agora são 9 (era 7); `startNextSeason` sem schema Zod; **sistema de transferências expandido:** empréstimos (`LoanDeal` — loanPlayer, recallLoanedPlayer, buyLoanedPlayer), cláusulas de rescisão (`activateReleaseClause`), guerra de ofertas (`BiddingWar` — raiseBid, withdrawBid), shortlist (`ShortlistEntry` — addToShortlist, removeFromShortlist, getShortlist), recomendações de scouts (`ScoutRecommendation` — dismissScoutRecommendation), experiência de scouts (`Scout.experience`, `Scout.missionsCompleted`); novos campos no `GameState`: `shortlist`, `scoutRecommendations`, `activeLoans`, `biddingWars`; compatibilidade de saves atualizada em `saves.ts`; 9 novos schemas Zod (total 91); UI do `TransferMarket` com 4 novas abas (Empréstimos, Shortlist, Recomendações, Guerra de Ofertas) + botões de shortlist/cláusula nos cards do mercado + painel de olheiros com experiência; **correções de bugs no mercado de transferências (#53-#58):** `maybeGenerateBiddingWar` agora é chamado em `makeOffer` ao aceitar oferta (antes nunca era invocado); `handleAcceptOffer` não re-envia `makeOffer` quando já aceito; `activateReleaseClause`/`buyLoanedPlayer`/`raiseBid` agora aguardam Promise com `await` (antes sempre mostravam sucesso); `handleQuickSalaryOffer` funciona na primeira entrada da fase de contrato; `acceptIncomingTransfer` não soma `currentWeek` duas vezes no `dueWeek` das parcelas; `negotiateCounterOffer` inclui `direction: 'receivable'` no `InstallmentClause`
