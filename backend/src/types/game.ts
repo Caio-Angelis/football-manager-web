@@ -2,13 +2,13 @@
 // Re-exporta todos os tipos de domínio para compatibilidade total
 
 // Player
-export type { PlayerAttribute, GKAttributes, HiddenAttributes, Promise, Player } from './player';
+export type { PlayerAttribute, GKAttributes, HiddenAttributes, PlayerPromise, Player } from './player';
 
 // Team & Tactics
-export type { PlayerRole, PlayerInstruction, TeamTacticsConfig, Team, Scout } from './team';
+export type { PlayerRole, PlayerInstruction, TeamTacticsConfig, Team, Scout, SetPiecesConfig, CornerSetPiece, FreeKickSetPiece, ThrowInSetPiece, DefensiveCornerSetPiece, DefensiveFreeKickSetPiece } from './team';
 
 // Match
-export type { MatchEvent, MatchStats, MatchAction, LiveMatchState, PlayerMatchRating, Match, HeatMapZone, TacticalInsight, AssistantAdvice, PostMatchReport } from './match';
+export type { MatchEvent, MatchStats, MatchAction, LiveMatchState, PlayerMatchRating, Match, HeatMapZone, TacticalInsight, AssistantAdvice, PostMatchReport, KeyMatchup, FormComparison, TacticalRecommendation, PreMatchAnalysis } from './match';
 
 // Transfer
 export type {
@@ -48,11 +48,14 @@ export type { SaveSlotMetadata, SaveSlot } from './saves';
 // Youth & Reserve
 export type { YouthPlayer, YouthAcademy, ReserveTeamPlayer } from './youth';
 
+// Press
+export type { PressQuestion, PressQuestionCategory, PressTone, PressResponse, PressResponseTone, PressConference, PressConferenceType, PressConferenceEffects, FanMood, MediaPressure } from './press';
+
 // ============================================================
 // ESTADO GLOBAL DO JOGO
 // ============================================================
 
-import type { Match } from './match';
+import type { Match, PreMatchAnalysis } from './match';
 import type { Team } from './team';
 import type { TransferOffer, IncomingTransfer, CounterOffer, DeferredTransfer, InstallmentClause, PlayerBonus, TransferAgreement, CompletedTransfer, ScoutReport, NegotiationResult, ContractNegotiationResult, ActiveScoutMission, LoanDeal, ShortlistEntry, ScoutRecommendation, BiddingWar } from './transfer';
 import type { InboxMessage } from './inbox';
@@ -64,7 +67,8 @@ import type { LeagueStandings } from './league';
 import type { SaveSlot, SaveSlotMetadata } from './saves';
 import type { YouthAcademy, ReserveTeamPlayer, YouthPlayer } from './youth';
 import type { Player } from './player';
-import type { Promise as PlayerPromise } from './player';
+import type { PlayerPromise } from './player';
+import type { PressConference, FanMood, MediaPressure, PressResponseTone } from './press';
 
 export interface SeasonSummary {
   season: number;
@@ -139,6 +143,11 @@ export interface GameState {
   // Resumo de fim de temporada
   seasonSummary: SeasonSummary | null;
   gameOver: boolean;
+  // Sistema de Coletiva de Imprensa
+  pressConferences: PressConference[];
+  fanMood: FanMood;
+  mediaPressure: MediaPressure;
+  isAdvancing: boolean;
 }
 
 export interface GameActions {
@@ -269,6 +278,17 @@ export interface GameActions {
   dismissScoutRecommendation: (recommendationId: string) => void;
   // Resumo de fim de temporada
   startNextSeason: () => void;
+  // Centro de Inteligência Pré-Jogo
+  getPreMatchAnalysis: (matchIndex: number) => PreMatchAnalysis | null;
+  // Sistema de Coletiva de Imprensa
+  generatePreMatchPressConference: (matchIndex: number) => PressConference | null;
+  generatePostMatchPressConference: (matchIndex: number) => PressConference | null;
+  answerPressQuestion: (conferenceId: string, questionId: string, tone: PressResponseTone, text: string) => void;
+  skipPressConference: (conferenceId: string) => void;
+  applyPressConferenceEffects: (conferenceId: string) => void;
+  processWeeklyPressDecay: () => void;
+  getPendingPressConference: () => PressConference | null;
+  getPressConferenceHistory: () => PressConference[];
 }
 
 export type GameStore = GameState & GameActions;

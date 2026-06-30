@@ -49,7 +49,6 @@ export const createSavesSlice = (set: Set, get: Get) => ({
         degradedConditions: state.degradedConditions,
         socialTree: state.socialTree,
         leagueTable: state.leagueTable,
-        saveSlots: state.saveSlots,
         deferredTransfers: state.deferredTransfers,
         youthAcademy: state.youthAcademy,
         reserveTeam: state.reserveTeam,
@@ -62,6 +61,10 @@ export const createSavesSlice = (set: Set, get: Get) => ({
         biddingWars: state.biddingWars ?? [],
         seasonSummary: state.seasonSummary,
         gameOver: state.gameOver,
+        pressConferences: state.pressConferences,
+        fanMood: state.fanMood,
+        mediaPressure: state.mediaPressure,
+        isAdvancing: false,
       },
     };
 
@@ -122,6 +125,9 @@ export const createSavesSlice = (set: Set, get: Get) => ({
       biddingWars: gameState.biddingWars ?? [],
       seasonSummary: gameState.seasonSummary ?? null,
       gameOver: gameState.gameOver ?? false,
+      pressConferences: gameState.pressConferences ?? [],
+      fanMood: gameState.fanMood ?? { value: 50, trend: 'stable', sentiment: 'neutral' },
+      mediaPressure: gameState.mediaPressure ?? { value: 30, level: 'moderate' },
       saveSlots: state.saveSlots,
     });
   },

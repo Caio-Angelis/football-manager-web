@@ -8,6 +8,9 @@ import { apiGet } from './api/client';
 import './styles.css';
 import './styles-supplement.css';
 import './styles-mobile.css';
+import './components/press/PressCenter.css';
+import './app-fm.css';
+import './fm-shared.css';
 
 // Fetch initial state from backend
 apiGet<{ state: any }>('/state').then(({ state }) => {

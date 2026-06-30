@@ -21,6 +21,7 @@ export interface InstallmentClause {
   installmentAmount: number; // valor de cada parcela
   payments: InstallmentPayment[]; // histórico de pagamentos
   status: 'active' | 'completed' | 'defaulted';
+  direction?: 'payable' | 'receivable'; // 'payable' = user pays, 'receivable' = user receives
 }
 
 export interface PlayerBonus {

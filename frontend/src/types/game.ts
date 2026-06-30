@@ -127,7 +127,14 @@ export interface Player {
   morale: number;           // 0-100
   form: number;             // 0-100
   fitness: number;          // 0-100
-  injury: { active: boolean; days: number } | null;
+  injury: {
+    active: boolean;
+    daysRemaining: number;
+    totalDays: number;
+    type: string;
+    severity: 'minor' | 'moderate' | 'severe';
+    source: 'training' | 'match' | 'random';
+  } | null;
   
   // Hierarquia no plantel
   squadStatus: string;      // 'Key Player', 'Regular Starter', 'Rotation', 'Young Talent', 'Excess'
@@ -298,7 +305,7 @@ export interface MatchStats {
 // Ação individual durante a partida (cada passe, drible, chute, etc.)
 export interface MatchAction {
   minute: number;
-  type: 'pass' | 'dribble' | 'shot' | 'tackle' | 'interception' | 'clearance' | 'cross' | 'foul' | 'kickoff' | 'goalKick' | 'throwIn';
+  type: 'pass' | 'dribble' | 'shot' | 'tackle' | 'interception' | 'clearance' | 'cross' | 'foul' | 'kickoff' | 'goalKick' | 'throwIn' | 'cornerKick' | 'freeKick' | 'penalty' | 'header';
   team: 'home' | 'away';
   playerId: string;
   playerName: string;
@@ -380,6 +387,45 @@ export interface PostMatchReport {
     home: { left: number; center: number; right: number };
     away: { left: number; center: number; right: number };
   };
+}
+
+export interface KeyMatchup {
+  label: string;
+  homePlayer: { id: string; name: string; position: string; rating: number };
+  awayPlayer: { id: string; name: string; position: string; rating: number };
+  advantage: 'home' | 'away' | 'even';
+  edge: number;
+}
+
+export interface FormComparison {
+  homeForm: string[];
+  awayForm: string[];
+  homeFormScore: number;
+  awayFormScore: number;
+}
+
+export interface TacticalRecommendation {
+  mentality: string;
+  approach: string;
+  reason: string;
+  riskLevel: 'low' | 'medium' | 'high';
+}
+
+export interface PreMatchAnalysis {
+  homeTeam: string;
+  awayTeam: string;
+  homeStrength: number;
+  awayStrength: number;
+  winProbability: { home: number; draw: number; away: number };
+  predictedScore: { home: number; away: number };
+  mostLikelyScore: string;
+  expectedGoals: { home: number; away: number };
+  keyMatchups: KeyMatchup[];
+  formComparison: FormComparison;
+  tacticalRecommendation: TacticalRecommendation;
+  homeAdvantage: number;
+  confidenceLevel: number;
+  summary: string;
 }
 
 export interface Match {
@@ -790,9 +836,49 @@ export interface PlayerInstruction {
   beFairer: boolean;
 }
 
+// ============================================================
+// BOLAS PARADAS (Set Pieces)
+// ============================================================
+
+export interface CornerSetPiece {
+  delivery: 'near_post' | 'far_post' | 'penalty_area' | 'short' | 'edge_of_box';
+  takerId: string;
+  targetId: string;
+}
+
+export interface FreeKickSetPiece {
+  delivery: 'shot_on_goal' | 'cross_into_box' | 'short' | 'long_ball';
+  takerId: string;
+}
+
+export interface ThrowInSetPiece {
+  style: 'short' | 'long' | 'quick';
+  takerId: string;
+}
+
+export interface DefensiveCornerSetPiece {
+  marking: 'man_to_man' | 'zonal' | 'mixed';
+  counterAttack: boolean;
+}
+
+export interface DefensiveFreeKickSetPiece {
+  marking: 'man_to_man' | 'zonal' | 'mixed';
+  wallSize: 'small' | 'medium' | 'large';
+}
+
+export interface SetPiecesConfig {
+  corners: CornerSetPiece;
+  freeKicks: FreeKickSetPiece;
+  throwIns: ThrowInSetPiece;
+  penalties: { takerId: string };
+  defensiveCorners: DefensiveCornerSetPiece;
+  defensiveFreeKicks: DefensiveFreeKickSetPiece;
+}
+
 export interface TeamTacticsConfig {
   playerRoles: PlayerRole[];
   playerInstructions: PlayerInstruction[];
+  setPieces?: SetPiecesConfig;
 }
 
 // ============================================================
@@ -1014,6 +1100,105 @@ export interface SeasonSummary {
 }
 
 // ============================================================
+// SISTEMA DE COLETIVA DE IMPRENSA
+// ============================================================
+
+export type PressQuestionCategory =
+  | 'match_preview' | 'match_review' | 'transfer' | 'player_form'
+  | 'tactics' | 'board' | 'rivalry' | 'injury' | 'season_goals' | 'controversy';
+
+export type PressTone = 'aggressive' | 'neutral' | 'friendly' | 'provocative';
+
+export interface PressQuestion {
+  id: string;
+  category: PressQuestionCategory;
+  tone: PressTone;
+  journalistName: string;
+  outlet: string;
+  question: string;
+  relatedPlayerId?: string;
+  relatedPlayerName?: string;
+  relatedTeamName?: string;
+}
+
+export type PressResponseTone = 'praise' | 'defensive' | 'critical' | 'diplomatic' | 'deflect';
+
+export interface PressResponse {
+  questionId: string;
+  tone: PressResponseTone;
+  text: string;
+}
+
+export type PressConferenceType = 'pre_match' | 'post_match' | 'general';
+
+export interface PressConference {
+  id: string;
+  type: PressConferenceType;
+  week: number;
+  season: number;
+  questions: PressQuestion[];
+  responses: PressResponse[];
+  status: 'pending' | 'completed' | 'skipped';
+  context: {
+    opponentName?: string;
+    isHome?: boolean;
+    lastResult?: { homeGoals: number; awayGoals: number; opponentName: string };
+    leaguePosition?: number;
+    recentForm?: string[];
+  };
+  effects?: PressConferenceEffects;
+}
+
+export interface PressConferenceEffects {
+  moraleChange: number;
+  boardSatisfactionChange: number;
+  fanMoodChange: number;
+  mediaPressureChange: number;
+  affectedPlayerIds: string[];
+  headline: string;
+}
+
+export interface FanMood {
+  value: number;
+  trend: 'rising' | 'stable' | 'falling';
+  sentiment: 'ecstatic' | 'happy' | 'satisfied' | 'neutral' | 'concerned' | 'angry' | 'furious';
+}
+
+export interface MediaPressure {
+  value: number;
+  level: 'low' | 'moderate' | 'high' | 'intense';
+  trendingTopic?: string;
+}
+
+export const RESPONSE_OPTIONS: Record<PressResponseTone, { label: string; text: string }[]> = {
+  praise: [
+    { label: 'Elogiar o time', text: 'O time está jogando muito bem. Tenho orgulho desses jogadores.' },
+    { label: 'Mostrar confiança', text: 'Acredito totalmente no grupo. Estamos no caminho certo.' },
+    { label: 'Valorizar o adversário', text: 'Respeitamos o adversário, mas confiamos no nosso trabalho.' },
+  ],
+  defensive: [
+    { label: 'Postura defensiva', text: 'Não vou comentar sobre isso. O foco é a próxima partida.' },
+    { label: 'Proteger o grupo', text: 'O grupo está unido. O que acontece no vestiário fica no vestiário.' },
+    { label: 'Evitar polêmica', text: 'Prefiro não entrar nesse mérito. Cada um tem sua opinião.' },
+  ],
+  critical: [
+    { label: 'Cobrar mais do time', text: 'O nível tem que subir. Não dá para aceitar esse padrão.' },
+    { label: 'Crítica direta', text: 'Faltou atitude. Precamos corrigir isso urgentemente.' },
+    { label: 'Assumir responsabilidade', text: 'A culpa é minha. Preciso fazer melhor como treinador.' },
+  ],
+  diplomatic: [
+    { label: 'Resposta equilibrada', text: 'Entendo a pergunta, mas vejo de forma diferente. O futebol tem altos e baixos.' },
+    { label: 'Diplomacia', text: 'Respeito todas as opiniões. Nosso trabalho fala por si dentro de campo.' },
+    { label: 'Visão construtiva', text: 'Temos pontos a melhorar, mas também muita coisa positiva para valorizar.' },
+  ],
+  deflect: [
+    { label: 'Desviar do assunto', text: 'Essa é uma pergunta para outra pessoa. Eu foco em campo.' },
+    { label: 'Responder com ironia', text: 'Boa pergunta. Se eu tivesse a resposta, seria um homem muito feliz.' },
+    { label: 'Focar no próximo jogo', text: 'Já olhamos para frente. O próximo jogo é o mais importante.' },
+  ],
+};
+
+// ============================================================
 // ESTADO DO JOGO
 // ============================================================
 
@@ -1073,6 +1258,11 @@ export interface GameState {
   // Resumo de fim de temporada
   seasonSummary: SeasonSummary | null;
   gameOver: boolean;
+  // Sistema de Coletiva de Imprensa
+  pressConferences: PressConference[];
+  fanMood: FanMood;
+  mediaPressure: MediaPressure;
+  isAdvancing: boolean;
 }
 
 export interface GameActions {
@@ -1105,6 +1295,8 @@ export interface GameActions {
   payInstallment: (installmentId: string) => boolean;
   checkBonuses: (playerId?: string) => void;
   claimBonus: (bonusId: string) => void;
+  generateInstallmentClause: (totalAmount: number, count: number) => InstallmentClause;
+  generatePlayerBonus: (type: PlayerBonus['type'], threshold: number, bonusAmount: number) => PlayerBonus;
   // Métodos para acordos contratuais (Item 7.10)
   terminateTransferAgreement: (agreementId: string, reason?: string) => void;
   getTransferAgreements: (playerId?: string) => TransferAgreement[];
@@ -1146,8 +1338,25 @@ export interface GameActions {
   getActivePromises: () => { player: Player; promise: PlayerPromise; weeksLeft: number }[];
   checkPromiseDeadlines: () => { fulfilled: PlayerPromise[]; expired: PlayerPromise[] };
   adjustPlayerSalary: (playerId: string, newSalary: number) => void;
+  // Item 11.4 - Tratamento pelo treinador
+  setCoachTreatment: (playerId: string, treatment: {
+    type: 'starter' | 'substitute' | 'bench' | 'training' | 'rest';
+    minutesPerWeek: number;
+    trustLevel: number;
+    lastTrainingLoad: number;
+  }) => void;
+  setPlayerTrustLevel: (playerId: string, trustLevel: number) => void;
+  setPlayerTrainingLoad: (playerId: string, trainingLoad: number) => void;
+  // Item 11.4 - Performance do clube
+  updateClubPerformance: (updates: {
+    leaguePosition?: number;
+    leagueForm?: string[];
+    formRating?: 'excellent' | 'good' | 'average' | 'poor' | 'terrible';
+  }) => void;
+  updateLeagueForm: (result: 'W' | 'D' | 'L') => void;
+  setLeaguePosition: (position: number) => void;
   // Sistema de Saves
-  saveGame: (slotNumber: 1 | 2) => void;
+  saveGame: (slotNumber: 1 | 2) => Promise<void>;
   loadGame: (slotNumber: 1 | 2) => void;
   deleteSave: (slotNumber: 1 | 2) => void;
   getSaveSlots: () => SaveSlotMetadata[];
@@ -1181,6 +1390,17 @@ export interface GameActions {
   withdrawBid: (biddingWarId: string) => void;
   // Recomendações de scouts
   dismissScoutRecommendation: (recommendationId: string) => void;
+  // Centro de Inteligência Pré-Jogo
+  getPreMatchAnalysis: (matchIndex: number) => Promise<PreMatchAnalysis | null>;
+  // Sistema de Coletiva de Imprensa
+  generatePreMatchPressConference: (matchIndex: number) => Promise<PressConference | null>;
+  generatePostMatchPressConference: (matchIndex: number) => Promise<PressConference | null>;
+  answerPressQuestion: (conferenceId: string, questionId: string, tone: PressResponseTone, text: string) => void;
+  skipPressConference: (conferenceId: string) => void;
+  applyPressConferenceEffects: (conferenceId: string) => void;
+  processWeeklyPressDecay: () => void;
+  getPendingPressConference: () => PressConference | null;
+  getPressConferenceHistory: () => PressConference[];
   // Resumo de fim de temporada
   startNextSeason: () => void;
 }

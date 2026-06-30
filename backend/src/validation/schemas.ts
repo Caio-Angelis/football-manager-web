@@ -20,6 +20,7 @@ export const actionSchemas: Record<string, z.ZodTypeAny> = {
   generateLiveMatchMinute: z.tuple([zMatchIndex]),
   applyMatchIntervention: z.tuple([zMatchIndex, z.enum(['substitution', 'shout'])]),
   finishMatch: z.tuple([zMatchIndex]),
+  getPreMatchAnalysis: z.tuple([zMatchIndex]),
 
   // Inbox
   markAsRead: z.tuple([zString]),
@@ -146,4 +147,14 @@ export const actionSchemas: Record<string, z.ZodTypeAny> = {
   loadGame: z.tuple([zSlot]),
   deleteSave: z.tuple([zSlot]),
   getSaveSlots: zEmpty,
+
+  // Press Conferences
+  generatePreMatchPressConference: z.tuple([zMatchIndex]),
+  generatePostMatchPressConference: z.tuple([zMatchIndex]),
+  answerPressQuestion: z.tuple([zString, zString, z.enum(['praise', 'defensive', 'critical', 'diplomatic', 'deflect']), zString]),
+  skipPressConference: z.tuple([zString]),
+  applyPressConferenceEffects: z.tuple([zString]),
+  processWeeklyPressDecay: zEmpty,
+  getPendingPressConference: zEmpty,
+  getPressConferenceHistory: zEmpty,
 };

@@ -14,6 +14,7 @@ import { createPromisesSlice } from './slices/promises';
 import { createSavesSlice } from './slices/saves';
 import { createYouthSlice } from './slices/youth';
 import { createAttributesSlice } from './slices/attributes';
+import { createPressSlice } from './slices/press';
 
 // ============================================================
 // STORE — Composition Root
@@ -61,6 +62,10 @@ export const useGameStore = create<GameStore>()(
     reserveTeam: [],
     seasonSummary: null,
     gameOver: false,
+    pressConferences: [],
+    fanMood: { value: 50, trend: 'stable', sentiment: 'neutral' },
+    mediaPressure: { value: 50, level: 'low' },
+    isAdvancing: false,
 
     // --- Slices (actions) ---
     ...createCoreSlice(set, get),
@@ -76,5 +81,6 @@ export const useGameStore = create<GameStore>()(
     ...createSavesSlice(set, get),
     ...createYouthSlice(set, get),
     ...createAttributesSlice(set, get),
+    ...createPressSlice(set, get),
   }),
 );

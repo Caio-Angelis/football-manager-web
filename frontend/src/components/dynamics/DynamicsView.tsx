@@ -1,8 +1,10 @@
 import React, { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../../store/gameStore';
 import type { Player } from '../../types/game';
 import { getFullName } from '../../utils/player';
 import { useSortable } from '../../hooks/useSortable';
+import { Globe, Users, ArrowRight } from 'lucide-react';
 
 type DynamicsSortKey = 'name' | 'playingTime' | 'contract' | 'morale' | 'performance' | 'squadStatus' | 'coachTreatment' | 'trustLevel';
 
@@ -60,7 +62,8 @@ function getInfluenceColor(influence: number): string {
 }
 
 export const DynamicsView: React.FC = () => {
-  const { selectedTeam, teams, socialTree, generateSocialTree, getActivePromises } = useGameStore();
+  const { selectedTeam, teams, currentWeek, currentSeason, advanceWeek, isAdvancing, socialTree, generateSocialTree, getActivePromises } = useGameStore();
+  const navigate = useNavigate();
   const team = teams.find(t => t.id === selectedTeam);
 
   if (!team) {
@@ -107,11 +110,30 @@ export const DynamicsView: React.FC = () => {
   const activePromises = getActivePromises();
 
   return (
-    <div className="fm-dynamics-view">
-      <header className="fm-dynamics-view__header">
-        <h1>Dinâmica do Plantel</h1>
-        <p>{team.name}</p>
+    <div className="fms-page">
+      <header className="fms-topbar">
+        <div className="fms-topbar__left">
+          <div className="fms-club-logo">{(team.name ?? '?').charAt(0)}</div>
+          <div className="fms-title-block">
+            <span className="fms-title">Dinâmica do Plantel</span>
+            <span className="fms-subtitle">{team.name}</span>
+          </div>
+        </div>
+        <div className="fms-topbar__right">
+          <button className="fms-icon-btn" title="Visão do Clube" onClick={() => navigate('/clube')}><Globe size={15} /></button>
+          <button className="fms-icon-btn" title="Elenco" onClick={() => navigate('/elenco')}><Users size={15} /></button>
+          <div className="fms-date">
+            <div className="fms-date__main">Temporada {currentSeason}</div>
+            <div className="fms-date__sub">Semana {currentWeek}</div>
+          </div>
+          <button className="fms-continue" onClick={advanceWeek} disabled={isAdvancing}>
+            {isAdvancing ? 'Processando...' : 'Continuar'}
+            <ArrowRight size={15} />
+          </button>
+        </div>
       </header>
+
+      <div className="fms-body--scroll">
 
       <section className="fm-dynamics-view__section">
         <h2>Pirâmide de Hierarquia</h2>
@@ -238,17 +260,51 @@ export const DynamicsView: React.FC = () => {
 
       <section className="fm-dynamics-view__section">
         <h2>Grupos Sociais</h2>
-        <div className="fm-social-tree">
-          {Object.entries(socialGroups).map(([group, players]) => (
-            <div key={group} className="fm-social-group">
-              <h3>{group}</h3>
-              <ul>
-                {players.map(p => (
-                  <li key={p.id}>{getFullName(p)}</li>
-                ))}
-              </ul>
-            </div>
-          ))}
+        <div className="fm-social-groups-grid">
+          {Object.entries(socialGroups).map(([group, players], idx) => {
+            const avgMorale = Math.round(players.reduce((s, p) => s + (p.morale ?? 50), 0) / players.length);
+            const cohesionColor = avgMorale >= 70 ? 'high' : avgMorale >= 45 ? 'medium' : 'low';
+            return (
+              <div key={group} className="fm-social-group-card" data-group-index={idx}>
+                <div className="fm-social-group-card__accent" />
+                <div className="fm-social-group-card__header">
+                  <div className="fm-social-group-card__title-row">
+                    <span className="fm-social-group-card__avatar">
+                      {players.length === 1 ? '👤' : '👥'}
+                    </span>
+                    <div className="fm-social-group-card__title-wrap">
+                      <h3 className="fm-social-group-card__title">{group}</h3>
+                      <span className="fm-social-group-card__count">{players.length} {players.length === 1 ? 'membro' : 'membros'}</span>
+                    </div>
+                  </div>
+                  <div className={`fm-social-group-card__cohesion fm-social-group-card__cohesion--${cohesionColor}`} title={`Moral média: ${avgMorale}%`}>
+                    <span className="fm-social-group-card__cohesion-label">Coesão</span>
+                    <div className="fm-social-group-card__cohesion-bar">
+                      <div className="fm-social-group-card__cohesion-fill" style={{ width: `${avgMorale}%` }} />
+                    </div>
+                    <span className="fm-social-group-card__cohesion-value">{avgMorale}%</span>
+                  </div>
+                </div>
+                <div className="fm-social-group-card__members">
+                  {players.map(p => {
+                    const initials = (p.name?.charAt(0) ?? '') + (p.surname?.charAt(0) ?? '');
+                    return (
+                      <div key={p.id} className="fm-social-group-card__member">
+                        <span className="fm-social-group-card__member-avatar" data-group-index={idx}>{initials || '?'}</span>
+                        <span className="fm-social-group-card__member-name">{getFullName(p)}</span>
+                        <div className="fm-social-group-card__member-badges">
+                          <span className="fm-social-group-card__badge fm-social-group-card__badge--pos">{p.position}</span>
+                          {p.squadStatus && (
+                            <span className={`fm-social-group-card__badge fm-social-group-card__badge--${(p.squadStatus || '').toLowerCase().replace(/\s+/g, '-')}`}>{p.squadStatus}</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
           {Object.keys(socialGroups).length <= 1 && (
             <p className="fm-dynamics-view__note">
               Panelinhas ainda não formadas — coesão de equipa no treino ajuda a criar grupos.
@@ -390,6 +446,7 @@ export const DynamicsView: React.FC = () => {
           </div>
         )}
       </section>
+      </div>
     </div>
   );
 };

@@ -1,13 +1,16 @@
 import React, { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../../store/gameStore';
 import { getFullName } from '../../utils/player';
 import { calculateTicketRevenue, calculateSponsorshipRevenue, calculateFacilityCosts, weeklyWages, calculateWageLimit } from '../../utils/finance';
 import { useSortable } from '../../hooks/useSortable';
+import { Globe, Users, ArrowRight } from 'lucide-react';
 
 type WageSortKey = 'name' | 'position' | 'salary' | 'contractClause' | 'contractEnd';
 
 export const FinanceView: React.FC = () => {
-  const { selectedTeam, teams, currentSeason, currentWeek } = useGameStore();
+  const { selectedTeam, teams, currentSeason, currentWeek, advanceWeek, isAdvancing } = useGameStore();
+  const navigate = useNavigate();
   const team = teams.find(t => t.id === selectedTeam);
 
   if (!team) {
@@ -48,11 +51,30 @@ export const FinanceView: React.FC = () => {
   });
 
   return (
-    <div className="fm-finance-view">
-      <header className="fm-finance-view__header">
-        <h1>Finanças</h1>
-        <p>{team.name} — Temporada {currentSeason}, Semana {currentWeek}</p>
+    <div className="fms-page">
+      <header className="fms-topbar">
+        <div className="fms-topbar__left">
+          <div className="fms-club-logo">{(team?.name ?? '?').charAt(0)}</div>
+          <div className="fms-title-block">
+            <span className="fms-title">Finanças</span>
+            <span className="fms-subtitle">{team?.name ?? '—'} — Temporada {currentSeason}, Semana {currentWeek}</span>
+          </div>
+        </div>
+        <div className="fms-topbar__right">
+          <button className="fms-icon-btn" title="Visão do Clube" onClick={() => navigate('/clube')}><Globe size={15} /></button>
+          <button className="fms-icon-btn" title="Elenco" onClick={() => navigate('/elenco')}><Users size={15} /></button>
+          <div className="fms-date">
+            <div className="fms-date__main">Temporada {currentSeason}</div>
+            <div className="fms-date__sub">Semana {currentWeek}</div>
+          </div>
+          <button className="fms-continue" onClick={advanceWeek} disabled={isAdvancing}>
+            {isAdvancing ? 'Processando...' : 'Continuar'}
+            <ArrowRight size={15} />
+          </button>
+        </div>
       </header>
+
+      <div className="fms-body--scroll">
 
       <div className="fm-finance-view__summary">
         <div className="fm-finance-card fm-finance-card--highlight">
@@ -159,6 +181,7 @@ export const FinanceView: React.FC = () => {
           ))}
         </div>
       </section>
+      </div>
     </div>
   );
 };

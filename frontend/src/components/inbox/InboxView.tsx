@@ -1,8 +1,10 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../../store/gameStore';
 import { Button } from '../ui/Button';
 import type { InboxMessage, InjuryReport, BoardReply, FinancialReport } from '../../types/game';
 import { BOARD_REPLY_CATEGORIES } from './constants';
+import { Globe, Users, ArrowRight } from 'lucide-react';
 
 // ============================================================
 // TIPOS DE MENSAGENS E BOTÕES DE AÇÃO
@@ -549,7 +551,8 @@ export const FinancialReportModal: React.FC<FinancialReportModalProps> = ({ repo
 // ============================================================
 
 export const InboxView: React.FC = () => {
-  const { inbox, selectedTeam, teams, handleInboxAction, getInjuryReport, handleBoardReply, boardSatisfaction, getFinancialReport, deferTransfer } = useGameStore();
+  const { inbox, selectedTeam, teams, currentWeek, currentSeason, advanceWeek, isAdvancing, handleInboxAction, getInjuryReport, handleBoardReply, boardSatisfaction, getFinancialReport, deferTransfer } = useGameStore();
+  const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = React.useState<string>('all');
   const [activePriority, setActivePriority] = React.useState<string>('all');
   const [selectedMessage, setSelectedMessage] = React.useState<InboxMessage | null>(null);
@@ -667,23 +670,30 @@ export const InboxView: React.FC = () => {
   };
 
   return (
-    <div className="fm-inbox-view">
-      {/* Header */}
-      <div className="fm-inbox-view__header">
-        <div>
-          <h1 className="fm-inbox-view__title">
-            Caixa de Entrada
-            {unreadCount > 0 && (
-              <span className="fm-inbox-view__unread-badge">
-                {unreadCount}
-              </span>
-            )}
-          </h1>
-          <p className="fm-inbox-view__subtitle">
-            {userTeam ? userTeam.name : 'Time Selecionado'}
-          </p>
+    <div className="fms-page">
+      <header className="fms-topbar">
+        <div className="fms-topbar__left">
+          <div className="fms-club-logo">{(userTeam?.name ?? '?').charAt(0)}</div>
+          <div className="fms-title-block">
+            <span className="fms-title">Caixa de Entrada{unreadCount > 0 && <span className="fms-badge fms-badge--accent" style={{ marginLeft: 8 }}>{unreadCount}</span>}</span>
+            <span className="fms-subtitle">{userTeam ? userTeam.name : 'Time Selecionado'}</span>
+          </div>
         </div>
-      </div>
+        <div className="fms-topbar__right">
+          <button className="fms-icon-btn" title="Visão do Clube" onClick={() => navigate('/clube')}><Globe size={15} /></button>
+          <button className="fms-icon-btn" title="Elenco" onClick={() => navigate('/elenco')}><Users size={15} /></button>
+          <div className="fms-date">
+            <div className="fms-date__main">Temporada {currentSeason}</div>
+            <div className="fms-date__sub">Semana {currentWeek}</div>
+          </div>
+          <button className="fms-continue" onClick={advanceWeek} disabled={isAdvancing}>
+            {isAdvancing ? 'Processando...' : 'Continuar'}
+            <ArrowRight size={15} />
+          </button>
+        </div>
+      </header>
+
+      <div className="fms-body--scroll">
 
       {/* Filtros */}
       <div className="fm-inbox-view__filters">
@@ -892,6 +902,7 @@ export const InboxView: React.FC = () => {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };

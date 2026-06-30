@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../../store/gameStore';
 import { Button } from '../ui/Button';
 import { MatchPitch2D } from './MatchPitch2D';
 import { PostMatchReportView } from './PostMatchReportView';
+import { PreMatchBriefing } from './PreMatchBriefing';
 import type { MatchEvent, MatchStats, PlayerMatchRating, MatchAction } from '../../types/game';
 import { useSortable } from '../../hooks/useSortable';
+import { Globe, Trophy, ArrowRight } from 'lucide-react';
 
 type MatchStandingsSortKey = 'name' | 'points' | 'played' | 'won' | 'drawn' | 'lost' | 'goalsFor' | 'goalsAgainst' | 'goalDifference';
 
@@ -191,11 +194,13 @@ const PlayerRatingsDisplay: React.FC<{ ratings: PlayerMatchRating[]; bestPlayerI
 };
 
 export const MatchCenter: React.FC = () => {
-  const { matches, teams, selectedTeam, currentWeek, currentSeason, simulateMatch, advanceWeek, applyMatchIntervention, generateLiveMatchMinute, finishMatch } = useGameStore();
+  const { matches, teams, selectedTeam, currentWeek, currentSeason, simulateMatch, advanceWeek, applyMatchIntervention, generateLiveMatchMinute, finishMatch, isAdvancing } = useGameStore();
+  const navigate = useNavigate();
   const { sortState: standingsSort, toggleSort: toggleStandingsSort } = useSortable<MatchStandingsSortKey>('points', 'desc');
   const [selectedMatchIndex, setSelectedMatchIndex] = useState<number | null>(null);
   const [liveMatchWatching, setLiveMatchWatching] = useState<number | null>(null);
   const [matchSpeed, setMatchSpeed] = useState<number>(1);
+  const [briefingMatchIndex, setBriefingMatchIndex] = useState<number | null>(null);
 
   // Reset selection when week changes (new matches are generated)
   useEffect(() => {
@@ -238,15 +243,30 @@ export const MatchCenter: React.FC = () => {
   };
 
   return (
-    <div className="fm-match-center">
-      <header className="fm-match-center__header">
-        <h1>Centro de Partidas</h1>
-        <div className="fm-match-center__week">
-          <span>Temporada {currentSeason} — Semana {currentWeek}</span>
+    <div className="fms-page">
+      <header className="fms-topbar">
+        <div className="fms-topbar__left">
+          <div className="fms-club-logo">{(teams.find(t => t.id === selectedTeam)?.name ?? '?').charAt(0)}</div>
+          <div className="fms-title-block">
+            <span className="fms-title">Centro de Partidas</span>
+            <span className="fms-subtitle">Temporada {currentSeason} — Semana {currentWeek}</span>
+          </div>
+        </div>
+        <div className="fms-topbar__right">
+          <button className="fms-icon-btn" title="Visão do Clube" onClick={() => navigate('/clube')}><Globe size={15} /></button>
+          <button className="fms-icon-btn" title="Classificação" onClick={() => navigate('/classificacao')}><Trophy size={15} /></button>
+          <div className="fms-date">
+            <div className="fms-date__main">Temporada {currentSeason}</div>
+            <div className="fms-date__sub">Semana {currentWeek}</div>
+          </div>
+          <button className="fms-continue" onClick={advanceWeek} disabled={isAdvancing || matches.some(m => m.isLive)}>
+            {isAdvancing ? 'Processando...' : 'Continuar'}
+            <ArrowRight size={15} />
+          </button>
         </div>
       </header>
 
-      <div className="fm-match-center__matches">
+      <div className="fms-body--scroll">
         <h2>Próximas Partidas</h2>
         {matches.length === 0 ? (
           <div className="fm-empty">Nenhuma partida agendada. Avance a semana para gerar partidas.</div>
@@ -289,6 +309,12 @@ export const MatchCenter: React.FC = () => {
                   )}
                   {!isCompleted && !isMatchLive && isUser && (
                     <div className="fm-match__action">
+                      <button
+                        className="fm-match__briefing-btn"
+                        onClick={() => setBriefingMatchIndex(index)}
+                      >
+                        Intelligence Center
+                      </button>
                       <Button onClick={() => {
                         simulateMatch(index);
                         setLiveMatchWatching(index);
@@ -338,7 +364,6 @@ export const MatchCenter: React.FC = () => {
             })}
           </div>
         )}
-      </div>
 
       {/* Live Match View */}
       {liveMatchWatching !== null && matches[liveMatchWatching]?.isLive && (
@@ -583,6 +608,17 @@ export const MatchCenter: React.FC = () => {
           <span className="fm-standings-legend__item"><span className="fm-standings-legend__dot fm-standings-legend__dot--rebaixamento" />Rebaixamento</span>
         </div>
       </div>
+
+      </div>
+
+      {briefingMatchIndex !== null && matches[briefingMatchIndex] && (
+        <PreMatchBriefing
+          matchIndex={briefingMatchIndex}
+          homeTeamName={getTeamName(matches[briefingMatchIndex].homeTeam)}
+          awayTeamName={getTeamName(matches[briefingMatchIndex].awayTeam)}
+          onClose={() => setBriefingMatchIndex(null)}
+        />
+      )}
     </div>
   );
 };

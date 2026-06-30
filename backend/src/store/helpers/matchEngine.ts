@@ -1,6 +1,6 @@
 // Motor de Partida — Cálculo de força, simulação e ratings
 
-import type { Team, Match, MatchEvent, MatchStats, PlayerMatchRating, Player, MatchAction, LiveMatchState, HeatMapZone, TacticalInsight, AssistantAdvice, PostMatchReport } from '../../types/game';
+import type { Team, Match, MatchEvent, MatchStats, PlayerMatchRating, Player, MatchAction, LiveMatchState, HeatMapZone, TacticalInsight, AssistantAdvice, PostMatchReport, SetPiecesConfig } from '../../types/game';
 
 // ============================================================
 // CÁLCULO DE FORÇA DO TIME
@@ -300,9 +300,15 @@ export function simulateMatchResult(homeTeam: Team, awayTeam: Team, homeBoost = 
   const homeDef = Math.max(1, teamDefense(homeTeam));
   const awayDef = Math.max(1, teamDefense(awayTeam));
 
-  // Gols esperados: força ofensiva relativa à defesa adversária
-  const homeLambda = clamp(BASE_GOALS * Math.pow(homeAtt / awayDef, 1.15) * HOME_ADVANTAGE, 0.2, 5.0);
-  const awayLambda = clamp(BASE_GOALS * Math.pow(awayAtt / homeDef, 1.15), 0.15, 4.5);
+  // Bônus de bolas paradas (set pieces)
+  const homeSP = setPieceStrength(homeTeam);
+  const awaySP = setPieceStrength(awayTeam);
+  const homeSPBonus = clamp(homeSP.attack - awaySP.defense, -0.15, 0.25);
+  const awaySPBonus = clamp(awaySP.attack - homeSP.defense, -0.15, 0.25);
+
+  // Gols esperados: força ofensiva relativa à defesa adversária + bolas paradas
+  const homeLambda = clamp(BASE_GOALS * Math.pow(homeAtt / awayDef, 1.15) * HOME_ADVANTAGE + homeSPBonus, 0.2, 5.0);
+  const awayLambda = clamp(BASE_GOALS * Math.pow(awayAtt / homeDef, 1.15) + awaySPBonus, 0.15, 4.5);
 
   const homeGoals = poissonSample(homeLambda);
   const awayGoals = poissonSample(awayLambda);
@@ -1228,6 +1234,541 @@ function calculatePressure(attackingTeam: Team, defendingTeam: Team, ballPos: nu
   return clamp(pressure, 0.10, 0.85);
 }
 
+// ============================================================
+// BOLAS PARADAS (Set Pieces) — Simulação
+// ============================================================
+
+function defaultSetPiecesConfig(): SetPiecesConfig {
+  return {
+    corners: { delivery: 'penalty_area', takerId: '', targetId: '' },
+    freeKicks: { delivery: 'cross_into_box', takerId: '' },
+    throwIns: { style: 'short', takerId: '' },
+    penalties: { takerId: '' },
+    defensiveCorners: { marking: 'zonal', counterAttack: false },
+    defensiveFreeKicks: { marking: 'zonal', wallSize: 'medium' },
+  };
+}
+
+function getSetPiecesConfig(team: Team): SetPiecesConfig {
+  return team.tacticsConfig?.setPieces ?? defaultSetPiecesConfig();
+}
+
+function autoSelectCornerTaker(team: Team): Player {
+  const xi = startingXI(team).filter(p => p.position !== 'GK');
+  if (xi.length === 0) return team.squad[0];
+  return xi.reduce((best, p) =>
+    (p.technical?.crossing ?? 0) > (best.technical?.crossing ?? 0) ? p : best, xi[0]);
+}
+
+function autoSelectCornerTarget(team: Team): Player {
+  const xi = startingXI(team);
+  if (xi.length === 0) return team.squad[0];
+  return xi.reduce((best, p) => {
+    const score = (p.technical?.heading ?? 0) + (p.physical?.jumping ?? 0);
+    const bestScore = (best.technical?.heading ?? 0) + (best.physical?.jumping ?? 0);
+    return score > bestScore ? p : best;
+  }, xi[0]);
+}
+
+function autoSelectFreeKickTaker(team: Team): Player {
+  const xi = startingXI(team).filter(p => p.position !== 'GK');
+  if (xi.length === 0) return team.squad[0];
+  return xi.reduce((best, p) =>
+    (p.technical?.freeKicks ?? 0) > (best.technical?.freeKicks ?? 0) ? p : best, xi[0]);
+}
+
+function autoSelectPenaltyTaker(team: Team): Player {
+  const xi = startingXI(team).filter(p => p.position !== 'GK');
+  if (xi.length === 0) return team.squad[0];
+  return xi.reduce((best, p) => {
+    const score = (p.technical?.finishing ?? 0) + (p.mental?.composure ?? 0);
+    const bestScore = (best.technical?.finishing ?? 0) + (best.mental?.composure ?? 0);
+    return score > bestScore ? p : best;
+  }, xi[0]);
+}
+
+function bestAerialDefender(team: Team): Player {
+  const xi = startingXI(team);
+  if (xi.length === 0) return team.squad[0];
+  return xi.reduce((best, p) => {
+    const score = (p.technical?.heading ?? 0) + (p.physical?.jumping ?? 0) + (p.technical?.marking ?? 0);
+    const bestScore = (best.technical?.heading ?? 0) + (best.physical?.jumping ?? 0) + (best.technical?.marking ?? 0);
+    return score > bestScore ? p : best;
+  }, xi[0]);
+}
+
+interface SetPieceResult {
+  state: LiveMatchState;
+  actions: MatchAction[];
+  events: MatchEvent[];
+}
+
+// Simula cobrança de escanteio
+function simulateCornerKick(
+  attackingTeam: Team,
+  defendingTeam: Team,
+  state: LiveMatchState,
+  minute: number,
+  side: 'home' | 'away',
+  ballPos: number,
+): SetPieceResult {
+  const config = getSetPiecesConfig(attackingTeam);
+  const defConfig = getSetPiecesConfig(defendingTeam);
+  const xi = startingXI(attackingTeam);
+  const defXi = startingXI(defendingTeam);
+
+  const taker = xi.find(p => p.id === config.corners.takerId) ?? autoSelectCornerTaker(attackingTeam);
+  const target = xi.find(p => p.id === config.corners.targetId) ?? autoSelectCornerTarget(attackingTeam);
+  const goalkeeper = defXi.find(p => p.position === 'GK') ?? defXi[0];
+  const bestDef = bestAerialDefender(defendingTeam);
+
+  // Qualidade do cruzamento
+  const crossing = taker.technical?.crossing ?? 10;
+  const deliveryMods: Record<string, number> = {
+    near_post: 1.2, far_post: 0.9, penalty_area: 1.0, short: 1.3, edge_of_box: 0.8,
+  };
+  const deliveryQuality = (crossing / 20) * deliveryMods[config.corners.delivery];
+
+  // Qualidade do alvo aéreo
+  const heading = target.technical?.heading ?? 10;
+  const jumping = target.physical?.jumping ?? 10;
+  const targetQuality = ((heading + jumping) / 2) / 20;
+
+  // Qualidade defensiva
+  const defQuality = ((bestDef.technical?.heading ?? 10) + (bestDef.physical?.jumping ?? 10) + (bestDef.technical?.marking ?? 10)) / 3 / 20;
+
+  // Modificador de marcação defensiva
+  const markingMods: Record<string, number> = { man_to_man: 1.15, zonal: 1.0, mixed: 1.08 };
+  const markingMod = markingMods[defConfig.defensiveCorners.marking];
+
+  // Goleiro (comando de área + alcance aéreo)
+  const gkQuality = ((goalkeeper.goalkeeping?.commandOfArea ?? 10) + (goalkeeper.goalkeeping?.aerialReach ?? 10)) / 2 / 20;
+
+  // Probabilidade de criar chance
+  let chanceProb = 0.12;
+  chanceProb += deliveryQuality * 0.18;
+  chanceProb += targetQuality * 0.22;
+  chanceProb -= defQuality * 0.12 * markingMod;
+  chanceProb -= gkQuality * 0.08;
+
+  // Tipo de cobrança
+  const deliveryChanceMods: Record<string, number> = {
+    near_post: 1.15, far_post: 0.85, penalty_area: 1.0, short: 0.6, edge_of_box: 0.9,
+  };
+  chanceProb *= deliveryChanceMods[config.corners.delivery];
+
+  if (defConfig.defensiveCorners.counterAttack) chanceProb -= 0.03;
+  chanceProb = clamp(chanceProb, 0.03, 0.45);
+
+  const actions: MatchAction[] = [];
+  const events: MatchEvent[] = [];
+  let newState = { ...state };
+
+  events.push({ minute, type: 'corner', team: side, player: taker.name, description: `Escanteio cobrado por ${taker.name}` });
+  actions.push({
+    minute, type: 'cornerKick', team: side, playerId: taker.id, playerName: taker.name,
+    success: Math.random() < chanceProb,
+    description: `${taker.name} cobra o escanteio (${config.corners.delivery.replace(/_/g, ' ')})`, ballPos,
+  });
+
+  if (Math.random() < chanceProb) {
+    // Chance criada — cabeceada do alvo
+    const shotResult = shotSuccessProb(target, goalkeeper, 0.3, attackingTeam);
+
+    actions.push({
+      minute, type: 'header', team: side, playerId: target.id, playerName: target.name,
+      success: shotResult.goal,
+      description: shotResult.goal
+        ? `${target.name} cabeceia para o gol!`
+        : shotResult.onTarget
+          ? `${target.name} cabeceia no alvo — defesa!`
+          : `${target.name} cabeceia para fora`,
+      ballPos,
+    });
+
+    if (side === 'home') {
+      newState.stats = { ...newState.stats, homeShots: newState.stats.homeShots + 1 };
+      if (shotResult.onTarget) newState.stats.homeShotsOnTarget = newState.stats.homeShotsOnTarget + 1;
+    } else {
+      newState.stats = { ...newState.stats, awayShots: newState.stats.awayShots + 1 };
+      if (shotResult.onTarget) newState.stats.awayShotsOnTarget = newState.stats.awayShotsOnTarget + 1;
+    }
+
+    if (shotResult.goal) {
+      if (side === 'home') newState.homeGoals = newState.homeGoals + 1;
+      else newState.awayGoals = newState.awayGoals + 1;
+
+      events.push({
+        minute, type: 'goal', team: side, player: target.name,
+        description: `GOOOL! ${target.name} marca de cabeça em escanteio de ${taker.name}!`,
+      });
+      newState.goalDetails = [...newState.goalDetails, {
+        team: side, minute, scorerId: target.id, scorerName: target.name, assistId: taker.id, assistName: taker.name,
+      }];
+
+      const losingTeam = side === 'home' ? defendingTeam : attackingTeam;
+      const newHolder = pickPlayerWithBall(losingTeam, 0.5);
+      newState.possession = side === 'home' ? 'away' : 'home';
+      newState.ballPos = 0.5;
+      newState.ballHolderId = newHolder.id;
+      newState.passChain = 0;
+    } else if (shotResult.onTarget) {
+      events.push({ minute, type: 'save', team: side === 'home' ? 'away' : 'home', description: `Boa defesa de ${goalkeeper.name} no escanteio!` });
+      const newHolder = pickPlayerWithBall(defendingTeam, ballPos);
+      newState.possession = side === 'home' ? 'away' : 'home';
+      newState.ballHolderId = newHolder.id;
+      newState.passChain = 0;
+    } else {
+      const newHolder = pickPlayerWithBall(defendingTeam, side === 'home' ? 0.1 : 0.9);
+      newState.possession = side === 'home' ? 'away' : 'home';
+      newState.ballHolderId = newHolder.id;
+      newState.passChain = 0;
+      newState.ballPos = side === 'home' ? 0.1 : 0.9;
+    }
+  } else {
+    // Cruzamento afastado
+    const clearer = bestAerialDefender(defendingTeam);
+    actions.push({
+      minute, type: 'clearance', team: side === 'home' ? 'away' : 'home',
+      playerId: clearer.id, playerName: clearer.name, success: true,
+      description: `${clearer.name} afasta o escanteio`, ballPos,
+    });
+
+    if (defConfig.defensiveCorners.counterAttack && Math.random() < 0.6) {
+      const counterPlayer = pickPlayerWithBall(defendingTeam, side === 'home' ? 0.3 : 0.7);
+      newState.possession = side === 'home' ? 'away' : 'home';
+      newState.ballHolderId = counterPlayer.id;
+      newState.passChain = 0;
+      newState.ballPos = clamp(ballPos + (Math.random() - 0.3) * 0.3, 0, 1);
+    } else {
+      const homeWins = Math.random() < 0.5;
+      const winningTeam = homeWins ? defendingTeam : attackingTeam;
+      const winner = pickPlayerWithBall(winningTeam, ballPos);
+      newState.possession = homeWins ? (side === 'home' ? 'away' : 'home') : side;
+      newState.ballHolderId = winner.id;
+      newState.passChain = 0;
+      newState.ballPos = clamp(ballPos + (Math.random() - 0.5) * 0.2, 0, 1);
+    }
+  }
+
+  return { state: newState, actions, events };
+}
+
+// Simula cobrança de falta
+function simulateFreeKick(
+  attackingTeam: Team,
+  defendingTeam: Team,
+  state: LiveMatchState,
+  minute: number,
+  side: 'home' | 'away',
+  ballPos: number,
+): SetPieceResult {
+  const config = getSetPiecesConfig(attackingTeam);
+  const defConfig = getSetPiecesConfig(defendingTeam);
+  const xi = startingXI(attackingTeam);
+  const defXi = startingXI(defendingTeam);
+
+  const taker = xi.find(p => p.id === config.freeKicks.takerId) ?? autoSelectFreeKickTaker(attackingTeam);
+  const goalkeeper = defXi.find(p => p.position === 'GK') ?? defXi[0];
+
+  // Distância do gol (baseada em ballPos)
+  const attackProgress = side === 'home' ? ballPos : 1 - ballPos;
+  const distance = 1 - attackProgress; // 0 = perto, 1 = longe
+
+  // Atributos do cobrador
+  const freeKicks = taker.technical?.freeKicks ?? 10;
+  const technique = taker.technical?.technique ?? 10;
+  const finishing = taker.technical?.finishing ?? 10;
+  const longShots = taker.technical?.longShots ?? 10;
+  const crossing = taker.technical?.crossing ?? 10;
+  const composure = taker.mental?.composure ?? 10;
+
+  // Goleiro
+  const gkReflexes = goalkeeper.goalkeeping?.reflexes ?? 10;
+  const gkPositioning = goalkeeper.mental?.positioning ?? 10;
+
+  // Modificador de barreira
+  const wallMods: Record<string, number> = { small: 1.15, medium: 1.0, large: 0.85 };
+
+  // Modificador de marcação defensiva
+  const markingMods: Record<string, number> = { man_to_man: 1.1, zonal: 1.0, mixed: 1.05 };
+  const markingMod = markingMods[defConfig.defensiveFreeKicks.marking];
+
+  const actions: MatchAction[] = [];
+  const events: MatchEvent[] = [];
+  let newState = { ...state };
+
+  events.push({ minute, type: 'foul', team: side, player: taker.name, description: `Falta cobrada por ${taker.name}` });
+  actions.push({
+    minute, type: 'freeKick', team: side, playerId: taker.id, playerName: taker.name,
+    success: false, description: `${taker.name} prepara a falta (${config.freeKicks.delivery.replace(/_/g, ' ')})`, ballPos,
+  });
+
+  if (config.freeKicks.delivery === 'shot_on_goal') {
+    // Tiro direto
+    let shotProb = 0.15;
+    shotProb += (freeKicks / 20) * 0.20;
+    shotProb += (technique / 20) * 0.10;
+    shotProb += (finishing / 20) * 0.08;
+    shotProb += (longShots / 20) * 0.05;
+    shotProb += (composure / 20) * 0.05;
+    shotProb -= (gkReflexes / 20) * 0.10;
+    shotProb -= (gkPositioning / 20) * 0.06;
+    shotProb *= wallMods[defConfig.defensiveFreeKicks.wallSize];
+    // Faltas mais distantes são mais difíceis
+    shotProb *= (1 - distance * 0.3);
+    shotProb = clamp(shotProb, 0.03, 0.40);
+
+    const goal = Math.random() < shotProb;
+
+    actions.push({
+      minute, type: 'shot', team: side, playerId: taker.id, playerName: taker.name,
+      success: goal,
+      description: goal ? `${taker.name} acerta o tiro livre — GOL!` : `${taker.name} cobra direto — bola passa rente!`,
+      ballPos,
+    });
+
+    if (side === 'home') {
+      newState.stats = { ...newState.stats, homeShots: newState.stats.homeShots + 1 };
+      if (goal) newState.stats.homeShotsOnTarget = newState.stats.homeShotsOnTarget + 1;
+    } else {
+      newState.stats = { ...newState.stats, awayShots: newState.stats.awayShots + 1 };
+      if (goal) newState.stats.awayShotsOnTarget = newState.stats.awayShotsOnTarget + 1;
+    }
+
+    if (goal) {
+      if (side === 'home') newState.homeGoals = newState.homeGoals + 1;
+      else newState.awayGoals = newState.awayGoals + 1;
+      events.push({ minute, type: 'goal', team: side, player: taker.name, description: `GOOOL! ${taker.name} marca de falta!` });
+      newState.goalDetails = [...newState.goalDetails, {
+        team: side, minute, scorerId: taker.id, scorerName: taker.name,
+      }];
+      const losingTeam = side === 'home' ? defendingTeam : attackingTeam;
+      const newHolder = pickPlayerWithBall(losingTeam, 0.5);
+      newState.possession = side === 'home' ? 'away' : 'home';
+      newState.ballPos = 0.5;
+      newState.ballHolderId = newHolder.id;
+      newState.passChain = 0;
+    } else {
+      // Defesa ou para fora
+      if (Math.random() < 0.5) {
+        events.push({ minute, type: 'save', team: side === 'home' ? 'away' : 'home', description: `${goalkeeper.name} defende a falta!` });
+      }
+      const newHolder = pickPlayerWithBall(defendingTeam, side === 'home' ? 0.15 : 0.85);
+      newState.possession = side === 'home' ? 'away' : 'home';
+      newState.ballHolderId = newHolder.id;
+      newState.passChain = 0;
+      newState.ballPos = side === 'home' ? 0.15 : 0.85;
+    }
+  } else if (config.freeKicks.delivery === 'cross_into_box' || config.freeKicks.delivery === 'long_ball') {
+    // Cruzamento ou bola longa na área
+    const target = autoSelectCornerTarget(attackingTeam);
+    const bestDef = bestAerialDefender(defendingTeam);
+
+    let crossProb = 0.15;
+    crossProb += (crossing / 20) * 0.15;
+    crossProb += (freeKicks / 20) * 0.10;
+    crossProb += ((target.technical?.heading ?? 10) + (target.physical?.jumping ?? 10)) / 2 / 20 * 0.18;
+    crossProb -= ((bestDef.technical?.heading ?? 10) + (bestDef.physical?.jumping ?? 10)) / 2 / 20 * 0.10 * markingMod;
+    crossProb -= ((goalkeeper.goalkeeping?.commandOfArea ?? 10) + (goalkeeper.goalkeeping?.aerialReach ?? 10)) / 2 / 20 * 0.06;
+    crossProb = clamp(crossProb, 0.03, 0.35);
+
+    const success = Math.random() < crossProb;
+
+    actions.push({
+      minute, type: 'cross', team: side, playerId: taker.id, playerName: taker.name,
+      success,
+      description: success ? `${taker.name} cruza na área para ${target.name}!` : `${taker.name} cruza mas a zaga afasta`,
+      ballPos,
+    });
+
+    if (success) {
+      const shotResult = shotSuccessProb(target, goalkeeper, 0.3, attackingTeam);
+      actions.push({
+        minute, type: 'header', team: side, playerId: target.id, playerName: target.name,
+        success: shotResult.goal,
+        description: shotResult.goal ? `${target.name} cabeceia para o gol!` : `${target.name} não consegue finalizar`,
+        ballPos,
+      });
+
+      if (side === 'home') {
+        newState.stats = { ...newState.stats, homeShots: newState.stats.homeShots + 1 };
+        if (shotResult.onTarget) newState.stats.homeShotsOnTarget = newState.stats.homeShotsOnTarget + 1;
+      } else {
+        newState.stats = { ...newState.stats, awayShots: newState.stats.awayShots + 1 };
+        if (shotResult.onTarget) newState.stats.awayShotsOnTarget = newState.stats.awayShotsOnTarget + 1;
+      }
+
+      if (shotResult.goal) {
+        if (side === 'home') newState.homeGoals = newState.homeGoals + 1;
+        else newState.awayGoals = newState.awayGoals + 1;
+        events.push({ minute, type: 'goal', team: side, player: target.name, description: `GOOOL! ${target.name} marca em falta cobrada por ${taker.name}!` });
+        newState.goalDetails = [...newState.goalDetails, {
+          team: side, minute, scorerId: target.id, scorerName: target.name, assistId: taker.id, assistName: taker.name,
+        }];
+        const losingTeam = side === 'home' ? defendingTeam : attackingTeam;
+        const newHolder = pickPlayerWithBall(losingTeam, 0.5);
+        newState.possession = side === 'home' ? 'away' : 'home';
+        newState.ballPos = 0.5;
+        newState.ballHolderId = newHolder.id;
+        newState.passChain = 0;
+      } else {
+        const newHolder = pickPlayerWithBall(defendingTeam, ballPos);
+        newState.possession = side === 'home' ? 'away' : 'home';
+        newState.ballHolderId = newHolder.id;
+        newState.passChain = 0;
+      }
+    } else {
+      const clearer = bestAerialDefender(defendingTeam);
+      actions.push({
+        minute, type: 'clearance', team: side === 'home' ? 'away' : 'home',
+        playerId: clearer.id, playerName: clearer.name, success: true,
+        description: `${clearer.name} afasta o cruzamento`, ballPos,
+      });
+      newState.possession = side === 'home' ? 'away' : 'home';
+      newState.ballHolderId = clearer.id;
+      newState.passChain = 0;
+      newState.ballPos = clamp(ballPos + (Math.random() - 0.5) * 0.2, 0, 1);
+    }
+  } else {
+    // Short — passe curto para criar chance
+    const receiver = pickPlayerWithBall(attackingTeam, ballPos, taker.id);
+    const passSuccess = Math.random() < 0.75;
+    actions.push({
+      minute, type: 'pass', team: side, playerId: taker.id, playerName: taker.name,
+      success: passSuccess,
+      description: passSuccess ? `${taker.name} passa curto para ${receiver.name}` : `${taker.name} erra o passe curto`,
+      ballPos,
+    });
+
+    if (passSuccess) {
+      newState.ballHolderId = receiver.id;
+      newState.passChain = 1;
+      newState.ballPos = clamp(ballPos + 0.05 * (side === 'home' ? 1 : -1), 0, 1);
+    } else {
+      const defender = pickDefender(defendingTeam, ballPos);
+      newState.possession = side === 'home' ? 'away' : 'home';
+      newState.ballHolderId = defender.id;
+      newState.passChain = 0;
+    }
+  }
+
+  return { state: newState, actions, events };
+}
+
+// Simula pênalti
+function simulatePenalty(
+  attackingTeam: Team,
+  defendingTeam: Team,
+  state: LiveMatchState,
+  minute: number,
+  side: 'home' | 'away',
+): SetPieceResult {
+  const config = getSetPiecesConfig(attackingTeam);
+  const xi = startingXI(attackingTeam);
+  const defXi = startingXI(defendingTeam);
+
+  const taker = xi.find(p => p.id === config.penalties.takerId) ?? autoSelectPenaltyTaker(attackingTeam);
+  const goalkeeper = defXi.find(p => p.position === 'GK') ?? defXi[0];
+
+  const finishing = taker.technical?.finishing ?? 10;
+  const composure = taker.mental?.composure ?? 10;
+  const technique = taker.technical?.technique ?? 10;
+
+  const reflexes = goalkeeper.goalkeeping?.reflexes ?? 10;
+  const oneOnOne = goalkeeper.goalkeeping?.oneOnOne ?? 10;
+
+  // Pênaltis têm conversão alta (~75%)
+  let goalProb = 0.76;
+  goalProb += (finishing / 20) * 0.08;
+  goalProb += (composure / 20) * 0.06;
+  goalProb += (technique / 20) * 0.04;
+  goalProb -= (reflexes / 20) * 0.05;
+  goalProb -= (oneOnOne / 20) * 0.04;
+  goalProb = clamp(goalProb, 0.55, 0.92);
+
+  const goal = Math.random() < goalProb;
+  const actions: MatchAction[] = [];
+  const events: MatchEvent[] = [];
+  let newState = { ...state };
+
+  actions.push({
+    minute, type: 'penalty', team: side, playerId: taker.id, playerName: taker.name,
+    success: goal,
+    description: goal ? `${taker.name} converte o pênalti!` : `${taker.name} perde o pênalti!`,
+    ballPos: side === 'home' ? 0.95 : 0.05,
+  });
+
+  if (side === 'home') {
+    newState.stats = { ...newState.stats, homeShots: newState.stats.homeShots + 1 };
+    if (goal) newState.stats.homeShotsOnTarget = newState.stats.homeShotsOnTarget + 1;
+  } else {
+    newState.stats = { ...newState.stats, awayShots: newState.stats.awayShots + 1 };
+    if (goal) newState.stats.awayShotsOnTarget = newState.stats.awayShotsOnTarget + 1;
+  }
+
+  if (goal) {
+    if (side === 'home') newState.homeGoals = newState.homeGoals + 1;
+    else newState.awayGoals = newState.awayGoals + 1;
+    events.push({ minute, type: 'goal', team: side, player: taker.name, description: `GOOOL! ${taker.name} converte o pênalti!` });
+    newState.goalDetails = [...newState.goalDetails, {
+      team: side, minute, scorerId: taker.id, scorerName: taker.name,
+    }];
+    const losingTeam = side === 'home' ? defendingTeam : attackingTeam;
+    const newHolder = pickPlayerWithBall(losingTeam, 0.5);
+    newState.possession = side === 'home' ? 'away' : 'home';
+    newState.ballPos = 0.5;
+    newState.ballHolderId = newHolder.id;
+    newState.passChain = 0;
+  } else {
+    events.push({ minute, type: 'save', team: side === 'home' ? 'away' : 'home', description: `${goalkeeper.name} defende o pênalti!` });
+    const newHolder = pickPlayerWithBall(defendingTeam, side === 'home' ? 0.15 : 0.85);
+    newState.possession = side === 'home' ? 'away' : 'home';
+    newState.ballHolderId = newHolder.id;
+    newState.passChain = 0;
+    newState.ballPos = side === 'home' ? 0.15 : 0.85;
+  }
+
+  return { state: newState, actions, events };
+}
+
+// Calcula força de bolas paradas de um time (para simulação rápida)
+function setPieceStrength(team: Team): { attack: number; defense: number } {
+  const config = getSetPiecesConfig(team);
+  const xi = startingXI(team);
+  if (xi.length === 0) return { attack: 0, defense: 0 };
+
+  // Força ofensiva de bolas paradas
+  const cornerTaker = xi.find(p => p.id === config.corners.takerId) ?? autoSelectCornerTaker(team);
+  const cornerTarget = xi.find(p => p.id === config.corners.targetId) ?? autoSelectCornerTarget(team);
+  const fkTaker = xi.find(p => p.id === config.freeKicks.takerId) ?? autoSelectFreeKickTaker(team);
+  const penTaker = xi.find(p => p.id === config.penalties.takerId) ?? autoSelectPenaltyTaker(team);
+
+  const cornerAttack = ((cornerTaker.technical?.crossing ?? 10) + (cornerTarget.technical?.heading ?? 10) + (cornerTarget.physical?.jumping ?? 10)) / 3;
+  const fkAttack = (fkTaker.technical?.freeKicks ?? 10) + (fkTaker.technical?.technique ?? 10);
+  const penAttack = ((penTaker.technical?.finishing ?? 10) + (penTaker.mental?.composure ?? 10)) / 2;
+
+  // Bônus por tipo de cobrança de escanteio
+  const deliveryBonus: Record<string, number> = {
+    near_post: 0.5, far_post: 1.0, penalty_area: 0.8, short: 0.3, edge_of_box: 0.7,
+  };
+  const cornerBonus = deliveryBonus[config.corners.delivery] ?? 0.5;
+
+  const attack = (cornerAttack * 0.5 + fkAttack * 0.3 + penAttack * 0.2) / 20 + cornerBonus * 0.02;
+
+  // Força defensiva de bolas paradas
+  const bestDef = bestAerialDefender(team);
+  const gk = xi.find(p => p.position === 'GK') ?? xi[0];
+  const defMarkingMod: Record<string, number> = { man_to_man: 1.1, zonal: 1.0, mixed: 1.05 };
+  const markingMod = defMarkingMod[config.defensiveCorners.marking] ?? 1.0;
+
+  const defStrength = ((bestDef.technical?.heading ?? 10) + (bestDef.physical?.jumping ?? 10) + (bestDef.technical?.marking ?? 10)) / 3;
+  const gkStrength = ((gk.goalkeeping?.commandOfArea ?? 10) + (gk.goalkeeping?.aerialReach ?? 10)) / 2;
+  const defense = ((defStrength * 0.6 + gkStrength * 0.4) / 20) * markingMod;
+
+  return { attack, defense };
+}
+
 // Inicializa o estado da partida ao vivo
 export function initLiveMatchState(homeTeam: Team, awayTeam: Team): LiveMatchState {
   const possessionBias = getPossessionBias(homeTeam, awayTeam);
@@ -1383,26 +1924,42 @@ export function simulateMinute(
       newState.ballHolderId = newHolder.id;
       newState.passChain = 0;
     } else if (result.onTarget) {
-      // Defesa do goleiro — posse para o time defensor
+      // Defesa do goleiro
       newEvents.push({
         minute,
         type: 'save',
         team: side === 'home' ? 'away' : 'home',
         description: `Boa defesa de ${goalkeeper.name}!`,
       });
-      const newHolder = pickPlayerWithBall(defendingTeam, currentBallPos);
-      newState.possession = side === 'home' ? 'away' : 'home';
-      newState.ballHolderId = newHolder.id;
-      newState.passChain = 0;
-      // Bola rebate para a defesa
-      newState.ballPos = side === 'home' ? clamp(currentBallPos - 0.3, 0, 1) : clamp(currentBallPos + 0.3, 0, 1);
+      // 20% chance de escanteio após defesa (goleiro espalma para fora)
+      if (Math.random() < 0.20) {
+        const cornerResult = simulateCornerKick(attackingTeam, defendingTeam, newState, minute, side, currentBallPos);
+        newActions.push(...cornerResult.actions);
+        newEvents.push(...cornerResult.events);
+        Object.assign(newState, cornerResult.state);
+      } else {
+        const newHolder = pickPlayerWithBall(defendingTeam, currentBallPos);
+        newState.possession = side === 'home' ? 'away' : 'home';
+        newState.ballHolderId = newHolder.id;
+        newState.passChain = 0;
+        newState.ballPos = side === 'home' ? clamp(currentBallPos - 0.3, 0, 1) : clamp(currentBallPos + 0.3, 0, 1);
+      }
     } else {
-      // Chute para fora — posse para o time defensor (tiro de meta)
-      const newHolder = pickPlayerWithBall(defendingTeam, side === 'home' ? 0.1 : 0.9);
-      newState.possession = side === 'home' ? 'away' : 'home';
-      newState.ballHolderId = newHolder.id;
-      newState.passChain = 0;
-      newState.ballPos = side === 'home' ? 0.1 : 0.9;
+      // Chute para fora
+      if (attackProgress > 0.6 && Math.random() < 0.35) {
+        // Escanteio para o time atacante
+        const cornerResult = simulateCornerKick(attackingTeam, defendingTeam, newState, minute, side, currentBallPos);
+        newActions.push(...cornerResult.actions);
+        newEvents.push(...cornerResult.events);
+        Object.assign(newState, cornerResult.state);
+      } else {
+        // Tiro de meta — posse para o time defensor
+        const newHolder = pickPlayerWithBall(defendingTeam, side === 'home' ? 0.1 : 0.9);
+        newState.possession = side === 'home' ? 'away' : 'home';
+        newState.ballHolderId = newHolder.id;
+        newState.passChain = 0;
+        newState.ballPos = side === 'home' ? 0.1 : 0.9;
+      }
     }
   } else if (roll < shotChance + dribbleChance) {
     // === DRIBLE ===
@@ -1450,9 +2007,25 @@ export function simulateMinute(
             description: `Cartão amarelo para ${defender.name}`,
           });
         }
-        // Posse mantida pelo atacante (falta)
-        newState.ballPos = currentBallPos;
-        newState.passChain = 0;
+        // Verifica se a falta é em posição perigosa
+        if (attackProgress > 0.9 && Math.random() < 0.08) {
+          // Pênalti!
+          newEvents.push({ minute, type: 'foul', team: side, description: 'Pênalti marcado!' });
+          const penaltyResult = simulatePenalty(attackingTeam, defendingTeam, newState, minute, side);
+          newActions.push(...penaltyResult.actions);
+          newEvents.push(...penaltyResult.events);
+          Object.assign(newState, penaltyResult.state);
+        } else if (attackProgress > 0.65) {
+          // Falta em posição perigosa — cobrança de falta
+          const fkResult = simulateFreeKick(attackingTeam, defendingTeam, newState, minute, side, currentBallPos);
+          newActions.push(...fkResult.actions);
+          newEvents.push(...fkResult.events);
+          Object.assign(newState, fkResult.state);
+        } else {
+          // Falta comum — posse mantida pelo atacante
+          newState.ballPos = currentBallPos;
+          newState.passChain = 0;
+        }
       } else {
         // Desarme limpo — posse para o defensor
         newState.possession = side === 'home' ? 'away' : 'home';
@@ -1600,21 +2173,27 @@ export function simulateMinute(
   newState.actions = [...state.actions, ...newActions];
   newState.events = [...state.events, ...newEvents];
 
-  // Escanteios ocasionais
-  if (Math.random() < 0.04) {
-    const cornerSide = Math.random() < 0.5 ? 'home' : 'away';
-    newEvents.push({
+  // Laterais ocasionais (throw-ins)
+  if (Math.random() < 0.05) {
+    const throwSide = Math.random() < 0.5 ? 'home' : 'away';
+    const throwTeam = throwSide === 'home' ? homeTeam : awayTeam;
+    const throwConfig = getSetPiecesConfig(throwTeam);
+    const xi = startingXI(throwTeam);
+    const throwTaker = xi.find(p => p.id === throwConfig.throwIns.takerId)
+      ?? xi.find(p => p.position === 'DEF' || p.position === 'MID') ?? xi[0];
+    newActions.push({
       minute,
-      type: 'corner',
-      team: cornerSide,
-      description: 'Escanteio',
+      type: 'throwIn',
+      team: throwSide,
+      playerId: throwTaker.id,
+      playerName: throwTaker.name,
+      success: true,
+      description: `${throwTaker.name} cobra o lateral (${throwConfig.throwIns.style})`,
+      ballPos: 0.3 + Math.random() * 0.4,
     });
-    newState.events = [...newState.events, {
-      minute,
-      type: 'corner' as const,
-      team: cornerSide as 'home' | 'away',
-      description: 'Escanteio',
-    }];
+    newState.possession = throwSide;
+    newState.ballHolderId = throwTaker.id;
+    newState.passChain = 0;
   }
 
   return newState;

@@ -19,7 +19,7 @@ O jogo roda com arquitetura cliente-servidor: um backend em Express mantém todo
   - **Sul-Americana:** 5º ao 8º lugar
   - **Zona segura:** 9º ao antepenúltimo lugar
   - **Rebaixamento:** Últimos 3 colocados (marcados como rebaixados ao final da temporada, na semana 38)
-- **Fim de temporada:** Ao completar 38 rodadas, o jogo exibe um **resumo de fim de temporada** (colocação final, zona, artilheiro e líder de assistências do time). O usuário pode iniciar a próxima temporada, que reseta os stats dos times e gera novo calendário. Após a 3ª temporada, o jogo é encerrado (`gameOver`).
+- **Fim de temporada:** Ao completar 38 rodadas, o jogo exibe um **resumo de fim de temporada** (colocação final, zona, artilheiro e líder de assistências do time). O usuário pode iniciar a próxima temporada, que reseta os stats dos times, **limpa todo o estado de transferências e scouting** (incomingTransfers, transfers, counterOffers, deferredTransfers, inbox, scoutReports, pendingInstallments, incomingBonuses, transferAgreements, scoutMissions, shortlist, scoutRecommendations, activeLoans, biddingWars, fanMood, mediaPressure) e gera novo calendário. Após a 3ª temporada, o jogo é encerrado (`gameOver`).
 
 ---
 
@@ -41,8 +41,9 @@ Todas as partidas — tanto as do usuário quanto as dos times AI — usam o mes
    - **Passar:** Ação mais comum. Sucesso depende de passe, técnica, compostura, visão e decisões do passador, além do primeiro toque do receptor. A pressão defensiva reduz a precisão. Passes curtos aumentam a precisão; passes diretos reduzem.
 3. **Posição da bola:** A bola se move no campo (0 = gol de casa, 1 = gol de visitante). Pases e dribles bem-sucedidos avançam a bola. Erros causam interceptação ou bola solta.
 4. **Cruzamentos:** Ocorrem ocasionalmente quando a bola está na ponta do ataque. O sucesso depende do atributo de cruzamento do jogador.
-5. **Faltas e cartões:** Após um desarme, há 25% de chance de falta. 15% de chance de cartão amarelo se houver falta.
-6. **Escanteios:** 4% de chance por minuto de escanteio aleatório.
+5. **Faltas e cartões:** Após um desarme, há 25% de chance de falta. 15% de chance de cartão amarelo se houver falta. Faltas em zona perigosa (>65% do campo de ataque) disparam cobrança de falta com `simulateFreeKick` (tiro direto, cruzamento, curto ou bola longa). Faltas na área (8% chance) resultam em pênalti via `simulatePenalty`.
+6. **Escanteios:** Após defesa do goleiro (20% chance) ou chute para fora na zona de ataque (35% chance), dispara `simulateCornerKick` com cobrança configurável (1º poste, 2º poste, área, curto, borda). A qualidade do cruzamento (`crossing`), cabeceio do alvo (`heading` + `jumping`) e defesa (`marking` + `heading` + `jumping` + `commandOfArea` + `aerialReach` do goleiro) determinam a chance de gol.
+7. **Laterais:** 5% de chance por minuto de lateral, cobrado pelo estilo configurado (curto, longo, rápido).
 
 ### Bônus Tático e Multiplicadores de Tática
 
@@ -64,6 +65,49 @@ As configurações táticas do time afetam diretamente a simulação em duas cam
 - **Defensive:** Ataque ×0.88, Defesa ×1.20 — fraco ofensivamente, forte defensivamente
 
 A pressão defensiva sobre o portador também é afetada pela intensidade de pressão, contra-pressionamento e linha de engajamento do time defensor.
+
+### Bolas Paradas (Set Pieces)
+
+O sistema de bolas paradas é totalmente configurável na aba **Set pieces** da tela de Táticas e tem efeito direto na simulação de partidas. A configuração é persistida em `tacticsConfig.setPieces` (tipo `SetPiecesConfig`).
+
+**Ataque:**
+- **Escanteios:** 5 tipos de cobrança — 1º Poste (mais preciso, chance alta), 2º Poste (mais arriscado, chance menor), Área (equilibrado), Curto (posse segura, baixa chance de gol), Borda (chute de fora da área). O cobrador é selecionado por `crossing`; o alvo/cabeçador por `heading` + `jumping`. Se não houver jogador designado, o sistema auto-seleciona o melhor atributo.
+- **Faltas:** 4 tipos — Tiro Direto (chance de gol baseada em `freeKicks` + `technique` + `finishing` + `longShots` + `composure` vs. `reflexes` + `positioning` do goleiro, modificado pela barreira), Cruzamento (bola na área para o melhor cabeçador), Curto (posse), Bola Longa (bola longa na área). A distância do gol afeta a precisão do tiro direto.
+- **Laterais:** 3 estilos — Curto (posse), Longo (bola na área), Rápido (contra-ataque).
+- **Pênaltis:** Cobrador designado por `finishing` + `composure`. Conversão base ~76%, modificada por atributos do cobrador vs. goleiro (`reflexes` + `oneOnOne`). Range: 55%-92%.
+
+**Defesa:**
+- **Escanteios defensivos:** Marcação Individual (+15% eficiência), Zonal (base), Misto (+8%). Opção de Contra-ataque (60% chance de sair rápido após afastar a bola, mas -3% na chance de criar chance adversária).
+- **Faltas defensivas:** Marcação Individual (+10%), Zonal (base), Misto (+5%). Barreira Pequena (+15% chance de gol adversário), Média (neutro), Grande (-15% chance de gol adversário).
+
+**Integração no motor:**
+- `simulateMatchResult` (simulação rápida): bônus de set pieces adicionado ao lambda (gols esperados) — `setPieceStrength(attack) - setPieceStrength(defense)`, clamp -0.15 a +0.25
+- `simulateMinute` (simulação passo a passo): escanteios após defesa (20%) ou chute fora (35% no ataque); faltas em zona perigosa (>65%); pênaltis (8% na área); laterais (5% por minuto)
+- Atributos relevantes: `crossing`, `heading`, `jumping`, `freeKicks`, `finishing`, `composure`, `technique`, `longShots`, `marking`, `commandOfArea`, `aerialReach`, `reflexes`, `oneOnOne`, `positioning`
+
+### Centro de Inteligência Pré-Jogo (Pre-Match Intelligence Center)
+
+Antes de simular uma partida, o usuário pode acessar o **Intelligence Center** — uma análise preditiva que roda **500 simulações Monte Carlo** usando o mesmo motor de partida (`simulateMatchResult`) para gerar:
+
+- **Probabilidade de resultado:** % de vitória casa, empate, vitória fora
+- **Placar mais provável:** resultado com maior frequência nas 500 simulações
+- **Gols esperados (xG):** média de gols por time arredondada
+- **Força dos times:** `calculateTeamStrength` para casa e fora
+- **Duelos decisivos:** comparações diretas entre melhores jogadores por posição:
+  - Atacante (casa) vs Defensor (fora)
+  - Meio-campo (casa) vs Meio-campo (fora)
+  - Goleiro (casa) vs Atacante (fora)
+  - Defensor (casa) vs Contra-atacante (fora)
+  - Vantagem indicada quando diferença de rating > 5 pontos
+- **Forma recente:** últimos 5 jogos (V/E/D) com pontuação (V=3, E=1, D=0)
+- **Recomendação tática:** mentalidade sugerida (Ofensivo, Defensivo, Equilibrado, Cauteloso, Positivo) com:
+  - Abordagem tática (linha defensiva, pressão, ritmo)
+  - Justificativa baseada em diferença de força, forma e tática adversária
+  - Nível de risco (baixo, médio, alto)
+- **Nível de confiança:** maior probabilidade entre os três resultados
+- **Vantagem de jogar em casa:** +12% (HOME_ADVANTAGE = 1.12)
+
+A análise é gerada sob demanda via `getPreMatchAnalysis(matchIndex)` e exibida em um modal rico no `MatchCenter`.
 
 ### Intervenções do Usuário em Partida Ao Vivo
 
@@ -113,7 +157,7 @@ A partida gera estatísticas coerentes:
 - **Posse de bola:** Calculada pela proporção de ações de cada time
 - **Chutes e chutes no alvo:** Contabilizados em tempo real
 - **Passes e precisão de passe:** Contabilizados por time
-- **Eventos:** Gols, defesas, escanteios, faltas e cartões, ordenados por minuto
+- **Eventos:** Gols, defesas, escanteios, faltas, cartões, pênaltis e laterais, ordenados por minuto
 
 ---
 
@@ -209,8 +253,8 @@ Após o time aceitar a oferta, o jogador precisa concordar com o contrato. O sal
 
 ### Parcelas e Bônus
 
-- **Parcelas:** Para transferências acima de R$ 10M, o pagamento pode ser parcelado em 3 a 6 vezes, com vencimento a cada 4 semanas. O pagamento é automático se houver orçamento; se não, a parcela fica vencida e gera alerta no inbox.
-- **Bônus de performance:** Podem ser incluídos nas ofertas (gols, aparições, assistências, títulos, performance). Os bônus são "disparados" aleatoriamente a cada semana (ex: 30% de chance para bônus de gols, 50% para aparições). Uma vez disparados, o usuário pode reclamá-los para receber o valor.
+- **Parcelas:** Para transferências acima de R$ 10M, o pagamento pode ser parcelado em 3 a 6 vezes, com vencimento a cada 4 semanas. O pagamento é automático se houver orçamento; se não, a parcela fica vencida e gera alerta no inbox. Cada cláusula de parcelamento tem um campo `direction` que indica se o usuário deve pagar (`payable`) ou receber (`receivable`) — quando o usuário vende um jogador e o comprador paga em parcelas, as parcelas são marcadas como `receivable` e o usuário recebe o dinheiro automaticamente.
+- **Bônus de performance:** Podem ser incluídos nas ofertas (gols, aparições, assistências, títulos, performance). Os bônus são verificados a cada semana com base em **estatísticas reais** do jogador: gols (`seasonGoals >= threshold`), assistências (`seasonAssists >= threshold`), aparições (`team.played >= threshold`), títulos (`league position == 1`), performance (`form >= threshold`). Uma vez disparados, o usuário pode reclamá-los para receber o valor.
 
 ### Acordos Contratuais
 
@@ -327,7 +371,23 @@ Cada scout possui campos de experiência que evoluem ao longo do jogo:
 
 ### Formações e Escalação
 
-O usuário pode arrastar e soltar jogadores nas posições do campo. As formações disponíveis incluem 4-4-2, 4-3-3, 3-5-2, 5-2-2-1, entre outras. Cada posição tem um **role** (função) e um **duty** (dever) que afetam o desempenho.
+O usuário pode arrastar e soltar jogadores nas posições do campo. As formações disponíveis incluem 4-4-2, 4-3-3, 3-5-2, 5-2-2. Cada posição tem um **role** (função) e um **duty** (dever) que afetam o desempenho.
+
+A escalação de titulares oferece múltiplas formas de troca:
+- **Auto-preencher (Plus / Sugestão de seleção / Escolha rápida):** preenche automaticamente os 11 slots com os melhores jogadores por posição (ordenados por `currentAbility`), com fallback para qualquer jogador disponível se não houver candidato da posição ideal.
+- **Drag-and-drop:** arrasta um titular para outro slot no campo 2D para trocar jogadores entre posições (`swapSlots`).
+- **Setas de navegação (↑/↓ na topbar):** ciclam formações sequencialmente sem precisar abrir o painel de edição.
+- **Salvar (ícone Download):** salva o jogo no slot 1 com feedback visual de status.
+
+O campo 2D vertical exibe marcadores com camisa, código do role e duty, coloridos por linha (GK/DEF verde, MID âmbar, FWD vermelho). O banco lateral mostra os nomes reais dos reservas. A tabela de seleção à direita permite filtrar entre titulares e elenco completo (botão Filter).
+
+### Sub-abas da tela de Táticas
+
+- **Overview / Player:** tabela completa de seleção com titulares por slot + reservas
+- **Opposition:** análise do próximo adversário (nome, casa/fora)
+- **Roles:** tabela de papéis e funções por slot da formação
+- **Set pieces:** painel completo de bolas paradas (Ataque: escanteios com cobrança + cobrador + alvo, faltas com cobrança + cobrador, laterais com estilo, pênaltis com cobrador; Defesa: marcação de escanteios + contra-ataque, marcação de faltas + barreira)
+- **Numbers:** placeholder (a implementar)
 
 ### Instruções Táticas
 
@@ -375,7 +435,7 @@ O usuário define um plano de treino semanal em uma grade de 7 dias × 3 períod
 
 ### Progressão de Atributos e CA
 
-A cada semana, o treino é aplicado a todos os jogadores não-lesionados **após o `set()` final de `advanceWeek`**, garantindo que as alterações de treino não sejam sobrescritas pelo estado local:
+A cada semana, o treino é aplicado a todos os jogadores não-lesionados **dentro do `set()` batched de `advanceWeek`**, garantindo que as alterações de treino não sejam sobrescritas pelo estado local e evitando múltiplos re-renders:
 - O foco do treino (físico, técnico, coesão, médico/recuperação, leve) é passado diretamente para `updatePlayerAttributes` — cada tipo aplica seus efeitos corretamente (ex: médico restaura condição e acelera recuperação de lesão, leve faz recuperação leve).
 - A melhoria é aleatória (0.2 a 1.0 por semana), limitada a 20 (teto da escala).
 - **Current Ability (CA):** Após cada sessão de treino, o CA é recalculado com base no ganho de atributos, modulado por um **fator de idade**:
@@ -384,7 +444,7 @@ A cada semana, o treino é aplicado a todos os jogadores não-lesionados **após
   - 24-27 anos: ×0.8
   - 28-30 anos: ×0.4
   - 31+ anos: ×0.1 (praticamente estagnado)
-  - Fórmula: `CA_novo = min(200, CA_anterior + (improvement × 0.5) × ageFactor)`
+  - Fórmula: `CA_novo = min(potentialAbility, 200, CA_anterior + (improvement × 0.5) × ageFactor)` — **respeita o teto de PA** do jogador
 - Snapshots semanais registram a progressão de atributos para visualização.
 
 ### Fadiga e Carga
@@ -392,24 +452,35 @@ A cada semana, o treino é aplicado a todos os jogadores não-lesionados **após
 - **Carga acumulada:** Aumenta com treino físico (+8 por sessão). Reduz com treino técnico (-4), coesão (-2), recuperação (-10) ou leve (-5).
 - **Dias físicos consecutivos:** Treinar físico em dias seguidos aumenta exponencialmente o risco de lesão.
 - **Condição física:** Cai com treino físico (-8), técnico (-3), coesão (-2). Sobe com recuperação (+10) ou leve (+3).
-- **Decaimento semanal:** A cada avanço de semana, a carga acumulada decai em 5 e a condição física sofre decaimento proporcional à carga.
+- **Decaimento semanal:** A cada avanço de semana, a carga acumulada decai em 5, a condição física aumenta em 5 (recuperação natural) e os dias físicos consecutivos diminuem em 1. Esta lógica é centralizada no helper compartilhado `applyFatigueDecayToPlayer` (em `backend/src/store/helpers/injury.ts`), usado tanto por `advanceWeek` quanto por `applyFatigueDecay`.
 
 ---
 
 ## Sistema de Lesões
 
+### Estrutura da Lesão
+
+A lesão de um jogador é representada no objeto `injury` com os seguintes campos:
+- `active`: boolean — se a lesão está ativa
+- `daysRemaining`: dias restantes para recuperação
+- `totalDays`: duração total original da lesão (para cálculo de progresso)
+- `type`: tipo da lesão (`muscle`, `ligament`, `joint`, `ankle`, `knee`, `groin`)
+- `severity`: `minor`, `moderate` ou `severe`
+- `source`: origem da lesão (`training`, `match`, `random`)
+
 ### Cálculo de Risco
 
-O risco de lesão de cada jogador é calculado semanalmente com base em:
+O risco de lesão de cada jogador é calculado semanalmente via `calculatePlayerInjuryRisk` com base em:
 
+- **Já lesionado:** Retorna 0 (não está sujeito a novas lesões)
 - **Tendência a lesões** (atributo oculto, 1-10): 0-30% de risco base
 - **Dias físicos consecutivos:** Risco cresce exponencialmente (1.5^dias × 5%)
 - **Carga acumulada acima de 5:** +3% por ponto excedente
 - **Condição física baixa (< 50):** +0.3% por ponto abaixo de 50
 - **Recuperação necessária:** +15%
-- **Lesão ativa:** +40%
 - **Lesões anteriores não recuperadas:** +10% cada
-- **Fadiga alta (> 60):** +15%; fadiga moderada (> 40): +8%
+- **Fadiga alta (> 60):** +15%; fadiga moderada (> 40):** +8%
+- **Idade:** ≥32 anos +10%; 28-31 anos +5%
 - **Condição degradada pós-lesão:** +6% a +20% dependendo do nível
 
 **Redutores:**
@@ -423,12 +494,61 @@ O risco de lesão de cada jogador é calculado semanalmente com base em:
 - **Alto:** 60-79% (gera alerta no inbox sugerindo descanso)
 - **Crítico:** ≥ 80% (gera alerta urgente sugerindo substituição imediata)
 
-### Lesões Durante a Temporada
+### Geração de Lesões (Centralizada)
 
-- A cada avanço de semana, o sistema pode gerar lesões aleatórias em jogadores do elenco (7 a 35 dias de duração).
+Toda lesão é gerada pela função centralizada `generateInjuryForPlayer` (em `backend/src/store/helpers/injury.ts`), garantindo consistência entre treino, partida e eventos aleatórios:
+
+- **Severity roll:** Baseado em `Math.random() × 100 + proneness × 5 + risk × 0.3`
+  - < 50: **minor** (5-12 dias)
+  - 50-79: **moderate** (13-27 dias)
+  - ≥ 80: **severe** (28-69 dias)
+- **Multiplicadores de duração:**
+  - Idade ≥32: ×1.3; 28-31: ×1.15
+  - Condição física < 40: ×1.2
+  - Redução por staff/facilities: `staffLevel × 0.5 + facilitiesLevel × 0.3` (mínimo 3 dias)
+- **Tipo de lesão:** Aleatório entre `muscle`, `ligament`, `joint`, `ankle`, `knee`, `groin`
+- **Efeitos colaterais:** Registra no `injuryHistory`, define `lastInjuryWeek`, aplica `degradedCondition` (severe→minimal, moderate→low, minor→moderate), reduz fitness em 15
+
+**Fontes de lesão:**
+- **Treino físico:** Chance baseada em proneness, carga e fitness. Usa `generateInjuryForPlayer` com source `training`.
+- **Roll semanal (advanceWeek):** Chance de 2% base + `risk × 0.08%` por jogador não lesionado. Usa `generateInjuryForPlayer` com source `random`. Gera mensagem no inbox com tipo, severidade e dias.
+- **Inbox não gera mais lesões aleatórias:** O case `injury` foi removido de `generateInboxMessage`. Lesões agora são geradas apenas pelo sistema de risco.
+
+### Cura Semanal (Centralizada)
+
+A cura de lesões é processada por `healInjuryForPlayer` durante `advanceWeek`:
+
+- **Taxa base:** 7 dias por semana
+- **Bônus de staff:** `+staffLevel × 0.5` dias
+- **Bônus de facilities:** `+facilitiesLevel × 0.3` dias
+- **Penalidade de idade:** ≥32 anos ×0.8; 28-31 anos ×0.9
+- **Penalidade de severidade:** Se `daysRemaining > totalDays × 0.5` (primeira metade da lesão): severe ×0.7, moderate ×0.85
+- **Ao curar:** Marca a lesão mais recente não recuperada no `injuryHistory` como `fullyRecovered: true`, restaura fitness em +15
+
+**Recuperação por treino:** Sessões médico/recuperação reduzem `daysRemaining` em 2 dias (via `reduceInjuryFromRecoveryTraining`). Sessões médico no `applyPreventionSession` reduzem em 3 dias.
+
+### Condição Degradada Pós-Lesão
+
+Após a recuperação, o jogador tem uma **condição degradada** que melhora gradualmente:
+- **Progressão:** minimal → low → moderate → good → removida
+- **Timeline:** minimal após 4+ semanas → low; low após 2+ semanas → moderate; moderate após 1+ semana → good; após 8+ semanas → removida
+- Centralizada em `updateDegradedConditionForPlayer` (em `backend/src/store/helpers/injury.ts`)
+
+### Decaimento de Fadiga (Semanal)
+
+A cada avanço de semana, `applyFatigueDecayToPlayer` aplica recuperação natural:
+- **Fitness:** +5 (recuperação durante descanso)
+- **Carga acumulada:** -5
+- **Dias físicos consecutivos:** -1
+- **Recovery needed:** Limpo se fitness > 30 e carga ≤ 20
+
+### Outras Regras
+
 - Jogadores lesionados não participam de treinos e não podem jogar.
-- A recuperação ocorre naturalmente com o passar das semanas, acelerada por sessões de treino médico/recuperação.
-- Após a recuperação, o jogador pode ter uma **condição degradada** (minimal → low → moderate → good) que melora gradualmente ao longo das semanas.
+- **Todas as ações de lesão e treino** buscam jogadores **apenas no time selecionado** (`state.selectedTeam`).
+- **Recuperação na tela de treino:** O botão "Recuperar" foi removido do Monitor de Fadiga. A recuperação acontece pela cura automática semanal e por sessões de treino médico/recuperação.
+- **`recoverInjuredPlayer`:** Marca apenas a lesão mais recente não recuperada no `injuryHistory` (não todas), e restaura fitness para mínimo 40 + 10.
+- **`getInjuryReport`:** Usa os dados armazenados na lesão (`type`, `severity`, `daysRemaining`, `totalDays`) em vez de derivar deterministicamente por hash do playerId. Progresso de recuperação calculado como `100 - (daysRemaining / totalDays × 100)`.
 
 ---
 
@@ -510,13 +630,15 @@ O plantel tem uma hierarquia visualizada em pirâmide:
 
 Cada jogador pertence a um grupo social baseado em afinidade (nacionalidade, idade, posição). A árvore social mostra as conexões entre jogadores e influencia a moral do grupo. As conexões entre jogadores são atualizadas de forma imutável, preservando o contrato de imutabilidade do Zustand.
 
+**Visualização:** Cards em grid responsivo com avatar de grupo (👤/👥), avatares circulares com iniciais por jogador, barra de coesão com gradiente (moral média do grupo), badges de posição e status do plantel, accent gradient no topo por grupo (até 6 cores). Hover com elevação e sombra. Layout adaptativo para mobile.
+
 ### Promessas
 
 O usuário pode fazer promessas a jogadores (ex: "vai jogar mais", "vamos contratar reforços"). Cada promessa tem um prazo (countdown) que decrementa a cada semana. Promessas não cumpridas afetam a moral e a confiança do jogador.
 
 ### Moral e Dinâmica Semanal
 
-A cada avanço de semana, a moral de todos os jogadores é atualizada por um sistema de **dinâmica de vestiário** com 6 motores:
+A cada avanço de semana, a moral de todos os jogadores é atualizada por um sistema de **dinâmica de vestiário** com 6 motores. As conexões entre jogadores são **bidirecionais** — ao atualizar a força de uma conexão A→B, a conexão B→A também é atualizada/criada.
 
 1. **Promessas expiradas:** -12 de moral por promessa não cumprida.
 2. **Tempo de jogo vs. status:** Key Player no banco: -8; Regular Starter no banco: -5; titular jogando: +2; Excesso no elenco: -3.
@@ -526,6 +648,84 @@ A cada avanço de semana, a moral de todos os jogadores é atualizada por um sis
 6. **Regressão à média:** Moral extrema tende ao centro — euforia (>85) diminui -1; fundo do poço (<20) recupera +2; moral baixa (<35) recupera +1.
 
 Além disso, o treino de coesão (+5 por sessão) e o status no plantel continuam afetando a moral.
+
+---
+
+## Sistema de Coletiva de Imprensa
+
+### Visão Geral
+
+O treinador pode participar de coletivas de imprensa antes e depois das partidas. As respostas dadas aos jornalistas afetam a moral do elenco, a satisfação da diretoria, o humor da torcida e a pressão midiática.
+
+### Tipos de Coletiva
+
+- **Pré-jogo:** Disponível antes de cada partida do usuário. Perguntas sobre o adversário, táticas, forma do time e expectativas.
+- **Pós-jogo:** Disponível após a partida. Perguntas sobre o resultado, desempenho, polêmicas e controvérsias.
+- **Geral:** Coletiva sem contexto de partida, focada em transferências, diretoria e objetivos da temporada.
+
+### Perguntas
+
+Cada coletiva gera 3-4 perguntas contextualizadas, sorteadas de um banco de templates com as seguintes categorias:
+
+- **match_preview / match_review:** Expectativas e análise do jogo
+- **transfer:** Mercado de transferências
+- **player_form:** Forma de jogadores específicos (referencia um jogador do elenco)
+- **tactics:** Escolhas táticas e esquema de jogo
+- **board:** Relação com a diretoria
+- **rivalry:** Rivalidades e clássicos
+- **injury:** Lesões no elenco
+- **season_goals:** Objetivos da temporada
+- **controversy:** Situações polêmicas (arbitragem, vestiário)
+
+Cada pergunta tem um **tom** (agressivo, neutro, amigável, provocativo) que influencia como os efeitos são calculados. O tom é determinado pelo perfil do jornalista (cada um tem um bias) e pelo template da pergunta.
+
+### Respostas
+
+O treinador escolhe uma resposta entre 5 tons possíveis, cada um com 3 variantes de texto:
+
+- **Elogiar (praise):** Aumenta moral (+3) e humor da torcida (+2), reduz pressão midiática (-1)
+- **Defensivo (defensive):** Neutro na moral, leve aumento de pressão midiática (+1)
+- **Crítico (critical):** Reduz moral (-4), aumenta pressão midiática (+3), torcida não gosta (-2)
+- **Diplomático (diplomatic):** Pequeno aumento de moral (+1), melhora relação com diretoria (+2), reduz pressão (-2)
+- **Desviar (deflect):** Leve redução de moral (-1), diretoria não gosta (-1), mídia pressiona (+2)
+
+### Modificadores Contextuais
+
+- Responder **crítico** a pergunta **agressiva/provocativa** → +2 pressão midiática extra
+- Responder **diplomático** a pergunta **agressiva** → -1 pressão midiática, +1 diretoria
+- Responder **evasivo** a pergunta **agressiva** → +2 pressão midiática
+- Elogiar em resposta a pergunta **amigável** → +2 moral extra
+- Elogiar jogador específico → +2 moral extra para aquele jogador
+- Criticar jogador específico → -3 moral extra para aquele jogador
+- Postura firme em clássico (elogiar/crítico) → +2 humor da torcida
+
+### Efeitos Totais
+
+Os efeitos de cada resposta são somados e limitados a ±10 por coletiva. Ao concluir, uma **manchete** é gerada automaticamente baseada no tom geral das respostas. A **satisfação da diretoria** (`boardSatisfaction`) é clampada no range **-100 a 100** (não 0-100).
+
+### Pular Coletiva
+
+Pular uma coletiva gera +3 de pressão midiática (a mídia interpreta como falta de transparência).
+
+### Humor da Torcida (Fan Mood)
+
+- Valor de 0 a 100 (50 = neutro)
+- Sentimentos: eufórica (85+), feliz (70+), satisfeita (55+), neutra (45+), preocupada (30+), irritada (15+), furiosa (<15)
+- Tendência: subindo, estável, caindo
+- **Decaimento semanal:** Resultados recentes afetam o humor — 3+ vitórias: +3; 2 vitórias: +1; 3+ derrotas: -5; 2 derrotas: -2. Regressão à média: >70: -1; <30: +2.
+- **Impacto financeiro:** Torcida feliz aumenta receita de bilheteria em até +20%; torcida brava reduz em até -15% (modificador `getFanMoodRevenueModifier`)
+
+### Pressão Midiática (Media Pressure)
+
+- Valor de 0 a 100 (**50 = inicial/neutro**)
+- Níveis: baixa (<25), moderada (25-49), alta (50-74), intensa (75+)
+- **Valor inicial do jogo:** 50 (baixa) — consistente com a documentação (50 = neutro)
+- **Decaimento semanal:** -2 por semana (a pressão diminui naturalmente sem novos incidentes)
+- **Impacto no desempenho:** Pressão intensa: -5% na força do time; alta: -3%; moderada: -1% (modificador `getMediaPressurePerformanceModifier`)
+
+### Integração com advanceWeek
+
+A cada avanço de semana, `processWeeklyPressDecay` é chamado ao final do processamento para atualizar o humor da torcida (baseado na forma recente) e reduzir a pressão midiática.
 
 ---
 
@@ -562,7 +762,7 @@ As mensagens podem ter ações associadas (aceitar oferta, responder à diretori
 
 - Na **semana 1** de cada temporada, uma fornada de 6 jogadores juvenis é gerada automaticamente e adicionada ao elenco.
 - A qualidade dos juvenis depende do nível das instalações de base do clube.
-- O usuário pode promover jogadores da base para o elenco principal.
+- O usuário pode promover jogadores da base para o elenco principal. Ao promover, os atributos técnicos, mentais e físicos do jovem são copiados diretamente (preservando o desenvolvimento da academia).
 - Existe também uma equipe reserva para desenvolvimento de jogadores.
 
 ---
@@ -611,6 +811,11 @@ Quando há gol, a bola corre para o gol, os jogadores do time atacante avançam,
 - **Auto dark mode:** `@media (prefers-color-scheme: dark)` aplica tema escuro automaticamente quando o usuário não definiu um tema explícito.
 - **Breakpoints responsivos:** 1024px, 900px (intermediário), 768px, 640px, 480px.
 - **Performance mobile:** `backdrop-filter: blur()` reduzido para 4px em tablets e desativado em telas ≤480px (exceto league table).
+- **Padrão visual /taticas (`fm-shared.css`, escopado em `.fms-page`):** Todas as 10 páginas principais (Elenco, Partidas, Classificação, Transferências, Treino, Dinâmica, Caixa de Entrada, Imprensa, Finanças, Visão do Clube) seguem o padrão visual da página `/taticas`. Cada página usa `.fms-page` como container raiz com:
+  - **Topbar:** logo do clube (inicial), título da página, subtítulo (nome do clube + info relevante), botões de ícone (navegação rápida), data (temporada/semana) e botão Continuar (`advanceWeek`)
+  - **Body:** área scrollável (`.fms-body--scroll`) ou grid (`.fms-body--grid`) para conteúdo
+  - **Componentes base:** `.fms-table` (tabelas com header sticky, zebra, hover), `.fms-toolbar` (barra de ferramentas), `.fms-chip`/`.fms-badge` (chips e badges coloridos), `.fms-card`/`.fms-stat-card` (cards), `.fms-bar` (barras de progresso), `.fms-input`/`.fms-select` (formulários), utility classes (flex, gap, cores, padding)
+  - **Variáveis CSS:** `--t-bg`, `--t-panel`, `--t-text`, `--t-accent`, `--t-border`, etc. (mesma paleta do `tactics-fm.css`)
 
 ---
 
@@ -642,6 +847,7 @@ Todas as tabelas do jogo possuem **cabeçalhos clicáveis** para ordenação. Ca
    - Missões de scouting progridem
    - Mensagens do inbox são geradas
 3. **Jogar partida ao vivo** (opcional):
+   - **Intelligence Center** (opcional, pré-jogo): análise preditiva via Monte Carlo com probabilidades, duelos e recomendação tática
    - Visualização 2D em tempo real, minuto a minuto
    - Substituições e gritos táticos
    - Ratings de jogadores ao final
@@ -835,3 +1041,35 @@ cd backend && python run_batch.py
 - `training.ts`: Recálculo de CA com curva de idade
 - `headless_sim.ts`: Receitas financeiras escaladas (bilheteira + patrocínio + TV)
 - `aiManager.ts`: Diversificação de escolhas táticas da IA
+
+---
+
+## Revisão de Código — Correções (#30–#52)
+
+### Médios corrigidos
+
+- **#30** `generateSocialTree`: Força de conexão agora é determinística, baseada em `socialGroup` em comum (0.9), `squadStatus` igual (0.7) ou diferente (0.4). Não usa mais `Math.random()`.
+- **#31** Frontend `GameActions`: Adicionadas 10 ações faltantes (`generateInstallmentClause`, `generatePlayerBonus`, `setCoachTreatment`, `setPlayerTrustLevel`, `setPlayerTrainingLoad`, `updateClubPerformance`, `updateLeagueForm`, `setLeaguePosition`, `applyPressConferenceEffects`, `processWeeklyPressDecay`) com implementações no `gameStore.ts`.
+- **#32** `saveGame` no frontend: Agora retorna `Promise<void>` e o toast aguarda resolução. Toast de erro exibido em caso de falha.
+- **#33** `match.ts`: Non-null assertions (`!`) substituídas por null checks com early return em `simulateMatch`, `generateLiveMatchMinute`, `finishMatch`.
+- **#34** `core.ts`: Non-null assertions em `advanceWeek` substituídas por null checks com early return.
+- **#35** `advanceWeek`: `contractEnd` agora é decrementado semanalmente. Inbox message gerada quando contrato expira (chega a 0).
+- **#36/#37** `advanceWeek`: Lógica inline de fadiga e condição degradada mantida (mais completa que standalone — processa lesões, contratos, recomendações). Ações standalone permanecem para uso manual.
+- **#39** Auth middleware: `backend/src/middleware/auth.ts` criado. Ativa autenticação Bearer token se `API_TOKEN` env var estiver setada.
+
+### Baixos corrigidos
+
+- **#38** `express.json` limit: Reduzido de 50mb para 5mb.
+- **#40** `rateLimiter`: Cleanup periódico a cada 5 minutos remove entradas expiradas do Map.
+- **#41** `saveGame`: `saveSlots` removido do estado salvo, evitando recursão e reduzindo tamanho.
+- **#42** `calculateFatigueLevel`: Retorna 50 (neutro) quando não há entradas no `fatigueLog`, em vez de 0. Corrigido em backend e frontend.
+- **#43** `training.ts`: CA agora pode diminuir. `moraleFactor` aplicado: moral <30 = -0.5, <50 = 0, >=50 = 1. Combinado com `ageFactor`, jogadores velhos com baixa moral perdem CA.
+- **#44** `advanceWeek`: Decaimento básico de fadiga aplicado a todos os times AI (não apenas o do usuário).
+- **#45** `advanceWeek` no fim do campeonato: Adicionada dinâmica de moral e processamento de empréstimos antes do early return. Inbox limitado a 100 mensagens.
+- **#46** Tipo `Promise` renomeado para `PlayerPromise` em `player.ts`, `game.ts`, `promises.ts`. Elimina colisão com `Promise` global.
+- **#47** `updateDegradedConditions`: Documentado que standalone usa `state.currentWeek` (correto para chamada manual) e inline em `core.ts` usa `newWeek` (correto para `advanceWeek`).
+- **#48** `applyMatchIntervention`: Shout agora usa `type: 'shout'` em vez de `'foul'`. Tipo `'shout'` adicionado ao `MatchEvent.type` union.
+- **#49** `advanceWeek`: `previousCompleted` limitado a últimas 200 partidas. `startNextSeason` já limpa matches ao gerar novas.
+- **#50** `fatigueLog`: Limitado a últimas 20 entradas em todos os pontos de adição (core.ts, injury.ts).
+- **#51** `attributeHistory`: Limitado a últimos 20 snapshots em `attributes.ts` e `core.ts`.
+- **#52** `inbox`: Limitado a últimas 100 mensagens em `advanceWeek` e no bloco de fim de campeonato.

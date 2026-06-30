@@ -122,7 +122,7 @@ describe('15.4 Sistema de caixa de entrada', () => {
     getState().updateTeam(teamId, (t) => ({
       ...t,
       squad: t.squad.map((p, i) =>
-        i === 0 ? { ...p, injury: { active: true, days: 14 } } : p,
+        i === 0 ? { ...p, injury: { active: true, daysRemaining: 14, totalDays: 14, type: 'muscle', severity: 'moderate' as const, source: 'training' as const } } : p,
       ),
     }));
     const report = getState().getInjuryReport(player.id);

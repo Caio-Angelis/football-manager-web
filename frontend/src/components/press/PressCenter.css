@@ -1,0 +1,543 @@
+/* ============================================================
+   CENTRO DE IMPRENSA — Press Center Styles
+   ============================================================ */
+
+.fm-press {
+  padding: 1rem 0;
+}
+
+.fm-press h1 {
+  font-size: 1.6rem;
+  margin-bottom: 1.2rem;
+  font-weight: 700;
+}
+
+/* Dashboard de Sentimento */
+.fm-press__dashboard {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .fm-press__dashboard {
+    grid-template-columns: 1fr;
+  }
+}
+
+.fm-press__dashboard-card {
+  background: var(--fm-card-bg, rgba(255,255,255,0.06));
+  border: 1px solid var(--fm-border, rgba(255,255,255,0.1));
+  border-radius: 12px;
+  padding: 1.2rem;
+}
+
+.fm-press__dashboard-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-bottom: 0.8rem;
+  opacity: 0.9;
+}
+
+.fm-press__sentiment-bar {
+  margin-bottom: 0.6rem;
+}
+
+.fm-press__sentiment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.4rem;
+}
+
+.fm-press__sentiment-label {
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+
+.fm-press__sentiment-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.fm-press__sentiment-track {
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(128,128,128,0.2);
+  overflow: hidden;
+}
+
+.fm-press__sentiment-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+.fm-press__trend {
+  font-size: 0.82rem;
+  margin-top: 0.4rem;
+  opacity: 0.8;
+}
+
+.fm-press__trend-badge {
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.fm-press__trend--rising {
+  background: rgba(34,197,94,0.15);
+  color: #22c55e;
+}
+
+.fm-press__trend--falling {
+  background: rgba(239,68,68,0.15);
+  color: #ef4444;
+}
+
+.fm-press__trend--stable {
+  background: rgba(234,179,8,0.15);
+  color: #eab308;
+}
+
+.fm-press__trend-note {
+  font-size: 0.8rem;
+  margin-top: 0.4rem;
+  opacity: 0.7;
+}
+
+/* Botões de Ação */
+.fm-press__actions {
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.fm-press__action-btn {
+  white-space: nowrap;
+}
+
+.fm-press__notice {
+  font-size: 0.85rem;
+  color: #f97316;
+  font-weight: 500;
+}
+
+/* Tabs */
+.fm-press__tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  border-bottom: 2px solid var(--fm-border, rgba(255,255,255,0.1));
+}
+
+.fm-press__tab {
+  padding: 0.6rem 1.2rem;
+  border: none;
+  background: none;
+  color: var(--fm-text-muted, rgba(255,255,255,0.5));
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.2s;
+}
+
+.fm-press__tab--active {
+  color: var(--fm-text, #fff);
+  border-bottom-color: var(--fm-accent, #3b82f6);
+}
+
+.fm-press__tab:hover {
+  color: var(--fm-text, #fff);
+}
+
+/* Empty State */
+.fm-press__empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  opacity: 0.6;
+}
+
+.fm-press__empty-hint {
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  opacity: 0.7;
+}
+
+/* Card de Coletiva */
+.fm-press__card {
+  background: var(--fm-card-bg, rgba(255,255,255,0.06));
+  border: 1px solid var(--fm-border, rgba(255,255,255,0.1));
+  border-radius: 12px;
+  padding: 1.2rem;
+  margin-bottom: 1rem;
+}
+
+.fm-press__card--pending {
+  border-color: rgba(59,130,246,0.4);
+  box-shadow: 0 0 0 1px rgba(59,130,246,0.15);
+}
+
+.fm-press__card--completed {
+  opacity: 0.95;
+}
+
+.fm-press__card--skipped {
+  opacity: 0.6;
+}
+
+.fm-press__card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.6rem;
+}
+
+.fm-press__card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.fm-press__card-type-badge {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: rgba(59,130,246,0.15);
+  color: #60a5fa;
+}
+
+.fm-press__card-week {
+  font-size: 0.82rem;
+  opacity: 0.6;
+}
+
+.fm-press__status {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.fm-press__status--pending {
+  color: #60a5fa;
+}
+
+.fm-press__status--completed {
+  color: #22c55e;
+}
+
+.fm-press__status--skipped {
+  color: rgba(255,255,255,0.4);
+}
+
+.fm-press__card-context {
+  font-size: 0.85rem;
+  opacity: 0.7;
+  margin-bottom: 0.8rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--fm-border, rgba(255,255,255,0.06));
+}
+
+/* Perguntas */
+.fm-press__questions {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.fm-press__question {
+  background: rgba(128,128,128,0.06);
+  border-radius: 10px;
+  padding: 1rem;
+  border: 1px solid rgba(128,128,128,0.1);
+}
+
+.fm-press__question--answered {
+  border-color: rgba(34,197,94,0.2);
+}
+
+.fm-press__question-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.fm-press__question-number {
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: rgba(128,128,128,0.2);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.fm-press__question-meta {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.fm-press__category-badge {
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(168,85,247,0.15);
+  color: #c084fc;
+}
+
+.fm-press__tone-badge {
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(128,128,128,0.12);
+  opacity: 0.8;
+}
+
+.fm-press__question-body {
+  margin-bottom: 0.6rem;
+}
+
+.fm-press__journalist {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  margin-bottom: 0.3rem;
+}
+
+.fm-press__outlet {
+  font-size: 0.78rem;
+  opacity: 0.5;
+}
+
+.fm-press__question-text {
+  font-size: 0.92rem;
+  line-height: 1.5;
+  margin: 0.3rem 0;
+  font-style: italic;
+}
+
+.fm-press__related-player {
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+/* Resposta dada */
+.fm-press__answer {
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  margin-top: 0.4rem;
+  border-left: 3px solid;
+}
+
+.fm-press__tone--praise {
+  border-color: #22c55e;
+  background: rgba(34,197,94,0.06);
+}
+
+.fm-press__tone--defensive {
+  border-color: #eab308;
+  background: rgba(234,179,8,0.06);
+}
+
+.fm-press__tone--critical {
+  border-color: #ef4444;
+  background: rgba(239,68,68,0.06);
+}
+
+.fm-press__tone--diplomatic {
+  border-color: #3b82f6;
+  background: rgba(59,130,246,0.06);
+}
+
+.fm-press__tone--deflect {
+  border-color: #a855f7;
+  background: rgba(168,85,247,0.06);
+}
+
+.fm-press__answer-tone {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.fm-press__answer-text {
+  font-size: 0.88rem;
+  margin: 0.2rem 0 0;
+  font-style: italic;
+}
+
+/* Opções de Resposta */
+.fm-press__response-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.fm-press__response-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.fm-press__tone-btn {
+  padding: 5px 12px;
+  border: 1px solid rgba(128,128,128,0.2);
+  border-radius: 8px;
+  background: rgba(128,128,128,0.06);
+  color: var(--fm-text, #fff);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.fm-press__tone-btn--active {
+  border-color: currentColor;
+  filter: brightness(1.2);
+}
+
+.fm-press__tone--praise .fm-press__tone-btn--active {
+  background: rgba(34,197,94,0.15);
+  border-color: #22c55e;
+  color: #4ade80;
+}
+
+.fm-press__tone--defensive .fm-press__tone-btn--active {
+  background: rgba(234,179,8,0.15);
+  border-color: #eab308;
+  color: #facc15;
+}
+
+.fm-press__tone--critical .fm-press__tone-btn--active {
+  background: rgba(239,68,68,0.15);
+  border-color: #ef4444;
+  color: #f87171;
+}
+
+.fm-press__tone--diplomatic .fm-press__tone-btn--active {
+  background: rgba(59,130,246,0.15);
+  border-color: #3b82f6;
+  color: #60a5fa;
+}
+
+.fm-press__tone--deflect .fm-press__tone-btn--active {
+  background: rgba(168,85,247,0.15);
+  border-color: #a855f7;
+  color: #c084fc;
+}
+
+.fm-press__response-variants {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.4rem;
+  background: rgba(128,128,128,0.06);
+  border-radius: 8px;
+}
+
+.fm-press__variant-btn {
+  padding: 4px 10px;
+  border: 1px solid rgba(128,128,128,0.15);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fm-text-muted, rgba(255,255,255,0.6));
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+}
+
+.fm-press__variant-btn--active {
+  background: rgba(255,255,255,0.08);
+  color: var(--fm-text, #fff);
+  border-color: rgba(255,255,255,0.2);
+}
+
+.fm-press__variant-btn:hover {
+  background: rgba(255,255,255,0.05);
+}
+
+.fm-press__submit-btn {
+  margin-top: 0.3rem;
+  font-size: 0.82rem;
+}
+
+/* Footer do Card */
+.fm-press__card-footer {
+  margin-top: 0.8rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--fm-border, rgba(255,255,255,0.06));
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Efeitos da Coletiva */
+.fm-press__effects {
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--fm-border, rgba(255,255,255,0.06));
+}
+
+.fm-press__headline {
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.5rem 0.8rem;
+  background: rgba(59,130,246,0.08);
+  border-radius: 8px;
+  margin-bottom: 0.6rem;
+}
+
+.fm-press__effects-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .fm-press__effects-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.fm-press__effect {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.4rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+}
+
+.fm-press__effect--positive {
+  background: rgba(34,197,94,0.08);
+}
+
+.fm-press__effect--negative {
+  background: rgba(239,68,68,0.08);
+}
+
+.fm-press__effect-label {
+  font-size: 0.72rem;
+  opacity: 0.6;
+}
+
+.fm-press__effect-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.fm-press__effect--positive .fm-press__effect-value {
+  color: #22c55e;
+}
+
+.fm-press__effect--negative .fm-press__effect-value {
+  color: #ef4444;
+}

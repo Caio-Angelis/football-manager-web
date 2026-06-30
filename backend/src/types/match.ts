@@ -6,7 +6,7 @@
 
 export interface MatchEvent {
   minute: number;
-  type: 'shot' | 'goal' | 'save' | 'corner' | 'foul' | 'yellow' | 'red' | 'substitution';
+  type: 'shot' | 'goal' | 'save' | 'corner' | 'foul' | 'yellow' | 'red' | 'substitution' | 'shout';
   team: 'home' | 'away';
   player?: string;
   description?: string;
@@ -30,7 +30,7 @@ export interface MatchStats {
 // Ação individual durante a partida (cada passe, drible, chute, etc.)
 export interface MatchAction {
   minute: number;
-  type: 'pass' | 'dribble' | 'shot' | 'tackle' | 'interception' | 'clearance' | 'cross' | 'foul' | 'kickoff' | 'goalKick' | 'throwIn';
+  type: 'pass' | 'dribble' | 'shot' | 'tackle' | 'interception' | 'clearance' | 'cross' | 'foul' | 'kickoff' | 'goalKick' | 'throwIn' | 'cornerKick' | 'freeKick' | 'penalty' | 'header';
   team: 'home' | 'away';
   playerId: string;
   playerName: string;
@@ -116,6 +116,49 @@ export interface PostMatchReport {
     home: { left: number; center: number; right: number };
     away: { left: number; center: number; right: number };
   };
+}
+
+// ============================================================
+// CENTRO DE INTELIGÊNCIA PRÉ-JOGO (Pre-Match Intelligence)
+// ============================================================
+
+export interface KeyMatchup {
+  label: string;
+  homePlayer: { id: string; name: string; position: string; rating: number };
+  awayPlayer: { id: string; name: string; position: string; rating: number };
+  advantage: 'home' | 'away' | 'even';
+  edge: number;
+}
+
+export interface FormComparison {
+  homeForm: string[];
+  awayForm: string[];
+  homeFormScore: number;
+  awayFormScore: number;
+}
+
+export interface TacticalRecommendation {
+  mentality: string;
+  approach: string;
+  reason: string;
+  riskLevel: 'low' | 'medium' | 'high';
+}
+
+export interface PreMatchAnalysis {
+  homeTeam: string;
+  awayTeam: string;
+  homeStrength: number;
+  awayStrength: number;
+  winProbability: { home: number; draw: number; away: number };
+  predictedScore: { home: number; away: number };
+  mostLikelyScore: string;
+  expectedGoals: { home: number; away: number };
+  keyMatchups: KeyMatchup[];
+  formComparison: FormComparison;
+  tacticalRecommendation: TacticalRecommendation;
+  homeAdvantage: number;
+  confidenceLevel: number;
+  summary: string;
 }
 
 export interface Match {

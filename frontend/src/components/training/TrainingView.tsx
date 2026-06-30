@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../../store/gameStore';
 import { Button } from '../ui/Button';
 import type { TrainingSession, WeeklyTrainingPlan } from '../../types/game';
+import { Globe, Users, ArrowRight } from 'lucide-react';
 
 const TRAINING_TYPES = [
   { id: 'physical', label: 'Físico', desc: 'Velocidade e resistência (+risco de lesão)', icon: '🏃' },
@@ -96,10 +98,10 @@ function generateWeeklySchedule(focus: string): TrainingSession[] {
 }
 
 export const TrainingView: React.FC = () => {
-  const { selectedTeam, teams, currentWeek, trainingPlan, setTrainingPlan, applyWeeklyTraining, calculateInjuryRisk, schedulePreventionSession, getInjuryRiskSummary, applyPreventionSession, captureWeeklyAttributeSnapshot, recoverInjuredPlayer } = useGameStore();
+  const { selectedTeam, teams, currentWeek, currentSeason, advanceWeek, isAdvancing, trainingPlan, setTrainingPlan, applyWeeklyTraining, calculateInjuryRisk, schedulePreventionSession, getInjuryRiskSummary, applyPreventionSession, captureWeeklyAttributeSnapshot } = useGameStore();
+  const navigate = useNavigate();
   const team = teams.find(t => t.id === selectedTeam);
   const [teamFocus, setTeamFocus] = useState(trainingPlan?.teamFocus ?? 'technical');
-  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [showInjuryRisk, setShowInjuryRisk] = useState(false);
   const [showProgression, setShowProgression] = useState(true);
 
@@ -153,11 +155,30 @@ export const TrainingView: React.FC = () => {
   const riskSummary = showInjuryRisk ? getInjuryRiskSummary() : null;
 
   return (
-    <div className="fm-training-view">
-      <header className="fm-training-view__header">
-        <h1>Treino</h1>
-        <p className="fm-training-view__subtitle">Semana {currentWeek} — {team.name}</p>
+    <div className="fms-page">
+      <header className="fms-topbar">
+        <div className="fms-topbar__left">
+          <div className="fms-club-logo">{(team?.name ?? '?').charAt(0)}</div>
+          <div className="fms-title-block">
+            <span className="fms-title">Treino</span>
+            <span className="fms-subtitle">Semana {currentWeek} — {team?.name ?? '—'}</span>
+          </div>
+        </div>
+        <div className="fms-topbar__right">
+          <button className="fms-icon-btn" title="Visão do Clube" onClick={() => navigate('/clube')}><Globe size={15} /></button>
+          <button className="fms-icon-btn" title="Elenco" onClick={() => navigate('/elenco')}><Users size={15} /></button>
+          <div className="fms-date">
+            <div className="fms-date__main">Temporada {currentSeason}</div>
+            <div className="fms-date__sub">Semana {currentWeek}</div>
+          </div>
+          <button className="fms-continue" onClick={advanceWeek} disabled={isAdvancing}>
+            {isAdvancing ? 'Processando...' : 'Continuar'}
+            <ArrowRight size={15} />
+          </button>
+        </div>
       </header>
+
+      <div className="fms-body--scroll">
 
       <section className="fm-training-view__section">
         <h2>Foco Semanal</h2>
@@ -280,29 +301,12 @@ export const TrainingView: React.FC = () => {
                 </div>
                 <span className="fm-fatigue-card__value">{player.fitness}%</span>
                 {player.injury?.active && (
-                  <span className="fm-fatigue-card__injury">🏥 {player.injury.days}d</span>
+                  <span className="fm-fatigue-card__injury">🏥 {player.injury.daysRemaining}d</span>
                 )}
                 <div className="fm-fatigue-card__risk">
                   <span style={{ color: getRiskColor(risk) }}>
                     ⚠️ Risco: {risk}% ({getRiskLabel(risk)})
                   </span>
-                </div>
-                <div className="fm-fatigue-card__actions">
-                  {player.injury?.active && (
-                    <Button
-                      variant="secondary"
-                      onClick={() => {
-                        if (selectedPlayerId === player.id) {
-                          setSelectedPlayerId(null);
-                        } else {
-                          setSelectedPlayerId(player.id);
-                          recoverInjuredPlayer(player.id);
-                        }
-                      }}
-                    >
-                      {selectedPlayerId === player.id ? 'Cancelar' : 'Recuperar'}
-                    </Button>
-                  )}
                 </div>
               </div>
             );
@@ -573,6 +577,7 @@ export const TrainingView: React.FC = () => {
           </div>
         </div>
       </section>
+      </div>
     </div>
   );
 };

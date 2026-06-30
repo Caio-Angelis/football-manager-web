@@ -53,6 +53,7 @@ export const createTransferSlice = (set: Set, get: Get) => ({
         installmentAmount,
         payments: [],
         status: 'active',
+        direction: 'payable',
       };
 
       for (let i = 0; i < installmentCount; i++) {
@@ -607,6 +608,7 @@ export const createTransferSlice = (set: Set, get: Get) => ({
           installmentCount: remainingPayments.length,
           payments: remainingPayments,
           status: 'active' as const,
+          direction: 'receivable' as const,
         }];
         // Seller receives only the first installment upfront
         updatedUserTeam.budget -= offer.offerPrice; // undo full price
@@ -903,20 +905,33 @@ export const createTransferSlice = (set: Set, get: Get) => ({
 
   checkBonuses: (playerId?: string) => {
     const state = get();
+    const userTeam = state.selectedTeam
+      ? state.teams.find(t => t.id === state.selectedTeam)
+      : undefined;
+    const userStanding = state.selectedTeam
+      ? state.leagueTable.find(s => s.teamId === state.selectedTeam)
+      : undefined;
+
     const updatedBonuses = state.incomingBonuses.map(b => {
       if (b.triggered || b.claimed || (playerId && b.playerId !== playerId)) return b;
 
-      // Simulate bonus trigger check based on random chance
-      const chance = Math.random();
-      if (b.type === 'goals' && chance > 0.7) {
-        return { ...b, triggered: true, triggeredWeek: state.currentWeek };
-      } else if (b.type === 'appearances' && chance > 0.5) {
-        return { ...b, triggered: true, triggeredWeek: state.currentWeek };
-      } else if (b.type === 'assists' && chance > 0.8) {
-        return { ...b, triggered: true, triggeredWeek: state.currentWeek };
-      } else if (b.type === 'titles' && chance > 0.9) {
-        return { ...b, triggered: true, triggeredWeek: state.currentWeek };
-      } else if (b.type === 'performance' && chance > 0.6) {
+      const player = userTeam?.squad.find(p => p.id === b.playerId);
+      if (!player) return b;
+
+      let shouldTrigger = false;
+      if (b.type === 'goals') {
+        shouldTrigger = (player.seasonGoals ?? 0) >= b.threshold;
+      } else if (b.type === 'assists') {
+        shouldTrigger = (player.seasonAssists ?? 0) >= b.threshold;
+      } else if (b.type === 'appearances') {
+        shouldTrigger = (userTeam?.played ?? 0) >= b.threshold;
+      } else if (b.type === 'titles') {
+        shouldTrigger = (userStanding?.position ?? 99) === 1;
+      } else if (b.type === 'performance') {
+        shouldTrigger = (player.form ?? 0) >= b.threshold;
+      }
+
+      if (shouldTrigger) {
         return { ...b, triggered: true, triggeredWeek: state.currentWeek };
       }
       return b;
@@ -934,7 +949,7 @@ export const createTransferSlice = (set: Set, get: Get) => ({
 
     set({
       incomingBonuses: state.incomingBonuses.map(b =>
-        b === bonus ? { ...b, claimed: true } : b,
+        b.id === bonus.id ? { ...b, claimed: true } : b,
       ),
       teams: state.teams.map(t =>
         t.id === state.selectedTeam ? { ...t, budget: t.budget + bonusAmountM } : t,

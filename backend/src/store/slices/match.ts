@@ -5,6 +5,7 @@ import {
   generatePostMatchReport,
 } from '../helpers/matchEngine';
 import { calculateLeagueStandings } from '../helpers/league';
+import { generatePreMatchAnalysis } from '../helpers/preMatchAnalysis';
 
 type Set = (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void;
 type Get = () => GameStore;
@@ -16,8 +17,9 @@ export const createMatchSlice = (set: Set, get: Get) => ({
     if (!match || match.completed) return;
 
     // Inicializa o estado da partida ao vivo — simulação passo a passo
-    const homeTeam = state.teams.find(t => t.id === match.homeTeam)!;
-    const awayTeam = state.teams.find(t => t.id === match.awayTeam)!;
+    const homeTeam = state.teams.find(t => t.id === match.homeTeam);
+    const awayTeam = state.teams.find(t => t.id === match.awayTeam);
+    if (!homeTeam || !awayTeam) return;
     const liveState = initLiveMatchState(homeTeam, awayTeam);
 
     const updatedMatches = [...state.matches];
@@ -47,8 +49,9 @@ export const createMatchSlice = (set: Set, get: Get) => ({
     if (!match || !match.isLive || match.completed) return;
     if (!match.liveMatchState) return;
 
-    const homeTeam = state.teams.find(t => t.id === match.homeTeam)!;
-    const awayTeam = state.teams.find(t => t.id === match.awayTeam)!;
+    const homeTeam = state.teams.find(t => t.id === match.homeTeam);
+    const awayTeam = state.teams.find(t => t.id === match.awayTeam);
+    if (!homeTeam || !awayTeam) return;
     const minute = Math.min(90, match.liveMinute + 1);
 
     // Simula 1 minuto de jogo passo a passo (cada passe, drible, chute)
@@ -139,7 +142,7 @@ export const createMatchSlice = (set: Set, get: Get) => ({
       if (match.isLive && match.liveMatchState) {
         const interventionEvent: MatchEvent = {
           minute: minute + 1,
-          type: 'foul',
+          type: 'shout',
           team: isHome ? 'home' : 'away',
           description: 'Gritos à equipa!',
         };
@@ -194,8 +197,9 @@ export const createMatchSlice = (set: Set, get: Get) => ({
     if (!match.liveMatchState) return;
 
     // Simula os minutos restantes até 90 (passo a passo)
-    const homeTeam = state.teams.find(t => t.id === match.homeTeam)!;
-    const awayTeam = state.teams.find(t => t.id === match.awayTeam)!;
+    const homeTeam = state.teams.find(t => t.id === match.homeTeam);
+    const awayTeam = state.teams.find(t => t.id === match.awayTeam);
+    if (!homeTeam || !awayTeam) return;
     let liveState = match.liveMatchState;
 
     for (let m = match.liveMinute + 1; m <= 90; m++) {
@@ -241,5 +245,17 @@ export const createMatchSlice = (set: Set, get: Get) => ({
     const updatedTeams = applyMatchResultToTeams(state.teams, match.homeTeam, match.awayTeam, result);
     const leagueStandings = calculateLeagueStandings(updatedTeams, updatedMatches, state.currentWeek);
     set({ matches: updatedMatches, teams: updatedTeams, leagueTable: leagueStandings });
+  },
+
+  getPreMatchAnalysis: (matchIndex: number) => {
+    const state = get();
+    const match = state.matches[matchIndex];
+    if (!match) return null;
+
+    const homeTeam = state.teams.find(t => t.id === match.homeTeam);
+    const awayTeam = state.teams.find(t => t.id === match.awayTeam);
+    if (!homeTeam || !awayTeam) return null;
+
+    return generatePreMatchAnalysis(homeTeam, awayTeam, state.selectedTeam);
   },
 });

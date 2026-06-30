@@ -33,6 +33,10 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
 ];
 
 const POSITION_ORDER: Record<string, number> = { GK: 0, DEF: 1, MID: 2, FWD: 3 };
+const UP = '\u2191';
+const DOWN = '\u2193';
+const sortInd = (key: SortKey, sortKey: SortKey, dir: 'asc' | 'desc') =>
+  key === sortKey ? (dir === 'asc' ? UP : DOWN) : '';
 
 const STATUS_LABELS: Record<string, string> = {
   'Key Player': 'Peça-chave',
@@ -46,13 +50,13 @@ export const SquadTable: React.FC<SquadTableProps> = ({
   players,
   selectedPlayerId,
   onPlayerSelect,
-  teamName,
+  teamName: _teamName,
   formation,
-  tactic,
+  tactic: _tactic,
   mentality,
-  season,
-  week,
-  record,
+  season: _season,
+  week: _week,
+  record: _record,
 }) => {
   const { sortState, toggleSort } = useSortable<SortKey>('position', 'asc');
   const sortKey = sortState.key;
@@ -91,7 +95,7 @@ export const SquadTable: React.FC<SquadTableProps> = ({
       } else if (sortKey === 'squadStatus') {
         cmp = (a.squadStatus || '').localeCompare(b.squadStatus || '');
       } else if (sortKey === 'injury') {
-        cmp = (a.injury?.active ? a.injury.days : 0) - (b.injury?.active ? b.injury.days : 0);
+        cmp = (a.injury?.active ? a.injury.daysRemaining : 0) - (b.injury?.active ? b.injury.daysRemaining : 0);
       } else {
         const aVal = (a as any)[sortKey] as number;
         const bVal = (b as any)[sortKey] as number;
@@ -114,76 +118,61 @@ export const SquadTable: React.FC<SquadTableProps> = ({
   const totalPlayers = filtered.length;
 
   return (
-    <div className="fm-squad-table">
-      <header className="fm-squad-table__header">
-        <h1 className="fm-squad-table__title">Elenco · {teamName}</h1>
-        <div className="fm-squad-table__meta">
-          <span className="fm-squad-table__chip">{formation}</span>
-          <span className="fm-squad-table__chip">{tactic}</span>
-          <span className="fm-squad-table__chip">{mentality}</span>
-          <span className="fm-squad-table__chip">T{season} · S{week}</span>
-          <span className="fm-squad-table__chip fm-squad-table__chip--accent">
-            {record.points} pts · {record.won}V {record.drawn}E {record.lost}D
-          </span>
-        </div>
-      </header>
-
-      <div className="fm-squad-table__toolbar">
-        <div className="fm-squad-table__search">
-          <input
-            className="fm-squad-table__search-input"
-            type="text"
-            placeholder="Buscar jogador…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <div className="fm-squad-table__filters">
-          <button
-            className="fm-squad-table__filter-btn"
-            onClick={() => setFilterPos(filterPos === '' ? 'GK' : filterPos === 'GK' ? 'DEF' : filterPos === 'DEF' ? 'MID' : filterPos === 'MID' ? 'FWD' : '')}
-          >
-            {filterPos || 'Posição'} ▾
+    <div className="fms-content">
+      <div className="fms-toolbar">
+        <div className="fms-select">{formation} · {mentality}</div>
+        <div className="fms-toolbar-spacer" />
+        <input
+          className="fms-input"
+          type="text"
+          placeholder="Buscar jogador…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ width: 160 }}
+        />
+        <button
+          className="fms-chip"
+          onClick={() => setFilterPos(filterPos === '' ? 'GK' : filterPos === 'GK' ? 'DEF' : filterPos === 'DEF' ? 'MID' : filterPos === 'MID' ? 'FWD' : '')}
+        >
+          {filterPos || 'Posição'} ▾
+        </button>
+        <div style={{ position: 'relative' }}>
+          <button className="fms-chip" onClick={() => setShowSortMenu(prev => !prev)}>
+            {SORT_OPTIONS.find(o => o.key === sortKey)?.label ?? 'Ordenar'} ({sortDir === 'asc' ? '↑' : '↓'}) ▾
           </button>
-          <div className="fm-squad-table__sort-wrapper">
-            <button className="fm-squad-table__filter-btn"
-              onClick={() => setShowSortMenu(prev => !prev)}
-            >
-              {SORT_OPTIONS.find(o => o.key === sortKey)?.label ?? 'Ordenar'} ({sortDir === 'asc' ? '↑' : '↓'}) ▾
-            </button>
-            {showSortMenu && (
-              <div className="fm-squad-table__sort-menu">
-                {SORT_OPTIONS.map(opt => (
-                  <button
-                    key={opt.key}
-                    className={`fm-squad-table__sort-option${sortKey === opt.key ? ' fm-squad-table__sort-option--active' : ''}`}
-                    onClick={() => handleSort(opt.key)}
-                  >
-                    {opt.label} {sortKey === opt.key ? (sortDir === 'asc' ? '↑' : '↓') : ''}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          {showSortMenu && (
+            <div style={{ position: 'absolute', top: '100%', right: 0, zIndex: 10, background: 'var(--t-panel)', border: '1px solid var(--t-border-strong)', borderRadius: 6, padding: 4, display: 'flex', flexDirection: 'column', gap: 2, minWidth: 140 }}>
+              {SORT_OPTIONS.map(opt => (
+                <button
+                  key={opt.key}
+                  className={`fms-chip ${sortKey === opt.key ? 'fms-chip--active' : ''}`}
+                  style={{ width: '100%', textAlign: 'left' }}
+                  onClick={() => handleSort(opt.key)}
+                >
+                  {opt.label} {sortInd(opt.key, sortKey, sortDir)}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-        <div className="fm-squad-table__count">{totalPlayers} jogadores</div>
+        <span className="fms-text-3" style={{ fontSize: 11 }}>{totalPlayers} jogadores</span>
       </div>
 
-      <div className="fm-squad-table__wrapper">
-        <table className="fm-squad-table__grid">
+      <div className="fms-table-wrap">
+        <table className="fms-table">
           <thead>
             <tr>
-              <th className="fm-squad-table__th fm-squad-table__th--sortable" onClick={() => handleSort('position')}>Pos {sortKey === 'position' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
-              {!isNarrow && <th className="fm-squad-table__th fm-squad-table__th--sortable" onClick={() => handleSort('name')}>Nome {sortKey === 'name' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>}
-              {!isNarrow && <th className="fm-squad-table__th fm-squad-table__th--sortable" onClick={() => handleSort('age')}>Idade {sortKey === 'age' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>}
-              {!isNarrow && <th className="fm-squad-table__th fm-squad-table__th--sortable" onClick={() => handleSort('currentAbility')}>CA {sortKey === 'currentAbility' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>}
-              <th className="fm-squad-table__th fm-squad-table__th--sortable" onClick={() => handleSort('form')}>Forma {sortKey === 'form' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
-              <th className="fm-squad-table__th fm-squad-table__th--sortable" onClick={() => handleSort('fitness')}>Cond. {sortKey === 'fitness' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
-              {!isNarrow && <th className="fm-squad-table__th fm-squad-table__th--sortable" onClick={() => handleSort('morale')}>Moral {sortKey === 'morale' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>}
-              <th className="fm-squad-table__th fm-squad-table__th--sortable" onClick={() => handleSort('squadStatus')}>Status {sortKey === 'squadStatus' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
-              {!isNarrow && <th className="fm-squad-table__th fm-squad-table__th--sortable" onClick={() => handleSort('marketValue')}>Valor {sortKey === 'marketValue' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>}
-              {!isNarrow && <th className="fm-squad-table__th fm-squad-table__th--sortable" onClick={() => handleSort('salary')}>Salário {sortKey === 'salary' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>}
-              <th className="fm-squad-table__th fm-squad-table__th--sortable" onClick={() => handleSort('injury')}>Lesão {sortKey === 'injury' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
+              <th onClick={() => handleSort('position')}>Pos {sortInd('position', sortKey, sortDir)}</th>
+              {!isNarrow && <th onClick={() => handleSort('name')}>Nome {sortInd('name', sortKey, sortDir)}</th>}
+              {!isNarrow && <th onClick={() => handleSort('age')}>Idade {sortInd('age', sortKey, sortDir)}</th>}
+              {!isNarrow && <th onClick={() => handleSort('currentAbility')}>CA {sortInd('currentAbility', sortKey, sortDir)}</th>}
+              <th onClick={() => handleSort('form')}>Forma {sortInd('form', sortKey, sortDir)}</th>
+              <th onClick={() => handleSort('fitness')}>Cond. {sortInd('fitness', sortKey, sortDir)}</th>
+              {!isNarrow && <th onClick={() => handleSort('morale')}>Moral {sortInd('morale', sortKey, sortDir)}</th>}
+              <th onClick={() => handleSort('squadStatus')}>Status {sortInd('squadStatus', sortKey, sortDir)}</th>
+              {!isNarrow && <th onClick={() => handleSort('marketValue')}>Valor {sortInd('marketValue', sortKey, sortDir)}</th>}
+              {!isNarrow && <th onClick={() => handleSort('salary')}>Salário {sortInd('salary', sortKey, sortDir)}</th>}
+              <th onClick={() => handleSort('injury')}>Lesão {sortInd('injury', sortKey, sortDir)}</th>
             </tr>
           </thead>
           <tbody>
@@ -192,48 +181,52 @@ export const SquadTable: React.FC<SquadTableProps> = ({
               return (
                 <tr
                   key={player.id}
-                  className={`fm-squad-table__row${selectedPlayerId === player.id ? ' fm-squad-table__row--selected' : ''}`}
+                  className={selectedPlayerId === player.id ? 'fms-row--user' : ''}
+                  style={{ cursor: 'pointer' }}
                   onClick={() => onPlayerSelect(player.id)}
                 >
-                  <td className="fm-squad-table__pos">
-                    <span className="fm-squad-table__pos-badge" style={{ backgroundColor: player.position === 'GK' ? '#2196F3' : player.position === 'DEF' ? '#4CAF50' : player.position === 'MID' ? '#FF9800' : '#F44336' }}>
+                  <td>
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      width: 28, height: 20, borderRadius: 4, fontSize: 10, fontWeight: 700,
+                      backgroundColor: player.position === 'GK' ? 'rgba(33,150,243,0.2)' : player.position === 'DEF' ? 'rgba(76,175,80,0.2)' : player.position === 'MID' ? 'rgba(255,152,0,0.2)' : 'rgba(244,67,54,0.2)',
+                      color: player.position === 'GK' ? '#5aa3f0' : player.position === 'DEF' ? '#4caf50' : player.position === 'MID' ? '#ff9800' : '#f44336',
+                    }}>
                       {player.position}
                     </span>
                   </td>
                   {!isNarrow && (
-                    <td className="fm-squad-table__name">
-                      <span className="fm-squad-table__name-text">{getFullName(player)}</span>
-                      <span className="fm-squad-table__name-overall">{overall}</span>
+                    <td>
+                      <span className="fms-bold">{getFullName(player)}</span>
+                      <span className="fms-text-3" style={{ marginLeft: 8, fontSize: 10 }}>({overall})</span>
                     </td>
                   )}
-                  {!isNarrow && <td className="fm-squad-table__age">{player.age}</td>}
+                  {!isNarrow && <td className="fms-text-2">{player.age}</td>}
                   {!isNarrow && (
-                    <td className="fm-squad-table__ca">
-                      <span>{player.currentAbility}</span>
-                      <span className="fm-squad-table__ca-pa">{player.potentialAbility}</span>
+                    <td>
+                      <span className="fms-bold">{player.currentAbility}</span>
+                      <span className="fms-text-3" style={{ marginLeft: 6, fontSize: 10 }}>/{player.potentialAbility}</span>
                     </td>
                   )}
-                  <td className="fm-squad-table__form">
-                    <div className="fm-squad-table__bar" style={{ width: `${player.form}%`, backgroundColor: getStatColor(player.form) }} />
+                  <td>
+                    <div className="fms-bar"><div className="fms-bar__fill" style={{ width: `${player.form}%`, backgroundColor: getStatColor(player.form) }} /></div>
                   </td>
-                  <td className="fm-squad-table__fitness">
-                    <div className="fm-squad-table__bar" style={{ width: `${player.fitness}%`, backgroundColor: getStatColor(player.fitness) }} />
+                  <td>
+                    <div className="fms-bar"><div className="fms-bar__fill" style={{ width: `${player.fitness}%`, backgroundColor: getStatColor(player.fitness) }} /></div>
                   </td>
                   {!isNarrow && (
-                    <td className="fm-squad-table__morale">
-                      <div className="fm-squad-table__bar" style={{ width: `${player.morale}%`, backgroundColor: getStatColor(player.morale) }} />
+                    <td>
+                      <div className="fms-bar"><div className="fms-bar__fill" style={{ width: `${player.morale}%`, backgroundColor: getStatColor(player.morale) }} /></div>
                     </td>
                   )}
-                  <td className="fm-squad-table__status">
-                    <span className="fm-squad-table__status-badge">{STATUS_LABELS[player.squadStatus] || player.squadStatus}</span>
-                  </td>
-                  {!isNarrow && <td className="fm-squad-table__value">R$ {player.marketValue.toFixed(1)}M</td>}
-                  {!isNarrow && <td className="fm-squad-table__salary">R$ {(player.salary / 1000).toFixed(1)}K</td>}
-                  <td className="fm-squad-table__injury">
+                  <td><span className="fms-badge">{STATUS_LABELS[player.squadStatus] || player.squadStatus}</span></td>
+                  {!isNarrow && <td className="fms-text-2">R$ {player.marketValue.toFixed(1)}M</td>}
+                  {!isNarrow && <td className="fms-text-2">R$ {(player.salary / 1000).toFixed(1)}K</td>}
+                  <td className="fms-center">
                     {player.injury?.active ? (
-                      <span className="fm-squad-table__injury-badge">🏥 {player.injury.days}</span>
+                      <span className="fms-badge fms-badge--red">🏥 {player.injury.daysRemaining}d</span>
                     ) : (
-                      <span className="fm-squad-table__injury-free">✓</span>
+                      <span className="fms-text-green">✓</span>
                     )}
                   </td>
                 </tr>

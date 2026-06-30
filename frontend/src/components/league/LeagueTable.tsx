@@ -1,6 +1,9 @@
 import React, { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useGameStore } from '../../store/gameStore';
 import type { LeagueStandings } from '../../types/game';
 import { useSortable } from '../../hooks/useSortable';
+import { Globe, Users, ArrowRight } from 'lucide-react';
 
 type StandingsSortKey = 'position' | 'teamName' | 'played' | 'wins' | 'draws' | 'losses' | 'goalsFor' | 'goalsAgainst' | 'goalDifference' | 'points';
 
@@ -30,10 +33,18 @@ const FORM_LABELS: Record<string, string> = {
 };
 
 const formClass = (r: string) =>
-  r === 'W' ? 'fm-form-badge--W' : r === 'D' ? 'fm-form-badge--D' : 'fm-form-badge--L';
+  r === 'W' ? 'fms-badge--green' : r === 'D' ? 'fms-badge--amber' : 'fms-badge--red';
+
+const UP = '\u2191';
+const DOWN = '\u2193';
+const sortInd = (key: StandingsSortKey, sk: StandingsSortKey, dir: 'asc' | 'desc') =>
+  key === sk ? (dir === 'asc' ? UP : DOWN) : '';
 
 export const LeagueTable: React.FC<LeagueTableProps> = ({ standings, userTeamId }) => {
   const { sortState, toggleSort } = useSortable<StandingsSortKey>('position', 'asc');
+  const navigate = useNavigate();
+  const { currentSeason, currentWeek, advanceWeek, isAdvancing, teams } = useGameStore();
+  const userTeam = teams.find(t => t.id === userTeamId);
 
   const sortedStandings = useMemo(() => {
     const list = [...standings];
@@ -49,74 +60,79 @@ export const LeagueTable: React.FC<LeagueTableProps> = ({ standings, userTeamId 
   }, [standings, sortState]);
 
   return (
-  <div className="fm-league-view">
-    <header className="fm-league-view__header">
-      <h1>Classificação</h1>
-      <span className="fm-league-view__count">{standings.length} times</span>
+  <div className="fms-page">
+    <header className="fms-topbar">
+      <div className="fms-topbar__left">
+        <div className="fms-club-logo">{(userTeam?.name ?? '?').charAt(0)}</div>
+        <div className="fms-title-block">
+          <span className="fms-title">Classificação</span>
+          <span className="fms-subtitle">{standings.length} times — Temporada {currentSeason}</span>
+        </div>
+      </div>
+      <div className="fms-topbar__right">
+        <button className="fms-icon-btn" title="Visão do Clube" onClick={() => navigate('/clube')}><Globe size={15} /></button>
+        <button className="fms-icon-btn" title="Elenco" onClick={() => navigate('/elenco')}><Users size={15} /></button>
+        <div className="fms-date">
+          <div className="fms-date__main">Temporada {currentSeason}</div>
+          <div className="fms-date__sub">Semana {currentWeek}</div>
+        </div>
+        <button className="fms-continue" onClick={advanceWeek} disabled={isAdvancing}>
+          {isAdvancing ? 'Processando...' : 'Continuar'}
+          <ArrowRight size={15} />
+        </button>
+      </div>
     </header>
 
-    <div className="fm-league-table">
-      <div className="fm-league-table__scroll">
-        <table className="fm-league-table__grid">
+    <div className="fms-content">
+      <div className="fms-table-wrap">
+        <table className="fms-table">
           <thead>
             <tr>
-              <th className="fm-league-table__th fm-league-table__th--pos fm-league-table__th--sortable" onClick={() => toggleSort('position')}># {sortState.key === 'position' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
-              <th className="fm-league-table__th fm-league-table__th--team fm-league-table__th--sortable" onClick={() => toggleSort('teamName')}>Time {sortState.key === 'teamName' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
-              <th className="fm-league-table__th fm-league-table__th--num fm-league-table__th--sortable" onClick={() => toggleSort('played')}>J {sortState.key === 'played' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
-              <th className="fm-league-table__th fm-league-table__th--num fm-league-table__th--sortable" onClick={() => toggleSort('wins')}>V {sortState.key === 'wins' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
-              <th className="fm-league-table__th fm-league-table__th--num fm-league-table__th--sortable" onClick={() => toggleSort('draws')}>E {sortState.key === 'draws' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
-              <th className="fm-league-table__th fm-league-table__th--num fm-league-table__col--hide-sm fm-league-table__th--sortable" onClick={() => toggleSort('losses')}>D {sortState.key === 'losses' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
-              <th className="fm-league-table__th fm-league-table__th--num fm-league-table__col--hide-sm fm-league-table__th--sortable" onClick={() => toggleSort('goalsFor')}>GP {sortState.key === 'goalsFor' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
-              <th className="fm-league-table__th fm-league-table__th--num fm-league-table__col--hide-sm fm-league-table__th--sortable" onClick={() => toggleSort('goalsAgainst')}>GC {sortState.key === 'goalsAgainst' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
-              <th className="fm-league-table__th fm-league-table__th--num fm-league-table__th--sortable" onClick={() => toggleSort('goalDifference')}>SG {sortState.key === 'goalDifference' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
-              <th className="fm-league-table__th fm-league-table__th--pts fm-league-table__th--sortable" onClick={() => toggleSort('points')}>P {sortState.key === 'points' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
-              <th className="fm-league-table__th fm-league-table__th--form">Forma</th>
-              <th className="fm-league-table__th fm-league-table__th--zone fm-league-table__col--hide-xs">Zona</th>
+              <th onClick={() => toggleSort('position')}># {sortInd('position', sortState.key, sortState.direction)}</th>
+              <th onClick={() => toggleSort('teamName')}>Time {sortInd('teamName', sortState.key, sortState.direction)}</th>
+              <th onClick={() => toggleSort('played')}>J {sortInd('played', sortState.key, sortState.direction)}</th>
+              <th onClick={() => toggleSort('wins')}>V {sortInd('wins', sortState.key, sortState.direction)}</th>
+              <th onClick={() => toggleSort('draws')}>E {sortInd('draws', sortState.key, sortState.direction)}</th>
+              <th onClick={() => toggleSort('losses')}>D {sortInd('losses', sortState.key, sortState.direction)}</th>
+              <th onClick={() => toggleSort('goalsFor')}>GP {sortInd('goalsFor', sortState.key, sortState.direction)}</th>
+              <th onClick={() => toggleSort('goalsAgainst')}>GC {sortInd('goalsAgainst', sortState.key, sortState.direction)}</th>
+              <th onClick={() => toggleSort('goalDifference')}>SG {sortInd('goalDifference', sortState.key, sortState.direction)}</th>
+              <th onClick={() => toggleSort('points')}>P {sortInd('points', sortState.key, sortState.direction)}</th>
+              <th className="fms-th--nosort">Forma</th>
+              <th className="fms-th--nosort">Zona</th>
             </tr>
           </thead>
           <tbody>
             {sortedStandings.map((s) => {
               const zone = s.zone ?? 'safe';
               const isUser = s.teamId === userTeamId;
-              const rowClass = [
-                'fm-league-table__row',
-                `fm-league-table__row--${zone}`,
-                s.isRelegated ? 'fm-league-table__row--relegated' : '',
-                isUser ? 'fm-league-table__row--user' : '',
-              ]
-                .filter(Boolean)
-                .join(' ');
-
               return (
-                <tr key={s.teamId} className={rowClass}>
-                  <td className="fm-league-table__pos">{s.position}</td>
-                  <td className="fm-league-table__team-cell">
-                    <div className="fm-league-table__team">
-                      <span className="fm-league-table__team-name">{s.teamName}</span>
-                      {isUser && <span className="fm-league-table__user-tag">Seu clube</span>}
-                      {s.isRelegated && <span className="fm-relegation-badge">Rebaixado</span>}
+                <tr key={s.teamId} className={isUser ? 'fms-row--user' : ''}>
+                  <td className="fms-bold">{s.position}</td>
+                  <td>
+                    <span className="fms-bold">{s.teamName}</span>
+                    {isUser && <span className="fms-badge fms-badge--accent" style={{ marginLeft: 8 }}>Seu clube</span>}
+                    {s.isRelegated && <span className="fms-badge fms-badge--red" style={{ marginLeft: 8 }}>Rebaixado</span>}
+                  </td>
+                  <td className="fms-center">{s.played}</td>
+                  <td className="fms-center">{s.wins}</td>
+                  <td className="fms-center">{s.draws}</td>
+                  <td className="fms-center">{s.losses}</td>
+                  <td className="fms-center">{s.goalsFor}</td>
+                  <td className="fms-center">{s.goalsAgainst}</td>
+                  <td className="fms-center">{s.goalDifference > 0 ? '+' : ''}{s.goalDifference}</td>
+                  <td className="fms-center fms-bold">{s.points}</td>
+                  <td>
+                    <div className="fms-flex fms-gap-4">
+                      {s.form.map((r, i) => (
+                        <span key={i} className={`fms-badge ${formClass(r)}`} style={{ padding: '2px 5px', fontSize: 9 }}>
+                          {FORM_LABELS[r] ?? r}
+                        </span>
+                      ))}
                     </div>
                   </td>
-                  <td className="fm-league-table__num">{s.played}</td>
-                  <td className="fm-league-table__num">{s.wins}</td>
-                  <td className="fm-league-table__num">{s.draws}</td>
-                  <td className="fm-league-table__num fm-league-table__col--hide-sm">{s.losses}</td>
-                  <td className="fm-league-table__num fm-league-table__col--hide-sm">{s.goalsFor}</td>
-                  <td className="fm-league-table__num fm-league-table__col--hide-sm">{s.goalsAgainst}</td>
-                  <td className="fm-league-table__num">
-                    {s.goalDifference > 0 ? '+' : ''}
-                    {s.goalDifference}
-                  </td>
-                  <td className="fm-league-table__points">{s.points}</td>
-                  <td className="fm-league-table__form">
-                    {s.form.map((r, i) => (
-                      <span key={i} className={`fm-form-badge ${formClass(r)}`}>
-                        {FORM_LABELS[r] ?? r}
-                      </span>
-                    ))}
-                  </td>
-                  <td className="fm-league-table__zone fm-league-table__col--hide-xs">
-                    <span className={`fm-league-table__zone-badge fm-league-table__zone-badge--${zone}`}>
+                  <td>
+                    <span className={`fms-badge ${zone === 'title' ? 'fms-badge--accent' : zone === 'europe' ? 'fms-badge--green' : zone === 'relegation' ? 'fms-badge--red' : ''}`}>
                       {ZONE_ICONS[zone]} {ZONE_LABELS[zone]}
                     </span>
                   </td>
@@ -127,13 +143,14 @@ export const LeagueTable: React.FC<LeagueTableProps> = ({ standings, userTeamId 
         </table>
       </div>
 
-      <footer className="fm-league-table__legend" aria-label="Legenda de zonas">
+      <div className="fms-toolbar">
+        <div className="fms-toolbar-spacer" />
         {(Object.keys(ZONE_LABELS) as Array<keyof typeof ZONE_LABELS>).map((zone) => (
-          <span key={zone} className={`fm-league-table__legend-item fm-league-table__legend-item--${zone}`}>
+          <span key={zone} className={`fms-badge ${zone === 'title' ? 'fms-badge--accent' : zone === 'europe' ? 'fms-badge--green' : zone === 'relegation' ? 'fms-badge--red' : ''}`}>
             {ZONE_ICONS[zone]} {ZONE_LABELS[zone]}
           </span>
         ))}
-      </footer>
+      </div>
     </div>
   </div>
   );

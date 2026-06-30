@@ -7,13 +7,14 @@ type Get = () => GameStore;
 export const createTrainingSlice = (set: Set, get: Get) => ({
   updatePlayerAttributes: (playerId: string, trainingType: string) => {
     const state = get();
-    const teamIdx = state.teams.findIndex(t => t.squad.some(p => p.id === playerId));
+    const teamIdx = state.teams.findIndex(t => t.id === state.selectedTeam);
     if (teamIdx === -1) return;
 
     const team = { ...state.teams[teamIdx] };
     const playerIdx = team.squad.findIndex(p => p.id === playerId);
+    if (playerIdx === -1) return;
     team.squad = [...team.squad];
-    team.squad[playerIdx] = updatePlayerAttributes(team.squad[playerIdx], trainingType);
+    team.squad[playerIdx] = updatePlayerAttributes(team.squad[playerIdx], trainingType, state.currentWeek);
 
     const updatedTeams = [...state.teams];
     updatedTeams[teamIdx] = team;
@@ -35,7 +36,7 @@ export const createTrainingSlice = (set: Set, get: Get) => ({
     team.squad = team.squad.map(p => {
       if (p.injury?.active) return p;
       
-      const updated = updatePlayerAttributes(p, focus);
+      const updated = updatePlayerAttributes(p, focus, state.currentWeek);
       
       // Add fatigue log entry
       const fatigueLevel = Math.max(0, (updated.cumulativeLoad || 0) * 2 + (100 - updated.fitness));
@@ -60,11 +61,12 @@ export const createTrainingSlice = (set: Set, get: Get) => ({
 
   applyTrainingCooldown: (playerId: string, trainingType: string, day: number) => {
     const state = get();
-    const teamIdx = state.teams.findIndex(t => t.squad.some(p => p.id === playerId));
+    const teamIdx = state.teams.findIndex(t => t.id === state.selectedTeam);
     if (teamIdx === -1) return;
 
     const team = { ...state.teams[teamIdx] };
     const playerIdx = team.squad.findIndex(p => p.id === playerId);
+    if (playerIdx === -1) return;
     const player = team.squad[playerIdx];
 
     const updatedPlayer = { ...player };

@@ -99,7 +99,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
 
       {player.injury?.active && (
         <div className="fm-player-card__injury">
-          <span>🏥 Lesão: {player.injury.days} dias restantes</span>
+          <span>🏥 Lesão: {player.injury.daysRemaining} dias restantes</span>
         </div>
       )}
 

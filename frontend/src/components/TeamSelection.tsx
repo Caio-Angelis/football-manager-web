@@ -57,8 +57,8 @@ const getCrestColors = (name: string, tier: TeamTier) => {
   const hash = hashString(name);
   const hues = [215, 145, 25, 340, 195, 265];
   const hue = hues[hash % hues.length];
-  const primary = tier === 'elite' ? '#1a73e8' : `hsl(${hue} 42% 38%)`;
-  const secondary = tier === 'elite' ? '#1557b0' : `hsl(${hue} 35% 28%)`;
+  const primary = tier === 'elite' ? '#3d7bf5' : `hsl(${hue} 42% 38%)`;
+  const secondary = tier === 'elite' ? '#2a5fb0' : `hsl(${hue} 35% 28%)`;
   return { primary, secondary };
 };
 
@@ -103,10 +103,10 @@ const TeamCrest: React.FC<{ name: string; tier: TeamTier }> = ({ name, tier }) =
 };
 
 const tierAccent: Record<TeamTier, string> = {
-  elite: 'oklch(0.82 0.19 130)',
-  strong: 'oklch(0.78 0.16 150)',
-  average: 'oklch(0.80 0.14 90)',
-  developing: 'oklch(0.72 0.18 50)',
+  elite: '#3d7bf5',
+  strong: '#3fbf6b',
+  average: '#e0b341',
+  developing: '#e25c52',
 };
 
 const ReputationRing: React.FC<{ reputation: number; tier: TeamTier }> = ({ reputation, tier }) => {

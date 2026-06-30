@@ -26,7 +26,7 @@ export const createAttributesSlice = (set: Set, get: Get) => ({
         form: updated.form,
         fitness: updated.fitness,
       };
-      updated.attributeHistory = [...(updated.attributeHistory || []), snapshot];
+      updated.attributeHistory = [...(updated.attributeHistory || []), snapshot].slice(-20);
       return updated;
     });
 

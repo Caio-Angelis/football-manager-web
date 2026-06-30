@@ -8,12 +8,15 @@ import {
 import type { MatchStats, MatchEvent } from '../../types/game';
 import { calculateLeagueStandings } from '../helpers/league';
 import { generateInboxMessage } from '../helpers/inbox';
-import { calculatePlayerInjuryRisk, getRiskLevel } from '../helpers/injury';
+import { calculatePlayerInjuryRisk, getRiskLevel, applyFatigueDecayToPlayer, updateDegradedConditionForPlayer, generateInjuryForPlayer, healInjuryForPlayer } from '../helpers/injury';
 import { maybeGenerateIncomingTransfer, recalcWageBill, processBiddingWars } from '../helpers/transfer';
 import { processScoutMissions, generateDefaultScouts, decayScoutKnowledge, generateScoutRecommendations, processLoans } from '../helpers/scouting';
 import { processAIWeeklyDecisions } from '../helpers/aiManager';
 import { applyWeeklyMoraleDynamics } from '../helpers/moraleDynamics';
 import { calculateTicketRevenue, calculateSponsorshipRevenue, calculateFacilityCosts, weeklyWages } from '../helpers/finance';
+import { updatePlayerAttributes } from '../helpers/training';
+import { weeklyFanMoodDecay, weeklyMediaPressureDecay } from '../helpers/press';
+import { getFullName } from '../../utils/playerName';
 
 type Set = (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void;
 type Get = () => GameStore;
@@ -61,7 +64,9 @@ export const createCoreSlice = (set: Set, get: Get) => ({
       currentSeason: 1,
       selectedTeam: null,
       inbox: [],
+      transfers: [],
       incomingTransfers: [],
+      counterOffers: [],
       scoutReports: [],
       deferredTransfers: [],
       youthIntakeCompleted: false,
@@ -72,6 +77,15 @@ export const createCoreSlice = (set: Set, get: Get) => ({
       financialReports: [],
       injuryHistory: [],
       preventionSessions: [],
+      fatigueLog: [],
+      recommendations: [],
+      degradedConditions: [],
+      socialTree: null,
+      pendingInstallments: [],
+      incomingBonuses: [],
+      completedTransfers: [],
+      youthAcademy: { players: [], level: 1, weeklySlots: 3, currentTraining: 'technical', graduationRate: 20 },
+      reserveTeam: [],
       saveSlots: [],
       leagueTable: initialStandings,
       scoutKnowledge: {},
@@ -82,6 +96,10 @@ export const createCoreSlice = (set: Set, get: Get) => ({
       biddingWars: [],
       seasonSummary: null,
       gameOver: false,
+      pressConferences: [],
+      fanMood: { value: 50, trend: 'stable', sentiment: 'neutral' },
+      mediaPressure: { value: 50, level: 'low' },
+      isAdvancing: false,
     });
   },
 
@@ -94,6 +112,8 @@ export const createCoreSlice = (set: Set, get: Get) => ({
 
   advanceWeek: () => {
     const state = get();
+    if (state.isAdvancing) return;
+    set({ isAdvancing: true });
     const newWeek = state.currentWeek + 1;
     const newSeason = state.currentSeason;
     const youthReset = state.youthIntakeCompleted;
@@ -133,16 +153,24 @@ export const createCoreSlice = (set: Set, get: Get) => ({
         const teamIdx = updatedTeams.findIndex(t => t.id === state.selectedTeam);
         if (teamIdx !== -1) {
           const team = updatedTeams[teamIdx];
-          team.squad = team.squad.map(player => {
-            const updated = { ...player };
-            const fatigueDecayRate = 0.15;
-            const decay = Math.max(0, (updated.cumulativeLoad || 0) - 10) * fatigueDecayRate;
-            updated.fitness = Math.max(0, updated.fitness - decay * 0.3);
-            updated.cumulativeLoad = Math.max(0, (updated.cumulativeLoad || 0) - 5);
-            updated.consecutivePhysicalDays = Math.max(0, (updated.consecutivePhysicalDays || 0) - 1);
-            return updated;
-          });
+          team.squad = team.squad.map(player => applyFatigueDecayToPlayer(player));
           updatedTeams[teamIdx] = team;
+        }
+      }
+
+      // Morale dynamics for all teams (#45)
+      updatedTeams.forEach((team, idx) => {
+        const result = applyWeeklyMoraleDynamics(team);
+        updatedTeams[idx] = result.team;
+      });
+
+      // Process active loans (#45)
+      let endOfSeasonLoans = state.activeLoans;
+      if (state.activeLoans.length > 0) {
+        const loanResult = processLoans(state.activeLoans, updatedTeams, 38);
+        endOfSeasonLoans = loanResult.updatedLoans;
+        for (let i = 0; i < updatedTeams.length; i++) {
+          updatedTeams[i] = loanResult.updatedTeams[i] ?? updatedTeams[i];
         }
       }
 
@@ -208,10 +236,12 @@ export const createCoreSlice = (set: Set, get: Get) => ({
         matches: updatedMatches,
         teams: updatedTeams,
         youthIntakeCompleted: false,
-        inbox: [...(state.inbox || []), inboxMessage],
+        inbox: [...(state.inbox || []), inboxMessage].slice(0, 100),
         leagueTable: leagueStandings,
         seasonSummary,
         gameOver,
+        activeLoans: endOfSeasonLoans,
+        isAdvancing: false,
       });
       return;
     }
@@ -279,17 +309,18 @@ export const createCoreSlice = (set: Set, get: Get) => ({
 
     // Acumular partidas completadas de semanas anteriores para que a
     // classificação reflita toda a temporada, não apenas a rodada atual.
-    const previousCompleted = previousMatches.filter(m => m.completed);
+    // Limitar a últimas 200 para evitar crescimento indefinido (#49).
+    const previousCompleted = previousMatches.filter(m => m.completed).slice(-200);
     const newMatches = generateWeekMatches(updatedTeams, newWeek);
 
     const updatedMatches = [...previousCompleted, ...newMatches.map(m => {
       const match = { ...m };
       const isUserMatch = m.homeTeam === state.selectedTeam || m.awayTeam === state.selectedTeam;
       if (!isUserMatch) {
-        const result = simulateFullMatch(
-          updatedTeams.find(t => t.id === m.homeTeam)!,
-          updatedTeams.find(t => t.id === m.awayTeam)!,
-        );
+        const homeTeam = updatedTeams.find(t => t.id === m.homeTeam);
+        const awayTeam = updatedTeams.find(t => t.id === m.awayTeam);
+        if (!homeTeam || !awayTeam) return match;
+        const result = simulateFullMatch(homeTeam, awayTeam);
         match.homeGoals = result.homeGoals;
         match.awayGoals = result.awayGoals;
         match.completed = true;
@@ -309,20 +340,6 @@ export const createCoreSlice = (set: Set, get: Get) => ({
     })];
 
     let youthIntakeCompleted = youthReset;
-
-    if (newWeek === 1 && !youthIntakeCompleted && state.selectedTeam) {
-      const teamIdx = updatedTeams.findIndex(t => t.id === state.selectedTeam);
-      if (teamIdx !== -1) {
-        const team = updatedTeams[teamIdx];
-        const youthPlayers = generateYouthIntake(team.youthFacilitiesLevel, 6);
-        updatedTeams[teamIdx] = {
-          ...team,
-          squad: [...team.squad, ...youthPlayers],
-          wageBill: recalcWageBill({ ...team, squad: [...team.squad, ...youthPlayers] }),
-        };
-        youthIntakeCompleted = true;
-      }
-    }
 
     if (state.selectedTeam) {
       const teamIdx = updatedTeams.findIndex(t => t.id === state.selectedTeam);
@@ -353,22 +370,7 @@ export const createCoreSlice = (set: Set, get: Get) => ({
     });
 
     // Apply injury to the player if the message is an injury type
-    if (inboxMessage.type === 'injury' && inboxMessage.relatedPlayerId && state.selectedTeam) {
-      const teamIdx = updatedTeams.findIndex(t => t.id === state.selectedTeam);
-      if (teamIdx !== -1) {
-        const team = updatedTeams[teamIdx];
-        const injuryDays = 7 + Math.floor(Math.random() * 28);
-        updatedTeams[teamIdx] = {
-          ...team,
-          squad: team.squad.map(p =>
-            p.id === inboxMessage.relatedPlayerId
-              ? { ...p, injury: { active: true, days: injuryDays }, lastInjuryWeek: newWeek }
-              : p
-          ),
-        };
-      }
-    }
-
+    // (Injuries are now generated via risk-based system below, not from inbox)
     const inboxToSend = inboxMessage;
 
     // ============================================================
@@ -381,75 +383,99 @@ export const createCoreSlice = (set: Set, get: Get) => ({
       if (teamIdx !== -1) {
         const team = updatedTeams[teamIdx];
 
-        // 1. Aplicar decaimento de fadiga
+        // 1. Aplicar decaimento de fadiga e curar lesões (via helpers centralizados)
         team.squad = team.squad.map(player => {
-          const updated = { ...player };
-          const fatigueDecayRate = 0.15;
-          const decay = Math.max(0, (updated.cumulativeLoad || 0) - 10) * fatigueDecayRate;
-          updated.fitness = Math.max(0, updated.fitness - decay * 0.3);
-          updated.cumulativeLoad = Math.max(0, (updated.cumulativeLoad || 0) - 5);
-          updated.consecutivePhysicalDays = Math.max(0, (updated.consecutivePhysicalDays || 0) - 1);
-          return updated;
-        });
-        updatedTeams[teamIdx] = team;
-
-        // 2. Atualizar condições degradadas
-        team.squad = team.squad.map(player => {
-          const updated = { ...player };
-          if (updated.degradedCondition && updated.lastInjuryWeek) {
-            const weeksRecovering = newWeek - updated.lastInjuryWeek;
-            if (weeksRecovering > 4 && updated.degradedCondition === 'minimal') {
-              updated.degradedCondition = 'low';
-            } else if (weeksRecovering > 2 && updated.degradedCondition === 'low') {
-              updated.degradedCondition = 'moderate';
-            } else if (weeksRecovering >= 1 && updated.degradedCondition === 'moderate') {
-              updated.degradedCondition = 'good';
-            } else if (weeksRecovering > 8) {
-              updated.degradedCondition = undefined;
-            }
+          let updated = applyFatigueDecayToPlayer(player);
+          // Heal injuries using centralized helper (considers staff, facilities, age, severity)
+          if (updated.injury?.active) {
+            updated = healInjuryForPlayer(updated, team.facilitiesLevel, team.staffLevel);
           }
-          return updated;
-        });
-        updatedTeams[teamIdx] = team;
-
-        // 3. Verificar jogadores em risco e gerar recomendações
-        const injuryRecommendations: InboxMessage[] = [];
-        const substitutionRecommendations: InboxMessage[] = [];
-
-        team.squad.forEach(player => {
-          const risk = calculatePlayerInjuryRisk(player, team.facilitiesLevel, team.staffLevel, newWeek);
-          const riskLevel = getRiskLevel(risk);
-
-          if (riskLevel === 'high' || riskLevel === 'critical') {
-            if (riskLevel === 'critical') {
-              substitutionRecommendations.push({
-                id: `rec_sub_${Date.now()}_${player.id}`,
+          // Decrement contract countdown
+          if (updated.contractEnd > 0) {
+            updated.contractEnd -= 1;
+            if (updated.contractEnd === 0) {
+              newInboxMessages.push({
+                id: `contract_exp_${Date.now()}_${updated.id}`,
                 type: 'suggestion',
-                subject: `⚠️ URGENTE: ${player.name} em Risco Crítico`,
-                body: `${player.name} está com risco de lesão CRÍTICO (${risk}%). Recomendo substituição imediata nos treinos e possivelmente na próxima partida.`,
+                subject: `📋 Contrato Expirado: ${getFullName(updated)}`,
+                body: `${getFullName(updated)} teve seu contrato expirado. Renove ou libere o jogador.`,
                 timestamp: Date.now(),
                 read: false,
                 priority: 'high',
-                relatedPlayerId: player.id,
-              });
-            } else {
-              injuryRecommendations.push({
-                id: `rec_rest_${Date.now()}_${player.id}`,
-                type: 'suggestion',
-                subject: `🟠 ${player.name} — Risco Alto de Lesão`,
-                body: `${player.name} apresenta risco alto de lesão (${risk}%). Sugiro descanso ou treino leve. Verificar no painel de Treino.`,
-                timestamp: Date.now(),
-                read: false,
-                priority: 'medium',
-                relatedPlayerId: player.id,
+                relatedPlayerId: updated.id,
               });
             }
           }
+          return updated;
         });
-
-        // 5. Adicionar recomendações ao inbox
         updatedTeams[teamIdx] = team;
-        newInboxMessages.push(...injuryRecommendations, ...substitutionRecommendations);
+
+        // 2. Atualizar condições degradadas (via standalone helper, using newWeek)
+        team.squad = team.squad.map(player =>
+          updateDegradedConditionForPlayer(player, newWeek),
+        );
+        updatedTeams[teamIdx] = team;
+
+        // 3. Verificar jogadores em risco e gerar lesões + recomendações
+        const injuryRecommendations: InboxMessage[] = [];
+        const substitutionRecommendations: InboxMessage[] = [];
+        const injuryInboxMessages: InboxMessage[] = [];
+
+        team.squad = team.squad.map(player => {
+          if (player.injury?.active) return player;
+
+          const risk = calculatePlayerInjuryRisk(player, team.facilitiesLevel, team.staffLevel, newWeek);
+          const riskLevel = getRiskLevel(risk);
+
+          // Generate recommendations for high/critical risk
+          if (riskLevel === 'critical') {
+            substitutionRecommendations.push({
+              id: `rec_sub_${Date.now()}_${player.id}`,
+              type: 'suggestion',
+              subject: `⚠️ URGENTE: ${getFullName(player)} em Risco Crítico`,
+              body: `${getFullName(player)} está com risco de lesão CRÍTICO (${risk}%). Recomendo substituição imediata nos treinos e possivelmente na próxima partida.`,
+              timestamp: Date.now(),
+              read: false,
+              priority: 'high',
+              relatedPlayerId: player.id,
+            });
+          } else if (riskLevel === 'high') {
+            injuryRecommendations.push({
+              id: `rec_rest_${Date.now()}_${player.id}`,
+              type: 'suggestion',
+              subject: `🟠 ${getFullName(player)} — Risco Alto de Lesão`,
+              body: `${getFullName(player)} apresenta risco alto de lesão (${risk}%). Sugiro descanso ou treino leve. Verificar no painel de Treino.`,
+              timestamp: Date.now(),
+              read: false,
+              priority: 'medium',
+              relatedPlayerId: player.id,
+            });
+          }
+
+          // Risk-based injury generation: weekly roll
+          // Base chance 2%, modified by risk level
+          const injuryChance = 0.02 + (risk / 100) * 0.08;
+          if (Math.random() < injuryChance) {
+            const injuredPlayer = generateInjuryForPlayer(player, 'random', team.facilitiesLevel, team.staffLevel, newWeek);
+            injuryInboxMessages.push({
+              id: `injury_${Date.now()}_${player.id}`,
+              type: 'injury',
+              subject: `🏥 Relatório Médico — ${getFullName(player)} lesionado`,
+              body: `${getFullName(player)} sofreu uma lesão (${injuredPlayer.injury?.type}) durante a semana. Afastamento estimado: ${injuredPlayer.injury?.daysRemaining} dias. Verifique o relatório médico para detalhes.`,
+              timestamp: Date.now(),
+              read: false,
+              priority: injuredPlayer.injury?.severity === 'severe' ? 'high' : injuredPlayer.injury?.severity === 'moderate' ? 'medium' : 'low',
+              relatedPlayerId: player.id,
+            });
+            return injuredPlayer;
+          }
+
+          return player;
+        });
+        updatedTeams[teamIdx] = team;
+
+        // 5. Adicionar recomendações e notificações de lesão ao inbox
+        newInboxMessages.push(...injuryRecommendations, ...substitutionRecommendations, ...injuryInboxMessages);
       }
     }
 
@@ -466,10 +492,18 @@ export const createCoreSlice = (set: Set, get: Get) => ({
         updatedPendingInstallments = state.pendingInstallments.map(inst => {
           if (inst.status !== 'active') return inst;
 
+          const isReceivable = inst.direction === 'receivable';
+
           const updatedPayments = inst.payments.map(p => {
             if (p.paid || p.dueWeek > newWeek) return p;
 
-            // Auto-pay if budget allows
+            if (isReceivable) {
+              // Receivable: user receives money
+              userTeam2.budget += p.amount;
+              return { ...p, paid: true, paidWeek: newWeek };
+            }
+
+            // Payable: auto-pay if budget allows
             if (userTeam2.budget >= p.amount) {
               userTeam2.budget -= p.amount;
               return { ...p, paid: true, paidWeek: newWeek };
@@ -503,27 +537,46 @@ export const createCoreSlice = (set: Set, get: Get) => ({
       }
     }
 
-    // Auto-check bonuses
+    // ============================================================
+    // ATUALIZAR TABELA DE CLASSIFICAÇÃO (P1.1)
+    // ============================================================
+    const leagueStandings = calculateLeagueStandings(updatedTeams, updatedMatches, newWeek);
+
+    // Auto-check bonuses using real player stats
     if (state.incomingBonuses.length > 0) {
+      const userTeamForBonus = state.selectedTeam
+        ? updatedTeams.find(t => t.id === state.selectedTeam)
+        : undefined;
+      const userStandingForBonus = state.selectedTeam
+        ? leagueStandings.find(s => s.teamId === state.selectedTeam)
+        : undefined;
+
       const updatedBonuses = state.incomingBonuses.map(b => {
         if (b.triggered || b.claimed) return b;
-        const chance = Math.random();
-        if (b.type === 'goals' && chance > 0.7) {
-          return { ...b, triggered: true, triggeredWeek: newWeek };
-        } else if (b.type === 'appearances' && chance > 0.5) {
-          return { ...b, triggered: true, triggeredWeek: newWeek };
-        } else if (b.type === 'assists' && chance > 0.8) {
-          return { ...b, triggered: true, triggeredWeek: newWeek };
-        } else if (b.type === 'titles' && chance > 0.9) {
-          return { ...b, triggered: true, triggeredWeek: newWeek };
-        } else if (b.type === 'performance' && chance > 0.6) {
+        const player = userTeamForBonus?.squad.find(p => p.id === b.playerId);
+        if (!player) return b;
+
+        let shouldTrigger = false;
+        if (b.type === 'goals') {
+          shouldTrigger = (player.seasonGoals ?? 0) >= b.threshold;
+        } else if (b.type === 'assists') {
+          shouldTrigger = (player.seasonAssists ?? 0) >= b.threshold;
+        } else if (b.type === 'appearances') {
+          shouldTrigger = (userTeamForBonus?.played ?? 0) >= b.threshold;
+        } else if (b.type === 'titles') {
+          shouldTrigger = (userStandingForBonus?.position ?? 99) === 1;
+        } else if (b.type === 'performance') {
+          shouldTrigger = (player.form ?? 0) >= b.threshold;
+        }
+
+        if (shouldTrigger) {
           return { ...b, triggered: true, triggeredWeek: newWeek };
         }
         return b;
       });
 
       // Triggered bonus notifications
-      const newlyTriggered = updatedBonuses.filter(b => b.triggered && !state.incomingBonuses.find(old => old === b)?.triggered);
+      const newlyTriggered = updatedBonuses.filter(b => b.triggered && !state.incomingBonuses.find(old => old.id === b.id)?.triggered);
       newlyTriggered.forEach(b => {
         newInboxMessages.push({
           id: `bonus_triggered_${Date.now()}_${b.playerId}_${Math.random().toString(36).substr(2, 5)}`,
@@ -538,11 +591,6 @@ export const createCoreSlice = (set: Set, get: Get) => ({
 
       set({ incomingBonuses: updatedBonuses });
     }
-
-    // ============================================================
-    // ATUALIZAR TABELA DE CLASSIFICAÇÃO (P1.1)
-    // ============================================================
-    const leagueStandings = calculateLeagueStandings(updatedTeams, updatedMatches, newWeek);
 
     // ============================================================
     // ROTINA SEMANAL DA IA — Clubes AI tomam decisões ativas
@@ -560,6 +608,15 @@ export const createCoreSlice = (set: Set, get: Get) => ({
     updatedTeams = updatedTeams.map(team => {
       const result = applyWeeklyMoraleDynamics(team);
       return result.team;
+    });
+
+    // Apply basic fatigue decay to AI teams (#44)
+    updatedTeams = updatedTeams.map(team => {
+      if (team.id === state.selectedTeam) return team;
+      return {
+        ...team,
+        squad: team.squad.map(player => applyFatigueDecayToPlayer(player)),
+      };
     });
 
     // ============================================================
@@ -670,13 +727,105 @@ export const createCoreSlice = (set: Set, get: Get) => ({
     }
 
     // Build final inbox: all new messages (injury, installment, bonus, scout, AI) + weekly message + existing
+    // Limit to last 100 messages to prevent unbounded growth (#52)
     const finalInbox = [
       ...newInboxMessages,
       ...scoutInboxMessages,
       ...aiResult.inboxMessages,
       inboxToSend,
       ...state.inbox,
-    ];
+    ].slice(0, 100);
+
+    // ============================================================
+    // BATCHED POST-WEEK UPDATES (Promise countdown, training,
+    // attribute snapshot, press decay, youth intake)
+    // Computed before set() to avoid multiple re-renders (#27)
+    // ============================================================
+
+    // Youth intake at week 1 — uses same logic as completeYouthIntake (#24/#25)
+    if (newWeek === 1 && !youthIntakeCompleted && state.selectedTeam) {
+      const teamIdx = updatedTeams.findIndex(t => t.id === state.selectedTeam);
+      if (teamIdx !== -1) {
+        const team = updatedTeams[teamIdx];
+        const youthPlayers = generateYouthIntake(team.youthFacilitiesLevel, 8);
+        updatedTeams[teamIdx] = {
+          ...team,
+          squad: [...team.squad, ...youthPlayers],
+          wageBill: recalcWageBill({ ...team, squad: [...team.squad, ...youthPlayers] }),
+        };
+        youthIntakeCompleted = true;
+      }
+    }
+
+    // Promise countdown + weekly training + attribute snapshot
+    let updatedFanMood = state.fanMood;
+    let updatedMediaPressure = state.mediaPressure;
+
+    if (state.selectedTeam) {
+      const teamIdx = updatedTeams.findIndex(t => t.id === state.selectedTeam);
+      if (teamIdx !== -1) {
+        let team = { ...updatedTeams[teamIdx] };
+
+        // Promise countdown — decrement deadlines
+        team.squad = team.squad.map(player => {
+          const updatedPromises = player.promises.map(promise => {
+            if (!promise.fulfilled && promise.deadline > 0) {
+              const originalDeadline = promise.originalDeadline ?? promise.deadline;
+              return { ...promise, deadline: promise.deadline - 1, originalDeadline };
+            }
+            return promise;
+          });
+          return { ...player, promises: updatedPromises };
+        });
+
+        // Weekly training
+        if (state.trainingPlan) {
+          const focus = state.trainingPlan.teamFocus;
+          team.squad = team.squad.map(p => {
+            if (p.injury?.active) return p;
+            const updated = updatePlayerAttributes(p, focus, newWeek);
+            const fatigueLevel = Math.max(0, (updated.cumulativeLoad || 0) * 2 + (100 - updated.fitness));
+            updated.fatigueLog = [
+              ...(updated.fatigueLog || []),
+              {
+                week: newWeek,
+                day: 0,
+                fatigue: Math.min(100, fatigueLevel),
+                cumulativeLoad: updated.cumulativeLoad,
+                trainingType: focus,
+              },
+            ].slice(-20);
+            return updated;
+          });
+        }
+
+        // Attribute snapshot
+        team.squad = team.squad.map(player => {
+          const updated = { ...player };
+          updated.attributeHistory = [...(updated.attributeHistory || []), {
+            week: newWeek,
+            technical: { ...updated.technical },
+            mental: { ...updated.mental },
+            physical: { ...updated.physical },
+            currentAbility: updated.currentAbility,
+            potentialAbility: updated.potentialAbility,
+            morale: updated.morale,
+            form: updated.form,
+            fitness: updated.fitness,
+          }].slice(-20);
+          return updated;
+        });
+
+        updatedTeams[teamIdx] = team;
+      }
+
+      // Press decay
+      const teamForPress = updatedTeams.find(t => t.id === state.selectedTeam);
+      if (teamForPress) {
+        updatedFanMood = weeklyFanMoodDecay(state.fanMood, teamForPress.leagueForm ?? []);
+        updatedMediaPressure = weeklyMediaPressureDecay(state.mediaPressure);
+      }
+    }
 
     set({
       currentWeek: newWeek,
@@ -697,13 +846,10 @@ export const createCoreSlice = (set: Set, get: Get) => ({
       activeLoans: updatedActiveLoans,
       biddingWars: updatedBiddingWars,
       completedTransfers: [...state.completedTransfers, ...aiCompletedTransfers],
+      fanMood: updatedFanMood,
+      mediaPressure: updatedMediaPressure,
+      isAdvancing: false,
     });
-
-    get().updatePromiseCountdown();
-    if (state.trainingPlan) {
-      get().applyWeeklyTraining();
-    }
-    get().captureWeeklyAttributeSnapshot();
   },
 
   startNextSeason: () => {
@@ -738,6 +884,23 @@ export const createCoreSlice = (set: Set, get: Get) => ({
       leagueTable: newStandings,
       seasonSummary: null,
       gameOver: false,
+      pressConferences: [],
+      incomingTransfers: [],
+      transfers: [],
+      counterOffers: [],
+      deferredTransfers: [],
+      inbox: [],
+      scoutReports: [],
+      pendingInstallments: [],
+      incomingBonuses: [],
+      transferAgreements: [],
+      scoutMissions: [],
+      shortlist: [],
+      scoutRecommendations: [],
+      activeLoans: [],
+      biddingWars: [],
+      fanMood: { value: 50, trend: 'stable', sentiment: 'neutral' },
+      mediaPressure: { value: 50, level: 'low' },
     });
   },
 });

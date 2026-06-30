@@ -1,5 +1,5 @@
 import type { GameStore, Player, PreventionSession, FatigueLogEntry, Recommendation, InjuryReport } from '../../types/game';
-import { calculatePlayerInjuryRisk, getRiskLevel } from '../helpers/injury';
+import { calculatePlayerInjuryRisk, getRiskLevel, applyFatigueDecayToPlayer, updateDegradedConditionForPlayer, INJURY_TYPE_LABELS } from '../helpers/injury';
 import { getFullName } from '../../utils/playerName';
 
 type Set = (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void;
@@ -14,14 +14,10 @@ export const createInjurySlice = (set: Set, get: Get) => ({
     const player = team.squad.find(p => p.id === playerId);
     if (!player || !player.injury?.active) return null;
 
-    // Map injury type deterministically based on playerId
-    const injuryTypes = ['muscle', 'ligament', 'joint', 'ankle', 'knee', 'groin'];
-    const hash = playerId.split('').reduce((sum, c) => sum + c.charCodeAt(0), 0);
-    const injuryType = injuryTypes[hash % injuryTypes.length];
-
-    // Severity based on days out
-    const days = player.injury.days;
-    const severity: InjuryReport['severity'] = days <= 7 ? 'minor' : days <= 21 ? 'moderate' : 'severe';
+    // Use stored injury data
+    const injuryType = player.injury.type || 'muscle';
+    const days = player.injury.daysRemaining;
+    const severity = player.injury.severity;
 
     // Treatment based on severity
     const treatments = {
@@ -44,7 +40,9 @@ export const createInjurySlice = (set: Set, get: Get) => ({
       injuryType,
       severity,
       daysOut: days,
-      recoveryProgress: Math.max(0, 100 - (days * 5)),
+      recoveryProgress: player.injury.totalDays > 0
+        ? Math.max(0, Math.round(100 - (days / player.injury.totalDays) * 100))
+        : 100,
       treatment: treatments[severity],
       prognosis: prognoses[severity],
       injuryProneness: player.hidden.injuryProneness,
@@ -75,7 +73,8 @@ export const createInjurySlice = (set: Set, get: Get) => ({
         
         // Medical sessions reduce injury duration
         if (latestSession.type === 'medical' && updated.injury?.active) {
-          updated.injury.days = Math.max(0, updated.injury.days - 3);
+          updated.injury = { ...updated.injury, daysRemaining: Math.max(0, updated.injury.daysRemaining - 3) };
+          if (updated.injury.daysRemaining <= 0) updated.injury = null;
         }
         
         // Recovery sessions restore fitness
@@ -108,11 +107,12 @@ export const createInjurySlice = (set: Set, get: Get) => ({
 
   updatePlayerLoad: (playerId: string, day: number, trainingType: string) => {
     const state = get();
-    const teamIdx = state.teams.findIndex(t => t.squad.some(p => p.id === playerId));
+    const teamIdx = state.teams.findIndex(t => t.id === state.selectedTeam);
     if (teamIdx === -1) return;
 
     const team = { ...state.teams[teamIdx] };
     const playerIdx = team.squad.findIndex(p => p.id === playerId);
+    if (playerIdx === -1) return;
     const player = team.squad[playerIdx];
     
     const updatedPlayer = { ...player };
@@ -152,27 +152,29 @@ export const createInjurySlice = (set: Set, get: Get) => ({
 
   recoverInjuredPlayer: (playerId: string) => {
     const state = get();
-    const teamIdx = state.teams.findIndex(t => t.squad.some(p => p.id === playerId));
+    const teamIdx = state.teams.findIndex(t => t.id === state.selectedTeam);
     if (teamIdx === -1) return;
 
     const team = { ...state.teams[teamIdx] };
     const playerIdx = team.squad.findIndex(p => p.id === playerId);
+    if (playerIdx === -1) return;
     const player = team.squad[playerIdx];
 
     const updatedPlayer = { ...player };
     updatedPlayer.injury = null;
-    
-    // Mark injury as recovered in history
-    updatedPlayer.injuryHistory = [...(updatedPlayer.injuryHistory || [])].map(ih => {
-      if (ih.playerId === playerId) {
-        return { ...ih, fullyRecovered: true };
-      }
-      return ih;
-    });
-    
-    // Reduce fitness penalty from recovery
-    updatedPlayer.fitness = Math.max(updatedPlayer.fitness, 40);
-    updatedPlayer.fitness = Math.min(100, updatedPlayer.fitness + 10);
+
+    // Mark most recent unrecovered injury as recovered
+    updatedPlayer.injuryHistory = [...(updatedPlayer.injuryHistory || [])];
+    const lastUnrecoveredIdx = [...updatedPlayer.injuryHistory].reverse().findIndex(
+      ih => ih.playerId === playerId && !ih.fullyRecovered
+    );
+    if (lastUnrecoveredIdx !== -1) {
+      const actualIdx = updatedPlayer.injuryHistory.length - 1 - lastUnrecoveredIdx;
+      updatedPlayer.injuryHistory[actualIdx] = { ...updatedPlayer.injuryHistory[actualIdx], fullyRecovered: true };
+    }
+
+    // Partial fitness restoration on manual recovery
+    updatedPlayer.fitness = Math.min(100, Math.max(updatedPlayer.fitness, 40) + 10);
 
     team.squad[playerIdx] = updatedPlayer;
     const updatedTeams = [...state.teams];
@@ -208,25 +210,9 @@ export const createInjurySlice = (set: Set, get: Get) => ({
     if (teamIdx === -1) return;
 
     const team = { ...state.teams[teamIdx] };
-    const fatigueDecayRate = 0.15; // 15% de decaimento por semana
 
     team.squad = team.squad.map(player => {
-      const updated = { ...player };
-      
-      // Fatigue decay from cumulative load
-      const decay = Math.max(0, updated.cumulativeLoad - 10) * fatigueDecayRate;
-      updated.fitness = Math.max(0, updated.fitness - decay * 0.3);
-      
-      // Reduce cumulative load naturally
-      updated.cumulativeLoad = Math.max(0, (updated.cumulativeLoad || 0) - 5);
-      
-      // Reset consecutive days if enough time passed
-      const daysSinceLastTraining = (updated.fatigueLog || []).length > 0 
-        ? Math.abs((updated.fatigueLog![updated.fatigueLog!.length - 1].week - state.currentWeek))
-        : 0;
-      if (daysSinceLastTraining >= 1) {
-        updated.consecutivePhysicalDays = Math.max(0, (updated.consecutivePhysicalDays || 0) - 1);
-      }
+      const updated = applyFatigueDecayToPlayer(player);
       
       // Log fatigue for tracking
       const fatigueLevel = Math.max(0, (updated.cumulativeLoad || 0) * 2 + (100 - updated.fitness));
@@ -239,7 +225,7 @@ export const createInjurySlice = (set: Set, get: Get) => ({
           cumulativeLoad: updated.cumulativeLoad,
           trainingType: 'decay',
         },
-      ];
+      ].slice(-20);
       
       return updated;
     });
@@ -263,8 +249,8 @@ export const createInjurySlice = (set: Set, get: Get) => ({
     if (riskLevel === 'low') return;
 
     const recommendationTypes: Array<{ riskThreshold: number; message: string; type: Recommendation['type']; urgency: 'high' | 'critical' }> = [
-      { riskThreshold: 60, message: `${player.name} está com risco alto de lesão. Sugiro descanso imediato.`, type: 'rest', urgency: 'high' },
-      { riskThreshold: 80, message: `${player.name} está em risco CRÍTICO! Substituição obrigatória nos treinos.`, type: 'substitution', urgency: 'critical' },
+      { riskThreshold: 60, message: `${getFullName(player)} está com risco alto de lesão. Sugiro descanso imediato.`, type: 'rest', urgency: 'high' },
+      { riskThreshold: 80, message: `${getFullName(player)} está em risco CRÍTICO! Substituição obrigatória nos treinos.`, type: 'substitution', urgency: 'critical' },
     ];
 
     const recommendation = recommendationTypes.find(r => risk >= r.riskThreshold);
@@ -287,20 +273,21 @@ export const createInjurySlice = (set: Set, get: Get) => ({
 
   applyPostInjuryCondition: (playerId: string) => {
     const state = get();
-    const teamIdx = state.teams.findIndex(t => t.squad.some(p => p.id === playerId));
+    const teamIdx = state.teams.findIndex(t => t.id === state.selectedTeam);
     if (teamIdx === -1) return;
 
     const team = { ...state.teams[teamIdx] };
     const playerIdx = team.squad.findIndex(p => p.id === playerId);
+    if (playerIdx === -1) return;
     const player = team.squad[playerIdx];
 
     const updatedPlayer = { ...player };
     updatedPlayer.lastInjuryWeek = state.currentWeek;
-    
+
     // Set degraded condition based on injury severity
-    const severity = player.injury?.days || 7;
-    if (severity > 14) updatedPlayer.degradedCondition = 'minimal';
-    else if (severity > 7) updatedPlayer.degradedCondition = 'low';
+    const severity = player.injury?.severity || 'minor';
+    if (severity === 'severe') updatedPlayer.degradedCondition = 'minimal';
+    else if (severity === 'moderate') updatedPlayer.degradedCondition = 'low';
     else updatedPlayer.degradedCondition = 'moderate';
 
     team.squad[playerIdx] = updatedPlayer;
@@ -326,6 +313,8 @@ export const createInjurySlice = (set: Set, get: Get) => ({
     return player?.fatigueLog || [];
   },
 
+  // Standalone: uses state.currentWeek. When called from advanceWeek, the inline
+  // version in core.ts uses newWeek instead — both are correct for their context.
   updateDegradedConditions: () => {
     const state = get();
     if (!state.selectedTeam) return;
@@ -334,28 +323,10 @@ export const createInjurySlice = (set: Set, get: Get) => ({
     if (teamIdx === -1) return;
 
     const team = { ...state.teams[teamIdx] };
-    const weeksSinceInjury = state.currentWeek;
 
-    team.squad = team.squad.map(player => {
-      const updated = { ...player };
-      
-      // Gradually improve degraded condition over time
-      if (updated.degradedCondition && updated.lastInjuryWeek) {
-        const weeksRecovering = weeksSinceInjury - updated.lastInjuryWeek;
-        
-        if (weeksRecovering > 4 && updated.degradedCondition === 'minimal') {
-          updated.degradedCondition = 'low';
-        } else if (weeksRecovering > 2 && updated.degradedCondition === 'low') {
-          updated.degradedCondition = 'moderate';
-        } else if (weeksRecovering >= 1 && updated.degradedCondition === 'moderate') {
-          updated.degradedCondition = 'good';
-        } else if (weeksRecovering > 8) {
-          updated.degradedCondition = undefined;
-        }
-      }
-      
-      return updated;
-    });
+    team.squad = team.squad.map(player =>
+      updateDegradedConditionForPlayer(player, state.currentWeek),
+    );
 
     const updatedTeams = [...state.teams];
     updatedTeams[teamIdx] = team;

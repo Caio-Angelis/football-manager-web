@@ -1,8 +1,9 @@
 // Atualização de Atributos de Jogador por Tipo de Treino
 
 import type { Player } from '../../types/game';
+import { generateInjuryForPlayer, reduceInjuryFromRecoveryTraining } from './injury';
 
-export function updatePlayerAttributes(player: Player, trainingType: string): Player {
+export function updatePlayerAttributes(player: Player, trainingType: string, currentWeek: number = 0, facilitiesLevel: number = 5, staffLevel: number = 5): Player {
   const updated = { ...player };
   const improvement = Math.random() * 0.8 + 0.2;
 
@@ -18,17 +19,11 @@ export function updatePlayerAttributes(player: Player, trainingType: string): Pl
     updated.cumulativeLoad = (updated.cumulativeLoad || 0) + 8;
     updated.recoveryNeeded = updated.fitness < 30;
     
-    // Injury probability now based on calculated risk
-    const risk = 0.05 + (updated.hidden.injuryProneness * 0.01);
-    const loadPenalty = (updated.cumulativeLoad || 0) * 0.005;
-    const fitnessPenalty = updated.fitness < 40 ? 0.03 : 0;
+    // Injury chance based on risk factors: proneness, load, fitness
+    const injuryChance = 0.03 + (updated.hidden.injuryProneness * 0.008) + Math.max(0, (updated.cumulativeLoad || 0) - 10) * 0.003 + (updated.fitness < 40 ? 0.04 : 0);
     
-    if (Math.random() < risk + loadPenalty + fitnessPenalty) {
-      const days = updated.fitness < 40 ? 14 + Math.floor(Math.random() * 14) : 7 + Math.floor(Math.random() * 10);
-      updated.injury = { active: true, days };
-      
-      // Record injury history
-      updated.injuryHistory = [...(updated.injuryHistory || [])];
+    if (Math.random() < injuryChance) {
+      return generateInjuryForPlayer(updated, 'training', facilitiesLevel, staffLevel, currentWeek);
     }
   } else if (trainingType === 'technical') {
     if (updated.technical) {
@@ -51,9 +46,9 @@ export function updatePlayerAttributes(player: Player, trainingType: string): Pl
     updated.consecutivePhysicalDays = 0;
     updated.recoveryNeeded = false;
     
-    // If injured, reduce injury duration
+    // If injured, reduce injury duration via centralized helper
     if (updated.injury?.active) {
-      updated.injury.days = Math.max(0, updated.injury.days - 2);
+      return reduceInjuryFromRecoveryTraining(updated, 2);
     }
   } else if (trainingType === 'light') {
     // Light recovery training
@@ -64,8 +59,9 @@ export function updatePlayerAttributes(player: Player, trainingType: string): Pl
 
   // Recalcular Current Ability baseado nos atributos atualizados
   const ageFactor = updated.age < 21 ? 1.5 : updated.age < 24 ? 1.2 : updated.age < 28 ? 0.8 : updated.age < 31 ? 0.4 : 0.1;
-  const caGrowth = (improvement * 0.5) * ageFactor;
-  updated.currentAbility = Math.min(200, Math.round((beforeCA + caGrowth) * 10) / 10);
+  const moraleFactor = updated.morale < 30 ? -0.5 : updated.morale < 50 ? 0 : 1;
+  const caGrowth = (improvement * 0.5) * ageFactor * moraleFactor;
+  updated.currentAbility = Math.max(1, Math.min(updated.potentialAbility, 200, Math.round((beforeCA + caGrowth) * 10) / 10));
 
   return updated;
 }

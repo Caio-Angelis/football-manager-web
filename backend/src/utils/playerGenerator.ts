@@ -1,11 +1,22 @@
 // Engine de Geração Procedural de Jogadores
 // Baseado na especificação Football Manager Web
 
-import type { Player, HiddenAttributes, Team, PlayerAttribute, GKAttributes, TeamTacticsConfig, InjuryHistory } from '../types/game';
+import type { Player, HiddenAttributes, Team, PlayerAttribute, GKAttributes, TeamTacticsConfig, SetPiecesConfig, InjuryHistory } from '../types/game';
 import { calculateMarketValue, calculatePlayerSalary, calculateTeamBudget, calculateTransferBudget } from '../store/helpers/finance';
 
+export function createDefaultSetPiecesConfig(): SetPiecesConfig {
+  return {
+    corners: { delivery: 'penalty_area', takerId: '', targetId: '' },
+    freeKicks: { delivery: 'cross_into_box', takerId: '' },
+    throwIns: { style: 'short', takerId: '' },
+    penalties: { takerId: '' },
+    defensiveCorners: { marking: 'zonal', counterAttack: false },
+    defensiveFreeKicks: { marking: 'zonal', wallSize: 'medium' },
+  };
+}
+
 export function createDefaultTacticsConfig(): TeamTacticsConfig {
-  return { playerRoles: [], playerInstructions: [] };
+  return { playerRoles: [], playerInstructions: [], setPieces: createDefaultSetPiecesConfig() };
 }
 
 // ============================================================

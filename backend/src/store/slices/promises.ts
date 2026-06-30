@@ -1,4 +1,4 @@
-import type { GameStore, Player, Promise as PlayerPromise } from '../../types/game';
+import type { GameStore, Player, PlayerPromise } from '../../types/game';
 import { recalcWageBill } from '../helpers/transfer';
 
 type Set = (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void;

@@ -44,4 +44,5 @@ export interface ReserveTeamPlayer {
   reserveRank: number; // 1-15 (posição no reserva)
   weeksOnReserve: number;
   readiness: number; // 0-100 (preparação para promoção)
+  trainingType?: string; // tipo de treino aplicado ao reserva
 }

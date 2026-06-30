@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../../store/gameStore';
 import { PlayerCard } from '../squad/PlayerCard';
 import { Button } from '../ui/Button';
 import { ScoutReportCard } from './ScoutReportCard';
 import { getFullName } from '../../utils/player';
 import type { IncomingTransfer, Player, InstallmentClause, PlayerBonus, TransferAgreement, NegotiationResult, ContractNegotiationResult, LoanDeal, ShortlistEntry, ScoutRecommendation, BiddingWar } from '../../types/game';
+import { Globe, Users, ArrowRight } from 'lucide-react';
 
 const SquadStatusOptions = ['Key Player', 'Regular Starter', 'Rotation', 'Young Talent', 'Excess'];
 
@@ -304,6 +306,8 @@ export const TransferMarket: React.FC<{
     return nextA.dueWeek - nextB.dueWeek;
   };
 
+  const navigate = useNavigate();
+  const { currentSeason, currentWeek, advanceWeek, isAdvancing } = useGameStore();
   const team = teams.find(t => t.id === selectedTeam);
 
   const marketPlayers: { player: Player; teamId: string; teamName: string }[] = teams
@@ -564,16 +568,30 @@ export const TransferMarket: React.FC<{
   };
 
   return (
-    <div className="fm-transfer-market">
-      <header className="fm-transfer-market__header">
-        <h1>Mercado de Transferências</h1>
-        {team && (
-          <div className="fm-transfer-market__budget">
-            <span className="fm-transfer-market__label">Orçamento:</span>
-            <span className="fm-transfer-market__value">R$ {team.budget.toFixed(1)}M</span>
+    <div className="fms-page">
+      <header className="fms-topbar">
+        <div className="fms-topbar__left">
+          <div className="fms-club-logo">{(team?.name ?? '?').charAt(0)}</div>
+          <div className="fms-title-block">
+            <span className="fms-title">Mercado de Transferências</span>
+            <span className="fms-subtitle">{team ? team.name : '—'} · Orçamento R$ {(team?.budget ?? 0).toFixed(1)}M</span>
           </div>
-        )}
+        </div>
+        <div className="fms-topbar__right">
+          <button className="fms-icon-btn" title="Visão do Clube" onClick={() => navigate('/clube')}><Globe size={15} /></button>
+          <button className="fms-icon-btn" title="Elenco" onClick={() => navigate('/elenco')}><Users size={15} /></button>
+          <div className="fms-date">
+            <div className="fms-date__main">Temporada {currentSeason}</div>
+            <div className="fms-date__sub">Semana {currentWeek}</div>
+          </div>
+          <button className="fms-continue" onClick={advanceWeek} disabled={isAdvancing}>
+            {isAdvancing ? 'Processando...' : 'Continuar'}
+            <ArrowRight size={15} />
+          </button>
+        </div>
       </header>
+
+      <div className="fms-body--scroll">
 
       {negotiateFeedback && <div className="fm-transfer-market__feedback">{negotiateFeedback}</div>}
       {scoutFeedback && <div className="fm-transfer-market__feedback">{scoutFeedback}</div>}
@@ -1653,6 +1671,7 @@ export const TransferMarket: React.FC<{
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };

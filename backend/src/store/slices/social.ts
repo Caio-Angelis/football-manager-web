@@ -12,6 +12,8 @@ export const createSocialSlice = (set: Set, get: Get) => ({
     const team = state.teams.find(t => t.id === state.selectedTeam);
     if (!team) return;
 
+    if (team.squad.length === 0) return;
+
     // Find the most influential player as root
     const mostInfluential = team.squad.reduce((best, p) => {
       const influence = (p.mental?.leadership ?? 0) * 5 +
@@ -35,12 +37,23 @@ export const createSocialSlice = (set: Set, get: Get) => ({
       };
     });
 
-    // Generate edges based on teamMates
+    // Generate edges based on teamMates — deterministic strength
     const edges: { from: string; to: string; strength: number }[] = [];
     nodes.forEach(node => {
-      const teammates = team.squad.find(p => p.id === node.playerId)?.teamMates || [];
+      const player = team.squad.find(p => p.id === node.playerId);
+      const teammates = player?.teamMates || [];
       teammates.forEach(teammateId => {
-        const strength = Math.random() * 0.6 + 0.3; // 0.3-0.9
+        const teammate = team.squad.find(p => p.id === teammateId);
+        let strength = 0.5;
+        if (teammate) {
+          if (player?.socialGroup && teammate.socialGroup && player.socialGroup === teammate.socialGroup) {
+            strength = 0.9;
+          } else if (player?.squadStatus === teammate.squadStatus) {
+            strength = 0.7;
+          } else {
+            strength = 0.4;
+          }
+        }
         edges.push({
           from: node.playerId,
           to: teammateId,
@@ -82,10 +95,14 @@ export const createSocialSlice = (set: Set, get: Get) => ({
 
     if (edgeIdxA !== -1) {
       tree.edges[edgeIdxA] = { ...tree.edges[edgeIdxA], strength };
-    } else if (edgeIdxB !== -1) {
-      tree.edges[edgeIdxB] = { ...tree.edges[edgeIdxB], strength };
     } else {
       tree.edges.push({ from: playerIdA, to: playerIdB, strength });
+    }
+
+    if (edgeIdxB !== -1) {
+      tree.edges[edgeIdxB] = { ...tree.edges[edgeIdxB], strength };
+    } else {
+      tree.edges.push({ from: playerIdB, to: playerIdA, strength });
     }
 
     set({ socialTree: tree });

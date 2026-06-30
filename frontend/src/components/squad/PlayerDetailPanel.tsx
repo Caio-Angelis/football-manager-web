@@ -85,7 +85,7 @@ export const PlayerDetailPanel: React.FC<PlayerDetailPanelProps> = ({
 
       {player.injury?.active && (
         <div className="fm-player-detail-panel__injury">
-          <span>🏥 Lesão: {player.injury.days} dias restantes</span>
+          <span>🏥 Lesão: {player.injury.daysRemaining} dias restantes</span>
         </div>
       )}
 

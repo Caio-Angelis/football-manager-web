@@ -22,8 +22,7 @@ export function generateInboxMessage(week: number, context?: GenerateInboxContex
     possibleTypes.push('transfer');
   }
 
-  if (userTeam && userTeam.squad.length > 0) {
-    possibleTypes.push('injury');
+  if (userTeam) {
     possibleTypes.push('training');
   }
 
@@ -52,24 +51,6 @@ export function generateInboxMessage(week: number, context?: GenerateInboxContex
         timestamp: ts,
         read: false,
         relatedPlayerId: playerId,
-      };
-    }
-
-    case 'injury': {
-      const squad = userTeam!.squad;
-      const player = squad[Math.floor(Math.random() * squad.length)];
-      const injuryTypes = ['muscular', 'ligamentar', 'articular', 'tornozelo', 'joelho', 'adutores'];
-      const injuryType = injuryTypes[Math.floor(Math.random() * injuryTypes.length)];
-      const days = 7 + Math.floor(Math.random() * 28);
-      return {
-        id,
-        type: 'injury',
-        subject: `Relatório Médico — ${getFullName(player)} lesionado`,
-        body: `${getFullName(player)} sofreu uma lesão (${injuryType}) durante o treino. Afastamento estimado: ${days} dias. Verifique o relatório médico para detalhes do tratamento e prognóstico.`,
-        priority: days > 21 ? 'high' : days > 7 ? 'medium' : 'low',
-        timestamp: ts,
-        read: false,
-        relatedPlayerId: player.id,
       };
     }
 

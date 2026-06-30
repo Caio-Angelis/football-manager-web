@@ -77,7 +77,7 @@ export interface HiddenAttributes {
 }
 
 // Promessas ao jogador
-export interface Promise {
+export interface PlayerPromise {
   goal: string;
   deadline: number; // em semanas restantes
   originalDeadline?: number; // prazo original (para barra de progresso)
@@ -125,7 +125,14 @@ export interface Player {
   morale: number;           // 0-100
   form: number;             // 0-100
   fitness: number;          // 0-100
-  injury: { active: boolean; days: number } | null;
+  injury: {
+    active: boolean;
+    daysRemaining: number;
+    totalDays: number;
+    type: string;
+    severity: 'minor' | 'moderate' | 'severe';
+    source: 'training' | 'match' | 'random';
+  } | null;
   
   // Hierarquia no plantel
   squadStatus: string;      // 'Key Player', 'Regular Starter', 'Rotation', 'Young Talent', 'Excess'
@@ -135,7 +142,7 @@ export interface Player {
   socialGroup: string | null; // ID do grupo social
   
   // Promessas ativas
-  promises: Promise[];
+  promises: PlayerPromise[];
   
   // Tratamento pelo treinador (11.4)
   coachTreatment: {

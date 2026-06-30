@@ -52,6 +52,9 @@ export const createYouthSlice = (set: Set, get: Get) => ({
     newPlayer.nationality = youth.nationality;
     newPlayer.currentAbility = youth.currentAbility;
     newPlayer.potentialAbility = youth.potentialAbility;
+    newPlayer.technical = { ...newPlayer.technical, ...youth.technical };
+    newPlayer.mental = { ...newPlayer.mental, ...youth.mental };
+    newPlayer.physical = { ...newPlayer.physical, ...youth.physical };
     set({
       teams: state.teams.map(t =>
         t.id === team.id ? { ...t, squad: [...t.squad, newPlayer] } : t
@@ -116,7 +119,10 @@ export const createYouthSlice = (set: Set, get: Get) => ({
     return get().reserveTeam;
   },
 
-  setReserveTraining: (_type: string) => {
-    // Training type for reserve team - stored implicitly
+  setReserveTraining: (type: string) => {
+    const state = get();
+    set({
+      reserveTeam: state.reserveTeam.map(r => ({ ...r, trainingType: type })),
+    });
   },
 });

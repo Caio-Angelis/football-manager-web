@@ -8,6 +8,16 @@ interface RateLimitEntry {
 const store = new Map<string, RateLimitEntry>();
 const WINDOW_MS = 60_000;
 const MAX_REQUESTS = 120;
+const CLEANUP_INTERVAL_MS = 5 * 60_000;
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of store) {
+    if (entry.resetAt < now) {
+      store.delete(ip);
+    }
+  }
+}, CLEANUP_INTERVAL_MS);
 
 export function rateLimiter(req: Request, res: Response, next: NextFunction) {
   const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';

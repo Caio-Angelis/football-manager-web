@@ -44,11 +44,14 @@ function extractState(): GameState {
 }
 
 // Auto-discover all action names from the store (functions only)
+// Exclude Zustand internal functions to prevent arbitrary state manipulation
+const ZUSTAND_INTERNALS = new Set(['setState', 'getState', 'subscribe', 'destroy', 'getInitialState']);
+
 function getActionNames(): Set<string> {
   const state = useGameStore.getState() as unknown as Record<string, unknown>;
   const names = new Set<string>();
   for (const key in state) {
-    if (typeof state[key] === 'function') {
+    if (typeof state[key] === 'function' && !ZUSTAND_INTERNALS.has(key)) {
       names.add(key);
     }
   }

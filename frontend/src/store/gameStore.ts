@@ -7,6 +7,8 @@ import type {
   PreventionSession, WeeklyTrainingPlan, BoardReply,
   NegotiationResult,
   ContractNegotiationResult,
+  PreMatchAnalysis,
+  PressConference, PressResponseTone,
 } from '../types/game';
 import { apiAction, apiPost } from '../api/client';
 import { getFullName } from '../utils/player';
@@ -20,7 +22,8 @@ function calculateFatigueLevel(player: Player, currentWeek: number): number {
   const last3Days = (player.fatigueLog || []).filter(
     (entry: any) => entry.week === currentWeek && Math.abs(entry.day - player.lastTrainingDay) <= 3
   );
-  const avgFatigue = last3Days.reduce((sum, entry: any) => sum + entry.fatigue, 0) / Math.max(last3Days.length, 1);
+  if (last3Days.length === 0) return 50;
+  const avgFatigue = last3Days.reduce((sum, entry: any) => sum + entry.fatigue, 0) / last3Days.length;
   return avgFatigue;
 }
 
@@ -100,6 +103,10 @@ const INITIAL_STATE = {
   biddingWars: [] as any[],
   seasonSummary: null as any,
   gameOver: false,
+  pressConferences: [] as any[],
+  fanMood: { value: 50, trend: 'stable' as const, sentiment: 'neutral' as const },
+  mediaPressure: { value: 50, level: 'low' as const },
+  isAdvancing: false,
 };
 
 // ============================================================
@@ -242,11 +249,9 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     if (!team) return null;
     const player = team.squad.find(p => p.id === playerId);
     if (!player || !player.injury?.active) return null;
-    const injuryTypes = ['muscle', 'ligament', 'joint', 'ankle', 'knee', 'groin'];
-    const hash = playerId.split('').reduce((sum, c) => sum + c.charCodeAt(0), 0);
-    const injuryType = injuryTypes[hash % injuryTypes.length];
-    const days = player.injury.days;
-    const severity: InjuryReport['severity'] = days <= 7 ? 'minor' : days <= 21 ? 'moderate' : 'severe';
+    const injuryType = player.injury.type || 'muscle';
+    const days = player.injury.daysRemaining;
+    const severity = player.injury.severity;
     const treatments = {
       minor: 'Descanso e gelo. Retorno ao treino gradual.',
       moderate: 'Fisioterapia e descanso. Sem participação em partidas.',
@@ -264,7 +269,9 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       injuryType,
       severity,
       daysOut: days,
-      recoveryProgress: Math.max(0, 100 - (days * 5)),
+      recoveryProgress: player.injury.totalDays > 0
+        ? Math.max(0, Math.round(100 - (days / player.injury.totalDays) * 100))
+        : 100,
       treatment: treatments[severity],
       prognosis: prognoses[severity],
       injuryProneness: player.hidden.injuryProneness,
@@ -314,7 +321,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     const report = state.generateFinancialReport();
     if (report) {
       set({ financialReports: [report, ...state.financialReports].slice(0, 50) });
-      apiAction('getFinancialReport', []);
+      apiAction('getFinancialReport', []).catch(err => console.error('API action failed:', err));
     }
     return report;
   },
@@ -338,15 +345,15 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   // ============================================================
 
   initGame: () => {
-    apiPost('/init', {}).then(syncFromResponse);
+    apiPost('/init', {}).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   deselectTeam: () => {
-    apiAction('deselectTeam', []).then(syncFromResponse);
+    apiAction('deselectTeam', []).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   selectTeam: (teamId: string) => {
-    apiAction('selectTeam', [teamId]).then(syncFromResponse);
+    apiAction('selectTeam', [teamId]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   // updateTeam: compute locally for instant UI feedback, sync to backend
@@ -356,38 +363,46 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     if (!team) return;
     const newTeam = updater({ ...team });
     set({ teams: state.teams.map(t => (t.id === teamId ? newTeam : t)) });
-    apiAction('updateTeam', [teamId, newTeam]);
+    apiAction('updateTeam', [teamId, newTeam]).catch(err => console.error('API action failed:', err));
   },
 
   simulateMatch: (matchIndex: number) => {
-    apiAction('simulateMatch', [matchIndex]).then(syncFromResponse);
+    apiAction('simulateMatch', [matchIndex]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   advanceWeek: () => {
-    apiAction('advanceWeek', []).then(syncFromResponse);
+    if (get().isAdvancing) return;
+    set({ isAdvancing: true });
+    apiAction('advanceWeek', []).then(data => {
+      syncFromResponse(data);
+      set({ isAdvancing: false });
+    }).catch(err => {
+      console.error('API action "advanceWeek" failed:', err);
+      set({ isAdvancing: false });
+    });
   },
 
   markAsRead: (messageId: string) => {
-    apiAction('markAsRead', [messageId]).then(syncFromResponse);
+    apiAction('markAsRead', [messageId]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   removeMessage: (messageId: string) => {
-    apiAction('removeMessage', [messageId]).then(syncFromResponse);
+    apiAction('removeMessage', [messageId]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   updatePlayerAttributes: (playerId: string, trainingType: string) => {
-    apiAction('updatePlayerAttributes', [playerId, trainingType]).then(syncFromResponse);
+    apiAction('updatePlayerAttributes', [playerId, trainingType]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   completeYouthIntake: () => {
-    apiAction('completeYouthIntake', []).then(syncFromResponse);
+    apiAction('completeYouthIntake', []).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   buyPlayer: (playerId: string, sellerTeamId: string) => {
     return apiAction('buyPlayer', [playerId, sellerTeamId]).then(data => {
       syncFromResponse(data);
       return data.result as boolean;
-    }) as any;
+    }).catch(err => { console.error('API action failed:', err); }) as any;
   },
 
   makeOffer: (playerId: string, sellerTeamId: string, offerPrice: number, negotiationRound?: number) => {
@@ -395,205 +410,206 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     return apiAction('makeOffer', args).then(data => {
       syncFromResponse(data);
       return data.result as NegotiationResult;
-    }) as any;
+    }).catch(err => { console.error('API action failed:', err); }) as any;
   },
 
   acceptOffer: (playerId: string, sellerTeamId: string, offerPrice: number, agreedSalary: number) => {
     return apiAction('acceptOffer', [playerId, sellerTeamId, offerPrice, agreedSalary]).then(data => {
       syncFromResponse(data);
       return data.result as boolean;
-    }) as any;
+    }).catch(err => { console.error('API action failed:', err); }) as any;
   },
 
   negotiatePlayerContract: (playerId: string, sellerTeamId: string, offeredSalary: number, negotiationRound: number) => {
     return apiAction('negotiatePlayerContract', [playerId, sellerTeamId, offeredSalary, negotiationRound]).then(data => {
       syncFromResponse(data);
       return data.result as ContractNegotiationResult;
-    }) as any;
+    }).catch(err => { console.error('API action failed:', err); }) as any;
   },
 
   acceptIncomingTransfer: (playerId: string) => {
-    apiAction('acceptIncomingTransfer', [playerId]).then(syncFromResponse);
+    apiAction('acceptIncomingTransfer', [playerId]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   rejectIncomingTransfer: (playerId: string) => {
-    apiAction('rejectIncomingTransfer', [playerId]).then(syncFromResponse);
+    apiAction('rejectIncomingTransfer', [playerId]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   deferTransfer: (playerId: string) => {
-    apiAction('deferTransfer', [playerId]).then(syncFromResponse);
+    apiAction('deferTransfer', [playerId]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   reinstateDeferredTransfer: (playerId: string) => {
-    apiAction('reinstateDeferredTransfer', [playerId]).then(syncFromResponse);
+    apiAction('reinstateDeferredTransfer', [playerId]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   rejectDeferredTransfer: (playerId: string) => {
-    apiAction('rejectDeferredTransfer', [playerId]).then(syncFromResponse);
+    apiAction('rejectDeferredTransfer', [playerId]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   assignScout: (playerId?: string) => {
     return apiAction('assignScout', playerId ? [playerId] : []).then(data => {
       syncFromResponse(data);
       return data.result as boolean;
-    }) as any;
+    }).catch(err => { console.error('API action failed:', err); }) as any;
   },
 
   setTrainingPlan: (plan: WeeklyTrainingPlan) => {
-    apiAction('setTrainingPlan', [plan]).then(syncFromResponse);
+    apiAction('setTrainingPlan', [plan]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   applyWeeklyTraining: () => {
-    apiAction('applyWeeklyTraining', []).then(syncFromResponse);
+    apiAction('applyWeeklyTraining', []).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   handleInboxAction: (messageId: string, actionLabel: string) => {
-    apiAction('handleInboxAction', [messageId, actionLabel]).then(syncFromResponse);
+    apiAction('handleInboxAction', [messageId, actionLabel]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   applyMatchIntervention: (matchIndex: number, type: 'substitution' | 'shout') => {
-    apiAction('applyMatchIntervention', [matchIndex, type]).then(syncFromResponse);
+    apiAction('applyMatchIntervention', [matchIndex, type]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   negotiateCounterOffer: (playerId: string) => {
     return apiAction('negotiateCounterOffer', [playerId]).then(data => {
       syncFromResponse(data);
       return data.result as boolean;
-    }) as any;
+    }).catch(err => { console.error('API action failed:', err); }) as any;
   },
 
   payInstallment: (installmentId: string) => {
     return apiAction('payInstallment', [installmentId]).then(data => {
       syncFromResponse(data);
       return data.result as boolean;
-    }) as any;
+    }).catch(err => { console.error('API action failed:', err); }) as any;
   },
 
   checkBonuses: (playerId?: string) => {
-    apiAction('checkBonuses', [playerId]).then(syncFromResponse);
+    apiAction('checkBonuses', [playerId]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   claimBonus: (bonusId: string) => {
-    apiAction('claimBonus', [bonusId]).then(syncFromResponse);
+    apiAction('claimBonus', [bonusId]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   terminateTransferAgreement: (agreementId: string, reason?: string) => {
-    apiAction('terminateTransferAgreement', [agreementId, reason]).then(syncFromResponse);
+    const args = reason ? [agreementId, reason] : [agreementId];
+    apiAction('terminateTransferAgreement', args).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   handleBoardReply: (messageId: string, response: string, category: BoardReply['category']) => {
-    apiAction('handleBoardReply', [messageId, response, category]).then(syncFromResponse);
+    apiAction('handleBoardReply', [messageId, response, category]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   schedulePreventionSession: (session: PreventionSession) => {
-    apiAction('schedulePreventionSession', [session]).then(syncFromResponse);
+    apiAction('schedulePreventionSession', [session]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   applyPreventionSession: () => {
-    apiAction('applyPreventionSession', []).then(syncFromResponse);
+    apiAction('applyPreventionSession', []).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   updatePlayerLoad: (playerId: string, day: number, trainingType: string) => {
-    apiAction('updatePlayerLoad', [playerId, day, trainingType]).then(syncFromResponse);
+    apiAction('updatePlayerLoad', [playerId, day, trainingType]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   recoverInjuredPlayer: (playerId: string) => {
-    apiAction('recoverInjuredPlayer', [playerId]).then(syncFromResponse);
+    apiAction('recoverInjuredPlayer', [playerId]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   applyFatigueDecay: () => {
-    apiAction('applyFatigueDecay', []).then(syncFromResponse);
+    apiAction('applyFatigueDecay', []).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   generateInjuryRecommendation: (playerId: string) => {
-    apiAction('generateInjuryRecommendation', [playerId]).then(syncFromResponse);
+    apiAction('generateInjuryRecommendation', [playerId]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   applyPostInjuryCondition: (playerId: string) => {
-    apiAction('applyPostInjuryCondition', [playerId]).then(syncFromResponse);
+    apiAction('applyPostInjuryCondition', [playerId]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   acknowledgeRecommendation: (recommendationId: string) => {
-    apiAction('acknowledgeRecommendation', [recommendationId]).then(syncFromResponse);
+    apiAction('acknowledgeRecommendation', [recommendationId]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   applyTrainingCooldown: (playerId: string, trainingType: string, day: number) => {
-    apiAction('applyTrainingCooldown', [playerId, trainingType, day]).then(syncFromResponse);
+    apiAction('applyTrainingCooldown', [playerId, trainingType, day]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   updateDegradedConditions: () => {
-    apiAction('updateDegradedConditions', []).then(syncFromResponse);
+    apiAction('updateDegradedConditions', []).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   generateLiveMatchMinute: (matchIndex: number) => {
-    apiAction('generateLiveMatchMinute', [matchIndex]).then(syncFromResponse);
+    apiAction('generateLiveMatchMinute', [matchIndex]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   finishMatch: (matchIndex: number) => {
-    apiAction('finishMatch', [matchIndex]).then(syncFromResponse);
+    apiAction('finishMatch', [matchIndex]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   captureWeeklyAttributeSnapshot: () => {
-    apiAction('captureWeeklyAttributeSnapshot', []).then(syncFromResponse);
+    apiAction('captureWeeklyAttributeSnapshot', []).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   generateSocialTree: () => {
-    apiAction('generateSocialTree', []).then(syncFromResponse);
+    apiAction('generateSocialTree', []).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   updateSocialConnections: (playerIdA: string, playerIdB: string, strength: number) => {
-    apiAction('updateSocialConnections', [playerIdA, playerIdB, strength]).then(syncFromResponse);
+    apiAction('updateSocialConnections', [playerIdA, playerIdB, strength]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   updatePromiseCountdown: () => {
-    apiAction('updatePromiseCountdown', []).then(syncFromResponse);
+    apiAction('updatePromiseCountdown', []).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   adjustPlayerSalary: (playerId: string, newSalary: number) => {
-    apiAction('adjustPlayerSalary', [playerId, newSalary]).then(syncFromResponse);
+    apiAction('adjustPlayerSalary', [playerId, newSalary]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   saveGame: (slotNumber: 1 | 2) => {
-    apiAction('saveGame', [slotNumber]).then(syncFromResponse);
+    return apiAction('saveGame', [slotNumber]).then(syncFromResponse);
   },
 
   loadGame: (slotNumber: 1 | 2) => {
-    apiAction('loadGame', [slotNumber]).then(syncFromResponse);
+    apiAction('loadGame', [slotNumber]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   deleteSave: (slotNumber: 1 | 2) => {
-    apiAction('deleteSave', [slotNumber]).then(syncFromResponse);
+    apiAction('deleteSave', [slotNumber]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   generateYouthPlayers: () => {
-    apiAction('generateYouthPlayers', []).then(syncFromResponse);
+    apiAction('generateYouthPlayers', []).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   promoteYouthPlayer: (playerId: string) => {
-    apiAction('promoteYouthPlayer', [playerId]).then(syncFromResponse);
+    apiAction('promoteYouthPlayer', [playerId]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   setAcademyTraining: (type: string) => {
-    apiAction('setAcademyTraining', [type]).then(syncFromResponse);
+    apiAction('setAcademyTraining', [type]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   addPlayerToReserve: (playerId: string) => {
-    apiAction('addPlayerToReserve', [playerId]).then(syncFromResponse);
+    apiAction('addPlayerToReserve', [playerId]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   promoteFromReserve: (playerId: string) => {
-    apiAction('promoteFromReserve', [playerId]).then(syncFromResponse);
+    apiAction('promoteFromReserve', [playerId]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   setReserveTraining: (type: string) => {
-    apiAction('setReserveTraining', [type]).then(syncFromResponse);
+    apiAction('setReserveTraining', [type]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   assignScoutMission: (scoutId: string, targetId: string, weeks: number) => {
     return apiAction('assignScoutMission', [scoutId, targetId, weeks]).then(data => {
       syncFromResponse(data);
       return data.result as boolean;
-    }) as any;
+    }).catch(err => { console.error('API action failed:', err); }) as any;
   },
 
   getScoutKnowledge: (playerId: string) => {
@@ -606,11 +622,11 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     return apiAction('addToShortlist', args).then(data => {
       syncFromResponse(data);
       return data.result as boolean;
-    }) as any;
+    }).catch(err => { console.error('API action failed:', err); }) as any;
   },
 
   removeFromShortlist: (playerId: string) => {
-    apiAction('removeFromShortlist', [playerId]).then(syncFromResponse);
+    apiAction('removeFromShortlist', [playerId]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   getShortlist: () => {
@@ -625,18 +641,18 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     return apiAction('loanPlayer', args).then(data => {
       syncFromResponse(data);
       return data.result as boolean;
-    }) as any;
+    }).catch(err => { console.error('API action failed:', err); }) as any;
   },
 
   recallLoanedPlayer: (loanId: string) => {
-    apiAction('recallLoanedPlayer', [loanId]).then(syncFromResponse);
+    apiAction('recallLoanedPlayer', [loanId]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   buyLoanedPlayer: (loanId: string) => {
     return apiAction('buyLoanedPlayer', [loanId]).then(data => {
       syncFromResponse(data);
       return data.result as boolean;
-    }) as any;
+    }).catch(err => { console.error('API action failed:', err); }) as any;
   },
 
   // Cláusula de rescisão
@@ -644,7 +660,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     return apiAction('activateReleaseClause', [playerId, sellerTeamId]).then(data => {
       syncFromResponse(data);
       return data.result as boolean;
-    }) as any;
+    }).catch(err => { console.error('API action failed:', err); }) as any;
   },
 
   // Guerra de ofertas
@@ -652,19 +668,103 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     return apiAction('raiseBid', [biddingWarId, newOffer]).then(data => {
       syncFromResponse(data);
       return data.result as boolean;
-    }) as any;
+    }).catch(err => { console.error('API action failed:', err); }) as any;
   },
 
   withdrawBid: (biddingWarId: string) => {
-    apiAction('withdrawBid', [biddingWarId]).then(syncFromResponse);
+    apiAction('withdrawBid', [biddingWarId]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   // Recomendações de scouts
   dismissScoutRecommendation: (recommendationId: string) => {
-    apiAction('dismissScoutRecommendation', [recommendationId]).then(syncFromResponse);
+    apiAction('dismissScoutRecommendation', [recommendationId]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   startNextSeason: () => {
-    apiAction('startNextSeason', []).then(syncFromResponse);
+    apiAction('startNextSeason', []).then(syncFromResponse).catch(err => console.error('API action failed:', err));
+  },
+
+  getPreMatchAnalysis: (matchIndex: number) => {
+    return apiAction('getPreMatchAnalysis', [matchIndex]).then(data => {
+      return data.result as PreMatchAnalysis | null;
+    }).catch(err => { console.error('API action failed:', err); }) as any;
+  },
+
+  // Sistema de Coletiva de Imprensa
+  generatePreMatchPressConference: (matchIndex: number) => {
+    return apiAction('generatePreMatchPressConference', [matchIndex]).then(data => {
+      syncFromResponse(data);
+      return data.result as PressConference | null;
+    }).catch(err => { console.error('API action failed:', err); }) as any;
+  },
+
+  generatePostMatchPressConference: (matchIndex: number) => {
+    return apiAction('generatePostMatchPressConference', [matchIndex]).then(data => {
+      syncFromResponse(data);
+      return data.result as PressConference | null;
+    }).catch(err => { console.error('API action failed:', err); }) as any;
+  },
+
+  answerPressQuestion: (conferenceId: string, questionId: string, tone: PressResponseTone, text: string) => {
+    apiAction('answerPressQuestion', [conferenceId, questionId, tone, text]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
+  },
+
+  skipPressConference: (conferenceId: string) => {
+    apiAction('skipPressConference', [conferenceId]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
+  },
+
+  getPendingPressConference: () => {
+    return get().pressConferences?.find(c => c.status === 'pending') ?? null;
+  },
+
+  getPressConferenceHistory: () => {
+    const all = get().pressConferences ?? [];
+    return all.filter(c => c.status === 'completed' || c.status === 'skipped').sort((a, b) => b.week - a.week);
+  },
+
+  applyPressConferenceEffects: (conferenceId: string) => {
+    apiAction('applyPressConferenceEffects', [conferenceId]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
+  },
+
+  processWeeklyPressDecay: () => {
+    apiAction('processWeeklyPressDecay', []).then(syncFromResponse).catch(err => console.error('API action failed:', err));
+  },
+
+  generateInstallmentClause: (totalAmount: number, count: number) => {
+    return apiAction('generateInstallmentClause', [totalAmount, count]).then(data => {
+      syncFromResponse(data);
+      return data.result;
+    }).catch(err => { console.error('API action failed:', err); }) as any;
+  },
+
+  generatePlayerBonus: (type: any, threshold: number, bonusAmount: number) => {
+    return apiAction('generatePlayerBonus', [type, threshold, bonusAmount]).then(data => {
+      syncFromResponse(data);
+      return data.result;
+    }).catch(err => { console.error('API action failed:', err); }) as any;
+  },
+
+  setCoachTreatment: (playerId: string, treatment: any) => {
+    apiAction('setCoachTreatment', [playerId, treatment]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
+  },
+
+  setPlayerTrustLevel: (playerId: string, trustLevel: number) => {
+    apiAction('setPlayerTrustLevel', [playerId, trustLevel]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
+  },
+
+  setPlayerTrainingLoad: (playerId: string, trainingLoad: number) => {
+    apiAction('setPlayerTrainingLoad', [playerId, trainingLoad]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
+  },
+
+  updateClubPerformance: (updates: any) => {
+    apiAction('updateClubPerformance', [updates]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
+  },
+
+  updateLeagueForm: (result: 'W' | 'D' | 'L') => {
+    apiAction('updateLeagueForm', [result]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
+  },
+
+  setLeaguePosition: (position: number) => {
+    apiAction('setLeaguePosition', [position]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 }));

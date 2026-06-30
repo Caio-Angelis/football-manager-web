@@ -1,0 +1,206 @@
+/* ============================================================
+   App shell — Football Manager dark theme
+   Scoped under .fm-shell-fm (added to .fm-app while in-game)
+   Imported last so it overrides the legacy light/dark themes.
+   ============================================================ */
+
+.fm-shell-fm {
+  --s-bg: #14161c;
+  --s-sidebar: #16191f;
+  --s-panel: #1b1e26;
+  --s-panel-2: #20242e;
+  --s-border: rgba(255, 255, 255, 0.06);
+  --s-border-strong: rgba(255, 255, 255, 0.12);
+  --s-text: #e8eaf0;
+  --s-text-2: #9aa0ad;
+  --s-text-3: #6b7080;
+  --s-accent: #3d7bf5;
+  --s-green: #3fbf6b;
+
+  background:
+    radial-gradient(130% 70% at 50% -10%, rgba(61, 123, 245, 0.08), transparent 55%),
+    var(--s-bg);
+  color: var(--s-text);
+}
+
+/* ===================== SIDEBAR ===================== */
+.fm-shell-fm .fm-sidebar {
+  width: 248px;
+  background:
+    radial-gradient(120% 40% at 50% 0%, rgba(61, 123, 245, 0.06), transparent 60%),
+    var(--s-sidebar);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-right: 1px solid var(--s-border);
+  box-shadow: none;
+  padding: 16px 0;
+}
+
+.fm-shell-fm .fm-sidebar__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 18px 16px;
+  border-bottom: 1px solid var(--s-border);
+  margin-bottom: 8px;
+}
+
+.fm-shell-fm .fm-sidebar__toggle {
+  width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--s-panel-2);
+  border: 1px solid var(--s-border);
+  border-radius: 8px;
+  color: var(--s-text-2);
+  cursor: pointer;
+  transition: all .15s;
+  flex-shrink: 0;
+}
+.fm-shell-fm .fm-sidebar__toggle:hover {
+  color: var(--s-text);
+  border-color: var(--s-border-strong);
+}
+
+.fm-shell-fm .fm-sidebar__logo {
+  margin: 0;
+  padding: 0;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  -webkit-text-fill-color: initial;
+  background: none;
+  text-shadow: none;
+}
+.fm-shell-fm .fm-sidebar__logo-icon { color: var(--s-accent); }
+.fm-shell-fm .fm-sidebar__logo-text {
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+  color: var(--s-accent);
+  background: none;
+  -webkit-text-fill-color: var(--s-accent);
+  text-shadow: none;
+}
+
+.fm-shell-fm .fm-sidebar__season {
+  padding: 0 20px 14px;
+  font-size: 11px;
+  color: var(--s-text-3);
+  letter-spacing: 0.02em;
+}
+
+.fm-shell-fm .fm-sidebar__nav { padding: 0 12px; gap: 2px; }
+
+.fm-shell-fm .fm-sidebar__item {
+  padding: 10px 14px;
+  border-radius: 9px;
+  color: var(--s-text-2);
+  font-size: 13px;
+  font-weight: 500;
+  gap: 13px;
+  transition: background .15s, color .15s;
+}
+.fm-shell-fm .fm-sidebar__item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--s-text);
+  transform: none;
+}
+.fm-shell-fm .fm-sidebar__item-icon {
+  width: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+}
+.fm-shell-fm .fm-sidebar__item--active {
+  background: rgba(61, 123, 245, 0.10);
+  color: var(--s-accent);
+  font-weight: 600;
+  border-left: 3px solid var(--s-accent);
+  padding-left: 11px;
+}
+.fm-shell-fm .fm-sidebar__item--active:hover {
+  background: rgba(61, 123, 245, 0.14);
+  color: var(--s-accent);
+}
+
+.fm-shell-fm .fm-sidebar__badge {
+  background: var(--s-accent);
+  color: #fff;
+}
+
+.fm-shell-fm .fm-sidebar__footer {
+  padding: 14px 16px 4px;
+  border-top: 1px solid var(--s-border);
+}
+
+/* Theme toggle inside dark sidebar */
+.fm-shell-fm .fm-sidebar__theme .fm-theme-toggle__options {
+  background: var(--s-panel-2);
+  border: 1px solid var(--s-border);
+}
+.fm-shell-fm .fm-sidebar__theme .fm-theme-toggle__label { color: var(--s-text-3); }
+.fm-shell-fm .fm-sidebar__theme .fm-theme-toggle__option input:checked + .fm-theme-toggle__label {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+/* ===================== MAIN AREA ===================== */
+.fm-shell-fm .fm-main {
+  background: transparent;
+}
+
+.fm-shell-fm .fm-main::-webkit-scrollbar-thumb { background: var(--s-border-strong); }
+.fm-shell-fm .fm-main::-webkit-scrollbar-thumb:hover { background: var(--s-text-3); }
+
+/* ===================== ACTION BAR ===================== */
+.fm-shell-fm .fm-main__actionbar {
+  background:
+    linear-gradient(90deg, rgba(61, 123, 245, 0.20), rgba(20, 22, 28, 0.9) 55%),
+    var(--s-bg);
+  border-bottom: 1px solid var(--s-border);
+  padding: 10px 16px;
+}
+
+.fm-shell-fm .fm-main__actionbar .fm-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 15px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--s-border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--s-text);
+  transition: all .15s;
+}
+.fm-shell-fm .fm-main__actionbar .fm-button:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: var(--s-border-strong);
+  color: #fff;
+}
+
+.fm-shell-fm .fm-button--continue {
+  margin-left: auto;
+  background: var(--s-accent);
+  border-color: transparent;
+  color: #fff;
+}
+.fm-shell-fm .fm-button--continue:hover {
+  filter: brightness(1.1);
+  background: var(--s-accent);
+  border-color: transparent;
+}
+.fm-shell-fm .fm-button--continue:disabled { opacity: .6; }
+
+.fm-shell-fm .fm-button--save svg { color: var(--s-accent); }
+
+/* keep icons aligned in any shell button */
+.fm-shell-fm .fm-button svg { flex-shrink: 0; }
+
+/* ===================== COLLAPSED ===================== */
+.fm-shell-fm .fm-sidebar--collapsed { width: 64px; }
+.fm-shell-fm .fm-sidebar--collapsed .fm-sidebar__item { justify-content: center; padding: 10px; }
+.fm-shell-fm .fm-sidebar--collapsed .fm-sidebar__item--active { border-left-width: 0; padding-left: 10px; }

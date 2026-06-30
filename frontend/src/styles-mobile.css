@@ -429,6 +429,24 @@
   .fm-social-tree__connections {
     flex-wrap: wrap;
   }
+
+  .fm-social-groups-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fm-social-group-card__member {
+    gap: 8px;
+  }
+
+  .fm-social-group-card__member-avatar {
+    width: 24px;
+    height: 24px;
+    font-size: 9px;
+  }
+
+  .fm-social-group-card__cohesion-bar {
+    width: 48px;
+  }
 }
 
 /* ===== Empty State Mobile ===== */

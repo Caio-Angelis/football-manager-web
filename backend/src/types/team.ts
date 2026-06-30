@@ -56,9 +56,49 @@ export interface PlayerInstruction {
   beFairer: boolean;
 }
 
+// ============================================================
+// BOLAS PARADAS (Set Pieces)
+// ============================================================
+
+export interface CornerSetPiece {
+  delivery: 'near_post' | 'far_post' | 'penalty_area' | 'short' | 'edge_of_box';
+  takerId: string;
+  targetId: string;
+}
+
+export interface FreeKickSetPiece {
+  delivery: 'shot_on_goal' | 'cross_into_box' | 'short' | 'long_ball';
+  takerId: string;
+}
+
+export interface ThrowInSetPiece {
+  style: 'short' | 'long' | 'quick';
+  takerId: string;
+}
+
+export interface DefensiveCornerSetPiece {
+  marking: 'man_to_man' | 'zonal' | 'mixed';
+  counterAttack: boolean;
+}
+
+export interface DefensiveFreeKickSetPiece {
+  marking: 'man_to_man' | 'zonal' | 'mixed';
+  wallSize: 'small' | 'medium' | 'large';
+}
+
+export interface SetPiecesConfig {
+  corners: CornerSetPiece;
+  freeKicks: FreeKickSetPiece;
+  throwIns: ThrowInSetPiece;
+  penalties: { takerId: string };
+  defensiveCorners: DefensiveCornerSetPiece;
+  defensiveFreeKicks: DefensiveFreeKickSetPiece;
+}
+
 export interface TeamTacticsConfig {
   playerRoles: PlayerRole[];
   playerInstructions: PlayerInstruction[];
+  setPieces?: SetPiecesConfig;
 }
 
 // ============================================================
