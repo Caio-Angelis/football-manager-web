@@ -1,29 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { Team, Player, MatchEvent } from '../../types/game';
 import { getFullName } from '../../utils/player';
+import { getTeamDiscColor as getTeamColor } from '../../utils/teamColors';
+import { MatchEventIcon } from '../ui/MatchEventIcon';
 import './MatchPitch2D.css';
-
-// ============================================================
-// CORES DETERMINÍSTICAS DO TIME (espelha TeamSelection)
-// ============================================================
-
-const hashString = (value: string): number => {
-  let hash = 0;
-  for (let i = 0; i < value.length; i++) {
-    hash = (hash << 5) - hash + value.charCodeAt(i);
-    hash |= 0;
-  }
-  return Math.abs(hash);
-};
-
-const HUES = [215, 145, 25, 340, 195, 265];
-
-const getTeamColor = (name: string, reputation: number, hueShift = 0): string => {
-  const idx = (hashString(name) + hueShift) % HUES.length;
-  const hue = HUES[idx];
-  if (reputation >= 80 && hueShift === 0) return '#1a73e8';
-  return `hsl(${hue} 55% 45%)`;
-};
 
 // ============================================================
 // POSICIONAMENTO DOS DISCOS POR FORMAÇÃO
@@ -312,11 +292,6 @@ const TacticalLines: React.FC<{ homeTeam: Team; awayTeam: Team; isLive: boolean 
 // COMPONENTE PRINCIPAL
 // ============================================================
 
-const EVENT_ICONS: Record<string, string> = {
-  goal: '⚽', shot: '👟', save: '🧤', corner: '🚩', foul: '🛑',
-  yellow: '🟨', red: '🟥', substitution: '🔄',
-};
-
 interface MatchPitch2DProps {
   homeTeam: Team;
   awayTeam: Team;
@@ -510,7 +485,7 @@ export const MatchPitch2D: React.FC<MatchPitch2DProps> = ({
       {/* Último lance */}
       {lastEvent && (
         <div className="fm-pitch2d__ticker">
-          <span className="fm-pitch2d__ticker-icon">{EVENT_ICONS[lastEvent.type] ?? '•'}</span>
+          <span className="fm-pitch2d__ticker-icon"><MatchEventIcon type={lastEvent.type} size={13} /></span>
           <span>{lastEvent.minute}' — {lastEvent.description ?? lastEvent.type}</span>
         </div>
       )}

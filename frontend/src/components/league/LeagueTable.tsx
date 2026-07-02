@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../../store/gameStore';
 import type { LeagueStandings } from '../../types/game';
 import { useSortable } from '../../hooks/useSortable';
-import { Globe, Users, ArrowRight } from 'lucide-react';
+import { Globe, Users } from 'lucide-react';
+import { PageHeader } from '../ui/PageHeader';
+import { ZoneIcon } from '../ui/ZoneIcon';
 
 type StandingsSortKey = 'position' | 'teamName' | 'played' | 'wins' | 'draws' | 'losses' | 'goalsFor' | 'goalsAgainst' | 'goalDifference' | 'points';
 
@@ -11,13 +13,6 @@ interface LeagueTableProps {
   standings: LeagueStandings[];
   userTeamId?: string | null;
 }
-
-const ZONE_ICONS: Record<string, string> = {
-  title: '🏆',
-  europe: '🌍',
-  safe: '✅',
-  relegation: '⬇️',
-};
 
 const ZONE_LABELS: Record<string, string> = {
   title: 'Libertadores',
@@ -43,7 +38,7 @@ const sortInd = (key: StandingsSortKey, sk: StandingsSortKey, dir: 'asc' | 'desc
 export const LeagueTable: React.FC<LeagueTableProps> = ({ standings, userTeamId }) => {
   const { sortState, toggleSort } = useSortable<StandingsSortKey>('position', 'asc');
   const navigate = useNavigate();
-  const { currentSeason, currentWeek, advanceWeek, isAdvancing, teams } = useGameStore();
+  const { currentSeason, teams } = useGameStore();
   const userTeam = teams.find(t => t.id === userTeamId);
 
   const sortedStandings = useMemo(() => {
@@ -61,27 +56,16 @@ export const LeagueTable: React.FC<LeagueTableProps> = ({ standings, userTeamId 
 
   return (
   <div className="fms-page">
-    <header className="fms-topbar">
-      <div className="fms-topbar__left">
-        <div className="fms-club-logo">{(userTeam?.name ?? '?').charAt(0)}</div>
-        <div className="fms-title-block">
-          <span className="fms-title">Classificação</span>
-          <span className="fms-subtitle">{standings.length} times — Temporada {currentSeason}</span>
-        </div>
-      </div>
-      <div className="fms-topbar__right">
-        <button className="fms-icon-btn" title="Visão do Clube" onClick={() => navigate('/clube')}><Globe size={15} /></button>
-        <button className="fms-icon-btn" title="Elenco" onClick={() => navigate('/elenco')}><Users size={15} /></button>
-        <div className="fms-date">
-          <div className="fms-date__main">Temporada {currentSeason}</div>
-          <div className="fms-date__sub">Semana {currentWeek}</div>
-        </div>
-        <button className="fms-continue" onClick={advanceWeek} disabled={isAdvancing}>
-          {isAdvancing ? 'Processando...' : 'Continuar'}
-          <ArrowRight size={15} />
-        </button>
-      </div>
-    </header>
+    <PageHeader
+      title="Classificação"
+      subtitle={`${standings.length} times — Temporada ${currentSeason}`}
+      teamName={userTeam?.name}
+      teamReputation={userTeam?.reputation}
+      actions={[
+        { icon: <Globe size={15} />, title: 'Visão do Clube', onClick: () => navigate('/clube') },
+        { icon: <Users size={15} />, title: 'Elenco', onClick: () => navigate('/elenco') },
+      ]}
+    />
 
     <div className="fms-content">
       <div className="fms-table-wrap">
@@ -133,7 +117,7 @@ export const LeagueTable: React.FC<LeagueTableProps> = ({ standings, userTeamId 
                   </td>
                   <td>
                     <span className={`fms-badge ${zone === 'title' ? 'fms-badge--accent' : zone === 'europe' ? 'fms-badge--green' : zone === 'relegation' ? 'fms-badge--red' : ''}`}>
-                      {ZONE_ICONS[zone]} {ZONE_LABELS[zone]}
+                      <ZoneIcon zone={zone} /> {ZONE_LABELS[zone]}
                     </span>
                   </td>
                 </tr>
@@ -147,7 +131,7 @@ export const LeagueTable: React.FC<LeagueTableProps> = ({ standings, userTeamId 
         <div className="fms-toolbar-spacer" />
         {(Object.keys(ZONE_LABELS) as Array<keyof typeof ZONE_LABELS>).map((zone) => (
           <span key={zone} className={`fms-badge ${zone === 'title' ? 'fms-badge--accent' : zone === 'europe' ? 'fms-badge--green' : zone === 'relegation' ? 'fms-badge--red' : ''}`}>
-            {ZONE_ICONS[zone]} {ZONE_LABELS[zone]}
+            <ZoneIcon zone={zone} /> {ZONE_LABELS[zone]}
           </span>
         ))}
       </div>

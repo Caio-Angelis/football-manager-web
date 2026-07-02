@@ -4,7 +4,12 @@ import { useGameStore } from '../../store/gameStore';
 import { Button } from '../ui/Button';
 import type { InboxMessage, InjuryReport, BoardReply, FinancialReport } from '../../types/game';
 import { BOARD_REPLY_CATEGORIES } from './constants';
-import { Globe, Users, ArrowRight } from 'lucide-react';
+import {
+  Globe, Users, ArrowLeftRight, HeartPulse, Lightbulb, Briefcase, Sprout,
+  Dumbbell, Wallet, Newspaper, Mail, type LucideIcon,
+} from 'lucide-react';
+import { PageHeader } from '../ui/PageHeader';
+import { getSeverityColor, getTriStateColor } from '../../utils/statusColors';
 
 // ============================================================
 // TIPOS DE MENSAGENS E BOTÕES DE AÇÃO
@@ -96,18 +101,23 @@ const ACTION_MAP: Record<string, MessageActions> = {
 };
 
 // ============================================================
-// ÍCONES E EMOJIS PARA TIPOS DE MENSAGEM
+// ÍCONES PARA TIPOS DE MENSAGEM
 // ============================================================
 
-const MESSAGE_ICONS: Record<string, string> = {
-  transfer: '💰',
-  injury: '🏥',
-  suggestion: '💡',
-  board: '👔',
-  youth: '🌱',
-  training: '🏋️',
-  financial: '📊',
-  news: '📰',
+const MESSAGE_ICONS: Record<string, LucideIcon> = {
+  transfer: ArrowLeftRight,
+  injury: HeartPulse,
+  suggestion: Lightbulb,
+  board: Briefcase,
+  youth: Sprout,
+  training: Dumbbell,
+  financial: Wallet,
+  news: Newspaper,
+};
+
+const MessageTypeIcon: React.FC<{ type: string; size?: number }> = ({ type, size = 16 }) => {
+  const Icon = MESSAGE_ICONS[type] ?? Mail;
+  return <Icon size={size} />;
 };
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -145,7 +155,7 @@ export const MessageCard: React.FC<MessageCardProps> = ({
     >
       <div className="fm-inbox-message__header">
         <div className="fm-inbox-message__icon">
-          <span>{MESSAGE_ICONS[message.type] || '📬'}</span>
+          <span><MessageTypeIcon type={message.type} /></span>
         </div>
         <div className="fm-inbox-message__title-area">
           <div className="fm-inbox-message__subject">
@@ -222,7 +232,7 @@ export const MessageDetailModal: React.FC<MessageDetailModalProps> = ({
         <div className="fm-modal__header">
           <div className="fm-modal__title-area">
             <span className="fm-modal__icon">
-              {MESSAGE_ICONS[message.type] || '📬'}
+              <MessageTypeIcon type={message.type} size={18} />
             </span>
             <h2 className="fm-modal__title">{message.subject}</h2>
           </div>
@@ -282,9 +292,9 @@ const SEVERITY_LABELS: Record<string, string> = {
 };
 
 const SEVERITY_COLORS: Record<string, string> = {
-  minor: '#4caf50',
-  moderate: '#ff9800',
-  severe: '#d93025',
+  minor: getSeverityColor('minor'),
+  moderate: getSeverityColor('moderate'),
+  severe: getSeverityColor('severe'),
 };
 
 const INJURY_TYPE_LABELS: Record<string, string> = {
@@ -304,7 +314,7 @@ export const InjuryReportModal: React.FC<InjuryReportModalProps> = ({ report, on
       <div className="fm-modal fm-modal--large" onClick={(e) => e.stopPropagation()}>
         <div className="fm-modal__header">
           <div className="fm-modal__title-area">
-            <span className="fm-modal__icon">🏥</span>
+            <span className="fm-modal__icon"><HeartPulse size={20} /></span>
             <h2 className="fm-modal__title">Relatório Médico - Lesão</h2>
           </div>
           <button className="fm-modal__close" onClick={onClose}>×</button>
@@ -395,9 +405,9 @@ interface FinancialReportModalProps {
 }
 
 const PROFIT_COLORS: Record<string, string> = {
-  positive: '#4caf50',
-  negative: '#d93025',
-  neutral: '#ff9800',
+  positive: getTriStateColor('positive'),
+  negative: getTriStateColor('negative'),
+  neutral: getTriStateColor('neutral'),
 };
 
 export const FinancialReportModal: React.FC<FinancialReportModalProps> = ({ report, onClose }) => {
@@ -419,7 +429,7 @@ export const FinancialReportModal: React.FC<FinancialReportModalProps> = ({ repo
       <div className="fm-modal fm-modal--large" onClick={(e) => e.stopPropagation()}>
         <div className="fm-modal__header">
           <div className="fm-modal__title-area">
-            <span className="fm-modal__icon">📊</span>
+            <span className="fm-modal__icon"><Wallet size={20} /></span>
             <h2 className="fm-modal__title">Relatório Financeiro</h2>
           </div>
           <button className="fm-modal__close" onClick={onClose}>×</button>
@@ -485,7 +495,7 @@ export const FinancialReportModal: React.FC<FinancialReportModalProps> = ({ repo
               <div className="fm-financial-report__grid">
                 <div className="fm-financial-report__field">
                   <span className="fm-financial-report__label">Salários (semanal):</span>
-                  <span className="fm-financial-report__value">{formatCurrency(report.totalExpenses - report.facilityCosts)}</span>
+                  <span className="fm-financial-report__value">{formatCurrency(report.totalExpenses - report.facilityCosts - (report.staffCosts || 0))}</span>
                 </div>
                 <div className="fm-financial-report__field">
                   <span className="fm-financial-report__label">Infraestruturas (semanal):</span>
@@ -493,6 +503,14 @@ export const FinancialReportModal: React.FC<FinancialReportModalProps> = ({ repo
                     {formatCurrency(report.facilityCosts)}
                   </span>
                 </div>
+                {report.staffCosts != null && (
+                <div className="fm-financial-report__field">
+                  <span className="fm-financial-report__label">Staff (semanal):</span>
+                  <span className="fm-financial-report__value">
+                    {formatCurrency(report.staffCosts)}
+                  </span>
+                </div>
+                )}
                 <div className="fm-financial-report__field fm-financial-report__field--total">
                   <span className="fm-financial-report__label"><strong>Total:</strong></span>
                   <span className="fm-financial-report__value"><strong>{formatCurrency(report.totalExpenses)}</strong></span>
@@ -559,7 +577,7 @@ export const FinancialReportModal: React.FC<FinancialReportModalProps> = ({ repo
 // ============================================================
 
 export const InboxView: React.FC = () => {
-  const { inbox, selectedTeam, teams, currentWeek, currentSeason, advanceWeek, isAdvancing, handleInboxAction, getInjuryReport, handleBoardReply, boardSatisfaction, getFinancialReport, deferTransfer } = useGameStore();
+  const { inbox, selectedTeam, teams, handleInboxAction, getInjuryReport, handleBoardReply, boardSatisfaction, getFinancialReport, deferTransfer } = useGameStore();
   const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = React.useState<string>('all');
   const [activePriority, setActivePriority] = React.useState<string>('all');
@@ -679,27 +697,16 @@ export const InboxView: React.FC = () => {
 
   return (
     <div className="fms-page">
-      <header className="fms-topbar">
-        <div className="fms-topbar__left">
-          <div className="fms-club-logo">{(userTeam?.name ?? '?').charAt(0)}</div>
-          <div className="fms-title-block">
-            <span className="fms-title">Caixa de Entrada{unreadCount > 0 && <span className="fms-badge fms-badge--accent" style={{ marginLeft: 8 }}>{unreadCount}</span>}</span>
-            <span className="fms-subtitle">{userTeam ? userTeam.name : 'Time Selecionado'}</span>
-          </div>
-        </div>
-        <div className="fms-topbar__right">
-          <button className="fms-icon-btn" title="Visão do Clube" onClick={() => navigate('/clube')}><Globe size={15} /></button>
-          <button className="fms-icon-btn" title="Elenco" onClick={() => navigate('/elenco')}><Users size={15} /></button>
-          <div className="fms-date">
-            <div className="fms-date__main">Temporada {currentSeason}</div>
-            <div className="fms-date__sub">Semana {currentWeek}</div>
-          </div>
-          <button className="fms-continue" onClick={advanceWeek} disabled={isAdvancing}>
-            {isAdvancing ? 'Processando...' : 'Continuar'}
-            <ArrowRight size={15} />
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        title={<>Caixa de Entrada{unreadCount > 0 && <span className="fms-badge fms-badge--accent" style={{ marginLeft: 8 }}>{unreadCount}</span>}</>}
+        subtitle={userTeam ? userTeam.name : 'Time Selecionado'}
+        teamName={userTeam?.name}
+        teamReputation={userTeam?.reputation}
+        actions={[
+          { icon: <Globe size={15} />, title: 'Visão do Clube', onClick: () => navigate('/clube') },
+          { icon: <Users size={15} />, title: 'Elenco', onClick: () => navigate('/elenco') },
+        ]}
+      />
 
       <div className="fms-body--scroll">
 
@@ -720,7 +727,7 @@ export const InboxView: React.FC = () => {
                 className={`fm-inbox-view__filter-btn ${activeFilter === type ? 'fm-inbox-view__filter-btn--active' : ''}`}
                 onClick={() => setActiveFilter(type)}
               >
-                {MESSAGE_ICONS[type]} {type}
+                <MessageTypeIcon type={type} size={14} /> {type}
               </button>
             ))}
           </div>
@@ -819,7 +826,7 @@ export const InboxView: React.FC = () => {
           <div className="fm-modal fm-modal--large" onClick={(e) => e.stopPropagation()}>
             <div className="fm-modal__header">
               <div className="fm-modal__title-area">
-                <span className="fm-modal__icon">👔</span>
+                <span className="fm-modal__icon"><Briefcase size={20} /></span>
                 <h2 className="fm-modal__title">Responder à Diretoria</h2>
               </div>
               <button className="fm-modal__close" onClick={() => setShowBoardReply(false)}>×</button>
@@ -881,7 +888,7 @@ export const InboxView: React.FC = () => {
                       className="fm-board-reply__satisfaction-fill"
                       style={{
                         width: `${Math.max(0, Math.min(100, (boardSatisfaction + 100) / 2))}%`,
-                        backgroundColor: boardSatisfaction >= 50 ? '#4caf50' : boardSatisfaction >= 0 ? '#ff9800' : '#d93025',
+                        backgroundColor: getTriStateColor(boardSatisfaction >= 50 ? 'positive' : boardSatisfaction >= 0 ? 'neutral' : 'negative'),
                       }}
                     />
                   </div>

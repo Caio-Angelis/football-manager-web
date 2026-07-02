@@ -6,11 +6,13 @@ product
 
 ## Users
 
-Football fans who want a management game experience. They're looking for an authentic Football Manager-like experience that runs entirely in the browser, without needing a backend or server.
+Football fans who want a management game experience. They're looking for an authentic Football Manager-like simulation, played through a web browser.
 
 ## Product Purpose
 
-Football Manager Web is a simplified Football Manager-style game designed to run 100% in the browser (frontend). It focuses on team management gameplay: live match simulation, transfer market with scouting and negotiations, tactics with drag-and-drop formations, training progression, squad dynamics, and finances — all powered by procedural generation and Zustand state persisted to localStorage.
+Football Manager Web is a Football Manager-style simulation split into a React/Vite frontend and an Express backend that owns all game state (Zustand store server-side, saves persisted to disk, not localStorage). The frontend is a thin client: every action round-trips through a REST API (`/api/action`, `/api/state`) and re-syncs full state from the server.
+
+The simulation is deep, not a toy: minute-by-minute match engine (set pieces, substitutions, fatigue, live interventions), a transfer market with scouting fog-of-war, negotiations, loans and installment deals, tactics with formations and mentality, weekly training with injury risk, club finances, press conferences that move fan/board sentiment, squad dynamics and player promises, and a youth academy — all procedurally generated per save.
 
 ## Brand Personality
 

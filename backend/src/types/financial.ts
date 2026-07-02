@@ -14,6 +14,7 @@ export interface FinancialReport {
   broadcastingRevenue: number; // em milhões
   totalIncome: number; // em milhões
   facilityCosts: number; // em milhões (semanal)
+  staffCosts: number; // em milhões (semanal)
   totalExpenses: number; // em milhões
   profit: number; // em milhões
   transferSpending: number; // em milhões

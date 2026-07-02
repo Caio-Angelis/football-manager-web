@@ -1,0 +1,12 @@
+=== Verificação Fase 5.3 — Compra do Craque Mais Caro ===
+Data: 2026-07-02T05:05:47.072Z
+
+Comprador: Cruzeiro (rep 67)
+Alvo: Facundo Torres (CA 150)
+Valor de mercado: R$22.24M
+Budget inicial: R$59.1M
+Custo da transferência: R$22.24M (37.6% do budget)
+
+Controle (sem compra): sobreviveu (R$32.5M)
+Com compra: sobreviveu (R$-19.6M)
+Veredito: ✅ PASSOU — craque custa 38% da verba, clube não quebra. Impacto no caixa final: R$52.1M

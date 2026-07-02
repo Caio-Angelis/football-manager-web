@@ -12,7 +12,10 @@ import { FinanceView } from './components/finance/FinanceView';
 import { LeagueTable } from './components/league/LeagueTable';
 import { PressCenter } from './components/press/PressCenter';
 import { Button } from './components/ui/Button';
+import { PageHeader } from './components/ui/PageHeader';
 import { SaveSlot } from './components/saves/SaveSlot';
+import { Logo } from './components/ui/Logo';
+import { TacticalPitch } from './components/ui/TacticalPitch';
 import { ToastContainer } from './components/ui/Toast';
 import { ThemeToggle } from './components/ui/ThemeToggle';
 import type { ToastData } from './components/ui/Toast';
@@ -24,7 +27,7 @@ import type { SaveSlotMetadata, Team } from './types/game';
 import {
   FolderOpen, Users, Calendar, BarChart3, ArrowLeftRight, ClipboardList,
   Dumbbell, Activity, Inbox, Mic, Wallet, Building2, LayoutDashboard,
-  ArrowLeft, Home, Save, ArrowRight, Globe,
+  ArrowLeft, Home, Save, ArrowRight, Play,
 } from 'lucide-react';
 
 type NavIcon = React.ComponentType<{ size?: number | string }>;
@@ -64,7 +67,6 @@ const FORM_LABELS: Record<string, string> = {
 
 const ClubView: React.FC<{ team?: Team }> = ({ team }) => {
   const navigate = useNavigate();
-  const { currentSeason, currentWeek, advanceWeek, isAdvancing } = useGameStore();
   if (!team) {
     return (
       <div className="fms-page">
@@ -80,27 +82,16 @@ const ClubView: React.FC<{ team?: Team }> = ({ team }) => {
 
   return (
     <div className="fms-page">
-      <header className="fms-topbar">
-        <div className="fms-topbar__left">
-          <div className="fms-club-logo">{team.name.charAt(0)}</div>
-          <div className="fms-title-block">
-            <span className="fms-title">Visão do Clube</span>
-            <span className="fms-subtitle">{team.name} — {team.division}</span>
-          </div>
-        </div>
-        <div className="fms-topbar__right">
-          <button className="fms-icon-btn" title="Elenco" onClick={() => navigate('/elenco')}><Users size={15} /></button>
-          <button className="fms-icon-btn" title="Classificação" onClick={() => navigate('/classificacao')}><BarChart3 size={15} /></button>
-          <div className="fms-date">
-            <div className="fms-date__main">Temporada {currentSeason}</div>
-            <div className="fms-date__sub">Semana {currentWeek}</div>
-          </div>
-          <button className="fms-continue" onClick={advanceWeek} disabled={isAdvancing}>
-            {isAdvancing ? 'Processando...' : 'Continuar'}
-            <ArrowRight size={15} />
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        title="Visão do Clube"
+        subtitle={`${team.name} — ${team.division}`}
+        teamName={team.name}
+        teamReputation={team.reputation}
+        actions={[
+          { icon: <Users size={15} />, title: 'Elenco', onClick: () => navigate('/elenco') },
+          { icon: <BarChart3 size={15} />, title: 'Classificação', onClick: () => navigate('/classificacao') },
+        ]}
+      />
 
       <div className="fms-body--scroll">
       <div className="fm-club-view__info">
@@ -138,10 +129,6 @@ const ClubView: React.FC<{ team?: Team }> = ({ team }) => {
           <div className="fm-club-view__stat">
             <span className="fm-club-view__stat-label">Orçamento</span>
             <span className="fm-club-view__stat-value">R$ {team.budget.toFixed(1)}M</span>
-          </div>
-          <div className="fm-club-view__stat">
-            <span className="fm-club-view__stat-label">Orçamento de Transferências</span>
-            <span className="fm-club-view__stat-value">R$ {team.transferBudget.toFixed(1)}M</span>
           </div>
           <div className="fm-club-view__stat">
             <span className="fm-club-view__stat-label">Folha Salarial</span>
@@ -221,7 +208,7 @@ const ClubView: React.FC<{ team?: Team }> = ({ team }) => {
 };
 
 export const App: React.FC = () => {
-  const { selectedTeam, inbox, teams, currentWeek, currentSeason, advanceWeek, isAdvancing } = useGameStore();
+  const { selectedTeam, inbox, teams, currentWeek, currentSeason, advanceWeek, isAdvancing, matchBlockMessage, seasonSummary, gameOver } = useGameStore();
   const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
   const [toasts, setToasts] = React.useState<ToastData[]>([]);
@@ -245,31 +232,48 @@ export const App: React.FC = () => {
 
   const homePage = (
     <>
-      <div className="fm-landing">
+      <div className="fm-landing fm-landing--home">
+        <TacticalPitch />
         <div className="fm-landing__topbar">
           <ThemeToggle compact />
         </div>
         <div className="fm-landing__layout">
-          <main className="fm-landing__main">
+          <main className="fm-landing__main fm-landing__main--home">
             <header className="fm-landing__brand">
-              <span className="fm-landing__mark" aria-hidden="true">FM</span>
+              <Logo size={52} className="fm-landing__mark" />
               <div className="fm-landing__brand-text">
                 <h1 className="fm-landing__title">Football Manager Web</h1>
                 <p className="fm-landing__tagline">Gestão de futebol no navegador</p>
               </div>
             </header>
+            <p className="fm-landing__lede">
+              Assuma o comando de um clube do Brasileirão. Táticas, transferências,
+              finanças e imprensa — uma temporada inteira sob o seu controle.
+            </p>
             <div className="fm-landing__actions">
               <Button onClick={() => navigate('/selecionar-time')} className="fm-landing__new-game">
-                Nova partida
+                <Play size={18} /> Nova partida
               </Button>
+              <button
+                type="button"
+                className="fm-landing__hint"
+                onClick={() => document.getElementById('fm-saves')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              >
+                Carregar carreira salva
+              </button>
             </div>
+            <ul className="fm-landing__pillars" aria-label="O que o jogo simula">
+              {['Táticas', 'Transferências', 'Treino', 'Finanças', 'Imprensa', 'Base'].map(p => (
+                <li key={p} className="fm-landing__pillar">{p}</li>
+              ))}
+            </ul>
           </main>
-          <aside className="fm-landing__aside" aria-label="Saves">
+          <aside id="fm-saves" className="fm-landing__aside" aria-label="Saves">
             <div className="fm-landing__aside-header">
               <FolderOpen size={18} className="fm-landing__aside-icon" />
               <h2 className="fm-landing__aside-title">Continuar carreira</h2>
             </div>
-            <p className="fm-landing__aside-desc">Carregue um save salvo ou comece uma nova partida.</p>
+            <p className="fm-landing__aside-desc">Carregue um save ou comece uma nova partida.</p>
             <SaveSlot slotNumber={1} onSaveSlot={handleSaveSlotSelect} />
             <SaveSlot slotNumber={2} onSaveSlot={handleSaveSlotSelect} />
           </aside>
@@ -320,7 +324,7 @@ export const App: React.FC = () => {
             {sidebarCollapsed ? '→' : '←'}
           </button>
           <div className="fm-sidebar__logo">
-            <Globe size={22} className="fm-sidebar__logo-icon" />
+            <Logo size={26} className="fm-sidebar__logo-icon" />
             <span className="fm-sidebar__logo-text">FM Web</span>
           </div>
         </div>
@@ -363,7 +367,7 @@ export const App: React.FC = () => {
           >
             <Home size={15} /> Início
           </Button>
-          <Button className="fm-button--continue" onClick={advanceWeek} disabled={isAdvancing}>
+          <Button className="fm-button--continue" onClick={advanceWeek} disabled={isAdvancing || !!seasonSummary || gameOver}>
             {isAdvancing ? 'Processando...' : <>Continuar <ArrowRight size={15} /></>}
           </Button>
           <Button className="fm-button--save" onClick={async () => {
@@ -407,6 +411,17 @@ export const App: React.FC = () => {
         </div>
       </main>
       <SeasonSummaryModal />
+      {matchBlockMessage && (
+        <div className="fm-match-block-overlay" onClick={() => useGameStore.setState({ matchBlockMessage: null })}>
+          <div className="fm-match-block-modal" onClick={e => e.stopPropagation()}>
+            <div className="fm-match-block-modal__icon">⚠️</div>
+            <p className="fm-match-block-modal__message">{matchBlockMessage}</p>
+            <Button onClick={() => useGameStore.setState({ matchBlockMessage: null })}>
+              Entendido
+            </Button>
+          </div>
+        </div>
+      )}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );

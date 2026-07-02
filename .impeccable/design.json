@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-01T00:00:00.000Z",
+  "title": "Design System: Football Manager Web",
+  "extensions": {
+    "colorMeta": {
+      "pitch-blue": { "role": "primary", "displayName": "Pitch Blue", "canonical": "#3d7bf5", "tonalRamp": ["#0d1a33", "#153166", "#1d4899", "#255fcc", "#3d7bf5", "#6b9cf7", "#9dbdfa", "#d0defc"] },
+      "pitch-blue-deep": { "role": "primary-hover", "displayName": "Pitch Blue Deep", "canonical": "#2a5fb0" },
+      "tactics-purple": { "role": "secondary", "displayName": "Tactics Purple", "canonical": "#6d5ef0", "tonalRamp": ["#160f3d", "#241a66", "#332699", "#4938c2", "#6d5ef0", "#9186f4", "#b6adf8", "#dad5fc"] },
+      "pitch-green": { "role": "success", "displayName": "Pitch Green", "canonical": "#3fbf6b", "tonalRamp": ["#0d2e17", "#154d26", "#1e6b35", "#2f9950", "#3fbf6b", "#6fd190", "#9fe0b3", "#cfefd9"] },
+      "assistants-amber": { "role": "warning", "displayName": "Assistant's Amber", "canonical": "#e0b341", "tonalRamp": ["#3d2f0c", "#664f14", "#996f1b", "#cc9531", "#e0b341", "#e9c56d", "#f1d89a", "#f8ecc7"] },
+      "red-card": { "role": "danger", "displayName": "Red Card", "canonical": "#e25c52", "tonalRamp": ["#3d1310", "#661f1a", "#992e27", "#cc4238", "#e25c52", "#ea847c", "#f1aca6", "#f8d5d1"] },
+      "tunnel-black": { "role": "neutral-bg", "displayName": "Tunnel Black", "canonical": "#14161c" },
+      "panel": { "role": "surface", "displayName": "Panel", "canonical": "#1b1e26" },
+      "panel-raised": { "role": "surface-raised", "displayName": "Panel Raised", "canonical": "#20242e" },
+      "row-alt": { "role": "surface-alt", "displayName": "Row Alt", "canonical": "#191c24" },
+      "ink": { "role": "text-primary", "displayName": "Ink", "canonical": "#e8eaf0" },
+      "ink-secondary": { "role": "text-secondary", "displayName": "Ink Secondary", "canonical": "#9aa0ad" },
+      "ink-tertiary": { "role": "text-tertiary", "displayName": "Ink Tertiary", "canonical": "#6b7080" },
+      "border": { "role": "border", "displayName": "Border", "canonical": "rgba(255,255,255,0.06)" },
+      "border-strong": { "role": "border-strong", "displayName": "Border Strong", "canonical": "rgba(255,255,255,0.12)" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display (Oswald)", "purpose": "Page titles and club identity headers only — uppercase, condensed." },
+      "body": { "displayName": "Body (Inter)", "purpose": "The default UI font for nearly everything: tables, buttons, forms, copy." },
+      "label": { "displayName": "Label (Inter)", "purpose": "Table headers, stat-card labels, badges — smallest, densest text." }
+    },
+    "shadows": [
+      { "name": "elevation-1", "value": "0 1px 4px rgba(0,0,0,0.24)", "purpose": "Barely-there lift for a surface just above its background." },
+      { "name": "elevation-2", "value": "0 4px 12px rgba(0,0,0,0.32)", "purpose": "Floating overlays — sort menus, dropdowns, popovers." },
+      { "name": "elevation-3", "value": "0 12px 32px rgba(0,0,0,0.4)", "purpose": "Modals and the most detached surfaces." }
+    ],
+    "motion": [
+      { "name": "ease-fast", "value": "120ms ease-out", "purpose": "Icon buttons, hover color/border shifts." },
+      { "name": "ease-normal", "value": "180ms ease-out", "purpose": "Default transition for most state changes." }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button (Continuar)",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The week-advance action button, repeated in every PageHeader.",
+      "html": "<button class=\"ds-btn-primary\">Continuar <svg width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 12h14M12 5l7 7-7 7\"/></svg></button>",
+      "css": ".ds-btn-primary { display:flex; align-items:center; gap:8px; padding:9px 18px; border-radius:8px; border:none; background:#3d7bf5; color:#fff; font-family:'Inter',sans-serif; font-weight:600; font-size:13px; cursor:pointer; transition:filter 150ms ease-out; } .ds-btn-primary:hover { filter:brightness(1.1); } .ds-btn-primary:focus-visible { outline:2px solid #3d7bf5; outline-offset:2px; } .ds-btn-primary:disabled { opacity:0.6; cursor:default; }"
+    },
+    {
+      "name": "Icon Button",
+      "kind": "button",
+      "refersTo": "icon-btn",
+      "description": "Circular quick-nav button used in the topbar (Visão do Clube, Classificação, etc).",
+      "html": "<button class=\"ds-icon-btn\" title=\"Classificação\"><svg width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M12 6v6l4 2\"/></svg></button>",
+      "css": ".ds-icon-btn { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:transparent; border:1px solid rgba(255,255,255,0.06); color:#9aa0ad; cursor:pointer; transition:all 150ms ease-out; } .ds-icon-btn:hover { color:#e8eaf0; border-color:rgba(255,255,255,0.12); }"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Tinted-background / solid-text badge used for zones, grades, and status labels.",
+      "html": "<span class=\"ds-badge ds-badge--green\">Segurança</span>",
+      "css": ".ds-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:6px; font-size:10px; font-weight:600; background:#20242e; color:#9aa0ad; } .ds-badge--green { background:rgba(63,191,107,0.15); color:#3fbf6b; } .ds-badge--amber { background:rgba(224,179,65,0.15); color:#e0b341; } .ds-badge--red { background:rgba(226,92,82,0.15); color:#e25c52; }"
+    },
+    {
+      "name": "Stat Bar",
+      "kind": "custom",
+      "refersTo": "stat-bar",
+      "description": "Color-coded progress bar for fitness/form/morale, threshold colors from utils/statusColors.ts.",
+      "html": "<div class=\"ds-statbar\"><div class=\"ds-statbar__label\"><span>Condição</span><span>82</span></div><div class=\"ds-statbar__track\"><div class=\"ds-statbar__fill\" style=\"width:82%\"></div></div></div>",
+      "css": ".ds-statbar__label { display:flex; justify-content:space-between; margin-bottom:4px; font-size:10px; text-transform:uppercase; letter-spacing:0.04em; color:#6b7080; } .ds-statbar__track { height:6px; background:#20242e; border-radius:3px; overflow:hidden; } .ds-statbar__fill { height:100%; border-radius:3px; background:#3fbf6b; }"
+    },
+    {
+      "name": "Club Crest",
+      "kind": "custom",
+      "refersTo": "team-crest",
+      "description": "Procedural shield SVG with club initials — the system's signature flourish.",
+      "html": "<svg width=\"48\" height=\"56\" viewBox=\"0 0 56 64\" fill=\"none\"><path d=\"M28 2 L52 14 L52 34 C52 48 41 58 28 62 C15 58 4 48 4 34 L4 14 Z\" fill=\"#3d7bf5\" stroke=\"#2a5fb0\" stroke-width=\"2\"/><path d=\"M28 10 L44 18 L44 33 C44 43 37 50 28 53 C19 50 12 43 12 33 L12 18 Z\" fill=\"#2a5fb0\" opacity=\"0.35\"/><text x=\"28\" y=\"36\" text-anchor=\"middle\" fill=\"#ffffff\" font-size=\"14\" font-weight=\"700\" font-family=\"Inter,sans-serif\">FC</text></svg>",
+      "css": ""
+    },
+    {
+      "name": "Table Row",
+      "kind": "custom",
+      "refersTo": "table-row",
+      "description": "Dense data-table row with zebra striping and a highlighted user row.",
+      "html": "<table class=\"ds-table\"><tbody><tr><td>1</td><td class=\"ds-table__team\">Palmeiras</td><td>38</td></tr><tr class=\"ds-table__row--alt\"><td>2</td><td class=\"ds-table__team\">Flamengo</td><td>35</td></tr><tr class=\"ds-table__row--user\"><td>3</td><td class=\"ds-table__team\">Seu Clube</td><td>33</td></tr></tbody></table>",
+      "css": ".ds-table { width:100%; border-collapse:collapse; font-size:12px; color:#e8eaf0; } .ds-table td { padding:8px; border-bottom:1px solid rgba(255,255,255,0.06); } .ds-table__team { font-weight:600; } .ds-table__row--alt { background:#191c24; } .ds-table__row--user { background:rgba(61,123,245,0.08); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Training Ground",
+    "overview": "A tactics-analysis room at 11pm: dark screens, dense data, the glow of a monitor over a desk covered in scouting reports. Nobody designed this to be admired — it was built to be used, for hours, by someone making real decisions about a real squad. The Training Ground rejects the polished sheen of consumer apps and the neon of gaming UI alike. It is closer to a broadcast graphics package or a professional analytics tool than to a mobile game.\n\nThe system is near-black by default — #14161c pages, #1b1e26 panels — with a single blue accent (Pitch Blue) doing almost all of the interactive signaling, and three status colors (green/amber/red) carrying every piece of \"is this good or bad\" information in the data. Separation between regions is done with 1px borders, not shadows; the interface is flat and readable, not a stack of floating cards. Decoration is not the point. The data is the point.",
+    "keyCharacteristics": [
+      "Dark by default — near-black backgrounds, light text, low-chroma panels",
+      "One accent color (Pitch Blue), used sparingly for actions and active state",
+      "Borders over shadows — regions are separated by 1px lines, not elevation",
+      "Status color (green/amber/red) is the only carrier of \"good/bad\" meaning",
+      "Dense tables and stat grids over generous whitespace"
+    ],
+    "rules": [
+      { "name": "The One Accent Rule", "body": "Pitch Blue is the only color used for interactive/action signaling (buttons, active state, links). If a second color starts meaning \"click me,\" the system has failed.", "section": "colors" },
+      { "name": "The Status-Only Rule", "body": "Green/amber/red are reserved exclusively for value judgments on data (good/caution/bad). They never appear as decoration, and a given shade always means the same thing everywhere it shows up.", "section": "colors" },
+      { "name": "The Border-Not-Shadow Rule", "body": "Regions are separated with a 1px border line first. Reach for elevation only when a border can't do the job — a floating overlay with nothing behind it to border against.", "section": "elevation" },
+      { "name": "The Density Floor Rule", "body": "Body text sits at 12px, not 14-16px. This is deliberate: the interface is a professional tool viewed on a desktop for long sessions, not a marketing page optimized for skimming.", "section": "typography" }
+    ],
+    "dos": [
+      "Do use Pitch Blue for actions and active state only — nowhere else.",
+      "Do separate regions with a 1px border first; reach for shadow only for floating overlays.",
+      "Do route every status color (fitness, form, risk, position, grade) through utils/statusColors.ts instead of hardcoding hex.",
+      "Do reuse PageHeader and TeamCrest for any new screen instead of rebuilding a topbar or a letter-avatar.",
+      "Do keep body text at 12px and let layout, not font-size, carry hierarchy.",
+      "Do let stat and status colors carry meaning — green = good, amber = caution, red = bad, consistently."
+    ],
+    "donts": [
+      "Don't introduce a second accent color for actions/navigation. Pitch Blue is the one accent.",
+      "Don't add decorative shadows to flat, in-flow panels — that's enterprise-SaaS card-stacking, and it's explicitly an anti-reference.",
+      "Don't use border-left stripes greater than 1px as a colored accent. Use a full border, a background tint, or a badge instead.",
+      "Don't use gradient text. If something needs emphasis, use weight or a solid status color.",
+      "Don't hardcode a Material-style palette (#4CAF50, #F44336, #2196F3, etc.) for status/position colors — that's the exact drift this system had before utils/statusColors.ts existed.",
+      "Don't mix the fms-* and legacy fm-* light-glass component styles into the same screen without reconciling them.",
+      "Don't make this feel like a casual game or like enterprise SaaS. It's a serious tool."
+    ]
+  }
+}

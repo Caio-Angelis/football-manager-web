@@ -1,6 +1,7 @@
 import type { GameStore, Team, InboxMessage, SeasonSummary } from '../../types/game';
 import { generateTeam, generateYouthIntake } from '../../utils/playerGenerator';
 import { loadTeamsFromDatabase, assignBoardExpectations } from '../../utils/dataLoader';
+import { healTeamsXI } from '../../utils/lineup';
 import {
   simulateFullMatch, simulateMinute, calculatePlayerMatchRatings,
   generateWeekMatches, applyMatchResultToTeams, generatePostMatchReport,
@@ -13,7 +14,7 @@ import { maybeGenerateIncomingTransfer, recalcWageBill, processBiddingWars } fro
 import { processScoutMissions, generateDefaultScouts, decayScoutKnowledge, generateScoutRecommendations, processLoans } from '../helpers/scouting';
 import { processAIWeeklyDecisions } from '../helpers/aiManager';
 import { applyWeeklyMoraleDynamics } from '../helpers/moraleDynamics';
-import { calculateTicketRevenue, calculateSponsorshipRevenue, calculateBroadcastingRevenue, calculateFacilityCosts, weeklyWages } from '../helpers/finance';
+import { calculateTicketRevenue, calculateSponsorshipRevenue, calculateBroadcastingRevenue, calculateFacilityCosts, calculateStaffCosts, weeklyWages, calculateSeasonFinalPrize } from '../helpers/finance';
 import { updatePlayerAttributes } from '../helpers/training';
 import { weeklyFanMoodDecay, weeklyMediaPressureDecay } from '../helpers/press';
 import { getFullName } from '../../utils/playerName';
@@ -53,6 +54,7 @@ export const createCoreSlice = (set: Set, get: Get) => ({
     }
 
     assignBoardExpectations(teams);
+    teams = healTeamsXI(teams);
 
     const initialMatches = generateWeekMatches(teams, 1);
     const initialStandings = calculateLeagueStandings(teams, initialMatches, 0);
@@ -113,7 +115,27 @@ export const createCoreSlice = (set: Set, get: Get) => ({
   advanceWeek: () => {
     const state = get();
     if (state.isAdvancing) return;
-    set({ isAdvancing: true });
+
+    // Temporada encerrada: bloqueia avançar até iniciar a próxima temporada.
+    // Sem isto, reentrar no bloco championshipEnded repagaria o prêmio de
+    // colocação e a receita semanal a cada clique. startNextSeason limpa ambos.
+    if (state.seasonSummary || state.gameOver) return;
+
+    // Bloqueia avanço de semana se o time do usuário tiver jogador lesionado no XI
+    if (state.selectedTeam) {
+      const userTeam = state.teams.find(t => t.id === state.selectedTeam);
+      if (userTeam) {
+        const injuredInXI = (userTeam.startingXI ?? [])
+          .map(id => userTeam.squad.find(p => p.id === id))
+          .find(p => p?.injury?.active);
+        if (injuredInXI) {
+          set({ matchBlockMessage: `Partida não pode iniciar: ${getFullName(injuredInXI)} lesionado` });
+          return;
+        }
+      }
+    }
+
+    set({ isAdvancing: true, matchBlockMessage: null });
     const newWeek = state.currentWeek + 1;
     const newSeason = state.currentSeason;
     const youthReset = state.youthIntakeCompleted;
@@ -132,6 +154,19 @@ export const createCoreSlice = (set: Set, get: Get) => ({
       const updatedMatches = [...state.matches];
       const leagueStandings = calculateLeagueStandings(updatedTeams, updatedMatches, 38);
 
+      // Prêmio por colocação final da temporada (Fase 6.2)
+      const totalTeams = updatedTeams.length;
+      leagueStandings.forEach(standing => {
+        const teamIdx = updatedTeams.findIndex(t => t.id === standing.teamId);
+        if (teamIdx !== -1) {
+          const prize = calculateSeasonFinalPrize(standing.position, updatedTeams[teamIdx].reputation, totalTeams);
+          updatedTeams[teamIdx] = {
+            ...updatedTeams[teamIdx],
+            budget: Math.max(-50, updatedTeams[teamIdx].budget + prize),
+          };
+        }
+      });
+
       // Atualizar orçamento das equipes
       if (state.selectedTeam) {
         const teamIdx = updatedTeams.findIndex(t => t.id === state.selectedTeam);
@@ -141,10 +176,11 @@ export const createCoreSlice = (set: Set, get: Get) => ({
           const sponsorship = calculateSponsorshipRevenue(team.reputation);
           const broadcasting = calculateBroadcastingRevenue(team.reputation);
           const facilityCosts = calculateFacilityCosts(team.facilitiesLevel);
+          const staffCosts = calculateStaffCosts(team.staffLevel);
           const wageCost = weeklyWages(team.wageBill);
           updatedTeams[teamIdx] = {
             ...team,
-            budget: Math.max(0, team.budget + ticketRevenue + sponsorship + broadcasting - wageCost - facilityCosts),
+            budget: Math.max(-50, team.budget + ticketRevenue + sponsorship + broadcasting - wageCost - facilityCosts - staffCosts),
           };
         }
       }
@@ -179,7 +215,7 @@ export const createCoreSlice = (set: Set, get: Get) => ({
       // GERAR RESUMO DE FIM DE TEMPORADA
       // ============================================================
       let seasonSummary: SeasonSummary | null = null;
-      let gameOver = state.gameOver ?? false;
+      let gameOver: boolean = state.gameOver ?? false;
 
       if (state.selectedTeam) {
         const userStanding = leagueStandings.find(s => s.teamId === state.selectedTeam);
@@ -350,10 +386,11 @@ export const createCoreSlice = (set: Set, get: Get) => ({
         const sponsorship = calculateSponsorshipRevenue(team.reputation);
         const broadcasting = calculateBroadcastingRevenue(team.reputation);
         const facilityCosts = calculateFacilityCosts(team.facilitiesLevel);
+        const staffCosts = calculateStaffCosts(team.staffLevel);
         const wageCost = weeklyWages(team.wageBill);
         updatedTeams[teamIdx] = {
           ...team,
-          budget: Math.max(0, team.budget + ticketRevenue + sponsorship + broadcasting - wageCost - facilityCosts),
+          budget: Math.max(-50, team.budget + ticketRevenue + sponsorship + broadcasting - wageCost - facilityCosts - staffCosts),
         };
       }
     }

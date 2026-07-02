@@ -1,0 +1,199 @@
+============================================================
+RELATÓRIO DE AUDITORIA FINANCEIRA — ANTES DO REBALANCEAMENTO
+Simulação: 1 temporada (38 semanas), sem contratações
+Data: 2026-07-02T05:21:16.039Z
+============================================================
+
+SUMÁRIO POR TIME (ordenado por reputação)
+-------------------------------------------
+
+Team                   Rep BudgetIni BudgetFim SaldoSem Receita   Folha  Infra  Premio WageBill  ΣSalary Falir?
+------------------------------------------------------------------------------------------------------------------------
+Flamengo                70      55.4      65.2+    0.26    8.23    5.72   2.45    1.95     5.58     5577    Não
+Palmeiras               69      53.0      59.2+    0.16    8.01    5.81   2.10    1.57     5.25     5246    Não
+Atlético Mineiro        67      53.4      69.4+    0.42    7.53    4.51   2.10    1.00     4.22     4221    Não
+Bahia                   67      54.3      65.9+    0.31    7.53    4.23   2.10    0.61     4.23     4227    Não
+Botafogo                67      55.5      65.9+    0.27    7.53    4.29   2.10    0.63     4.29     4286    Não
+Corinthians             67      56.5      58.6+    0.05    7.53    4.52   2.10    0.64     4.52     4524    Não
+Cruzeiro                67      52.6     102.4+    1.31    7.53    4.08   2.10    1.47     3.73     3729    Não
+Fluminense              67      51.5      33.6    -0.47    7.53    4.62   2.10    0.22     4.85     4850    Não
+Grêmio                  67      49.9      19.9    -0.79    7.53    4.58   2.10   -0.14     4.92     4920    Não
+Internacional           67      53.6      43.4    -0.27    7.53    4.65   2.10    0.45     4.57     4574    Não
+Red Bull Bragantino     66      55.0      31.5    -0.62    7.31    3.86   2.10   -0.47     4.51     4506    Não
+São Paulo               66      53.5      48.7    -0.13    7.31    4.39   2.10    0.55     4.39     4390    Não
+Vitória                 66      49.9      18.6    -0.82    7.31    4.19   2.10   -0.34     4.17     4172   Sem8
+Fortaleza               65      52.9      55.4+    0.06    7.11    3.65   2.10    0.21     3.45     3446    Não
+Mirassol                65      56.4      37.8    -0.49    7.11    4.05   2.10    0.05     4.14     4140    Não
+Santos                  65      50.3      72.6+    0.59    7.11    3.33   2.10    0.40     3.43     3429    Não
+Ceará                   64      50.2      22.1    -0.74    6.89    3.39   2.10   -0.64     3.82     3822    Não
+Vasco da Gama           64      52.7      82.5+    0.79    6.89    2.98   2.10    0.48     2.98     2975    Não
+Sport Recife            63      45.6      81.3+    0.94    6.67    2.39   2.10    0.26     2.21     2215    Não
+Juventude               60      47.4      97.0+    1.31    6.05    1.46   2.10    0.32     1.46     1461    Não
+
+ANÁLISE DE UNIDADES
+--------------------
+
+Flamengo (rep 70):
+  wageBill (recalc) = 5.58 (Σ salary / 1000 = 5577 / 1000)
+  weeklyWages(wageBill) = 5.72 (= wageBill direto, sem conversão)
+  Folha semanal % da receita = 69.5%
+  Saldo semanal médio = +0.26M/semana
+
+Palmeiras (rep 69):
+  wageBill (recalc) = 5.25 (Σ salary / 1000 = 5246 / 1000)
+  weeklyWages(wageBill) = 5.81 (= wageBill direto, sem conversão)
+  Folha semanal % da receita = 72.5%
+  Saldo semanal médio = +0.16M/semana
+
+Atlético Mineiro (rep 67):
+  wageBill (recalc) = 4.22 (Σ salary / 1000 = 4221 / 1000)
+  weeklyWages(wageBill) = 4.51 (= wageBill direto, sem conversão)
+  Folha semanal % da receita = 59.9%
+  Saldo semanal médio = +0.42M/semana
+
+Bahia (rep 67):
+  wageBill (recalc) = 4.23 (Σ salary / 1000 = 4227 / 1000)
+  weeklyWages(wageBill) = 4.23 (= wageBill direto, sem conversão)
+  Folha semanal % da receita = 56.2%
+  Saldo semanal médio = +0.31M/semana
+
+Botafogo (rep 67):
+  wageBill (recalc) = 4.29 (Σ salary / 1000 = 4286 / 1000)
+  weeklyWages(wageBill) = 4.29 (= wageBill direto, sem conversão)
+  Folha semanal % da receita = 57.0%
+  Saldo semanal médio = +0.27M/semana
+
+DIAGNÓSTICO
+-----------
+Times com superávit semanal: 12/20
+Times com déficit semanal: 8/20
+Saldo semanal médio (geral): 0.11M/semana
+Times que faliram: 1/20
+Folha semanal média como % da receita: 54.5% (alvo: 50-70%)
+
+CURVA DE BUDGET (3 times representativos)
+------------------------------------------
+
+Flamengo (rep 70):
+  Sem  1: budget=   71.35 saldo=+  15.95 (rec=8.23, folha=6.56, infra=2.45, premio=18.48)
+  Sem  2: budget=   69.41 saldo=  -1.94 (rec=8.23, folha=6.56, infra=2.45, premio=0.59)
+  Sem  3: budget=   68.06 saldo=  -1.35 (rec=8.23, folha=6.56, infra=2.45, premio=1.18)
+  Sem  4: budget=   66.71 saldo=  -1.35 (rec=8.23, folha=6.56, infra=2.45, premio=1.18)
+  Sem  5: budget=   65.36 saldo=  -1.35 (rec=8.23, folha=6.56, infra=2.45, premio=1.18)
+  Sem  6: budget=   79.20 saldo=+  13.84 (rec=8.23, folha=6.15, infra=2.45, premio=15.96)
+  Sem  7: budget=   92.94 saldo=+  13.74 (rec=8.23, folha=5.58, infra=2.45, premio=15.29)
+  Sem  8: budget=   92.57 saldo=  -0.37 (rec=8.23, folha=5.58, infra=2.45, premio=1.18)
+  Sem  9: budget=   91.61 saldo=  -0.96 (rec=8.23, folha=5.58, infra=2.45, premio=0.59)
+  Sem 10: budget=   90.26 saldo=  -1.35 (rec=8.23, folha=5.58, infra=2.45, premio=0.20)
+  Sem 11: budget=   89.89 saldo=  -0.37 (rec=8.23, folha=5.58, infra=2.45, premio=1.18)
+  Sem 12: budget=   89.52 saldo=  -0.37 (rec=8.23, folha=5.58, infra=2.45, premio=1.18)
+  Sem 13: budget=   88.17 saldo=  -1.35 (rec=8.23, folha=5.58, infra=2.45, premio=0.20)
+  Sem 14: budget=   86.82 saldo=  -1.35 (rec=8.23, folha=5.58, infra=2.45, premio=0.20)
+  Sem 15: budget=   85.86 saldo=  -0.96 (rec=8.23, folha=5.58, infra=2.45, premio=0.59)
+  Sem 16: budget=   85.49 saldo=  -0.37 (rec=8.23, folha=5.58, infra=2.45, premio=1.18)
+  Sem 17: budget=   84.14 saldo=  -1.35 (rec=8.23, folha=5.58, infra=2.45, premio=0.20)
+  Sem 18: budget=   83.77 saldo=  -0.37 (rec=8.23, folha=5.58, infra=2.45, premio=1.18)
+  Sem 19: budget=   82.81 saldo=  -0.96 (rec=8.23, folha=5.58, infra=2.45, premio=0.59)
+  Sem 20: budget=   81.85 saldo=  -0.96 (rec=8.23, folha=5.58, infra=2.45, premio=0.59)
+  Sem 21: budget=   81.48 saldo=  -0.37 (rec=8.23, folha=5.58, infra=2.45, premio=1.18)
+  Sem 22: budget=   80.13 saldo=  -1.35 (rec=8.23, folha=5.58, infra=2.45, premio=0.20)
+  Sem 23: budget=   79.17 saldo=  -0.96 (rec=8.23, folha=5.58, infra=2.45, premio=0.59)
+  Sem 24: budget=   78.80 saldo=  -0.37 (rec=8.23, folha=5.58, infra=2.45, premio=1.18)
+  Sem 25: budget=   77.45 saldo=  -1.35 (rec=8.23, folha=5.58, infra=2.45, premio=0.20)
+  Sem 26: budget=   77.08 saldo=  -0.37 (rec=8.23, folha=5.58, infra=2.45, premio=1.18)
+  Sem 27: budget=   76.71 saldo=  -0.37 (rec=8.23, folha=5.58, infra=2.45, premio=1.18)
+  Sem 28: budget=   75.36 saldo=  -1.35 (rec=8.23, folha=5.58, infra=2.45, premio=0.20)
+  Sem 29: budget=   74.01 saldo=  -1.35 (rec=8.23, folha=5.58, infra=2.45, premio=0.20)
+  Sem 30: budget=   73.05 saldo=  -0.96 (rec=8.23, folha=5.58, infra=2.45, premio=0.59)
+  Sem 31: budget=   72.09 saldo=  -0.96 (rec=8.23, folha=5.58, infra=2.45, premio=0.59)
+  Sem 32: budget=   70.74 saldo=  -1.35 (rec=8.23, folha=5.58, infra=2.45, premio=0.20)
+  Sem 33: budget=   70.37 saldo=  -0.37 (rec=8.23, folha=5.58, infra=2.45, premio=1.18)
+  Sem 34: budget=   69.02 saldo=  -1.35 (rec=8.23, folha=5.58, infra=2.45, premio=0.20)
+  Sem 35: budget=   68.06 saldo=  -0.96 (rec=8.23, folha=5.58, infra=2.45, premio=0.59)
+  Sem 36: budget=   67.10 saldo=  -0.96 (rec=8.23, folha=5.58, infra=2.45, premio=0.59)
+  Sem 37: budget=   66.14 saldo=  -0.96 (rec=8.23, folha=5.58, infra=2.45, premio=0.59)
+  Sem 38: budget=   65.18 saldo=  -0.96 (rec=8.23, folha=5.58, infra=2.45, premio=0.59)
+
+Red Bull Bragantino (rep 66):
+  Sem  1: budget=   56.32 saldo=+   1.32 (rec=7.31, folha=3.44, infra=2.10, premio=1.05)
+  Sem  2: budget=   57.11 saldo=+   0.79 (rec=7.31, folha=3.44, infra=2.10, premio=0.52)
+  Sem  3: budget=   58.43 saldo=+   1.32 (rec=7.31, folha=3.44, infra=2.10, premio=1.05)
+  Sem  4: budget=   58.87 saldo=+   0.44 (rec=7.31, folha=3.44, infra=2.10, premio=0.17)
+  Sem  5: budget=   59.66 saldo=+   0.79 (rec=7.31, folha=3.44, infra=2.10, premio=0.52)
+  Sem  6: budget=   60.98 saldo=+   1.32 (rec=7.31, folha=3.44, infra=2.10, premio=1.05)
+  Sem  7: budget=   61.42 saldo=+   0.44 (rec=7.31, folha=3.44, infra=2.10, premio=0.17)
+  Sem  8: budget=   61.86 saldo=+   0.44 (rec=7.31, folha=3.44, infra=2.10, premio=0.17)
+  Sem  9: budget=   63.18 saldo=+   1.32 (rec=7.31, folha=3.44, infra=2.10, premio=1.05)
+  Sem 10: budget=   63.97 saldo=+   0.79 (rec=7.31, folha=3.44, infra=2.10, premio=0.52)
+  Sem 11: budget=   65.29 saldo=+   1.32 (rec=7.31, folha=3.44, infra=2.10, premio=1.05)
+  Sem 12: budget=   65.73 saldo=+   0.44 (rec=7.31, folha=3.44, infra=2.10, premio=0.17)
+  Sem 13: budget=   66.17 saldo=+   0.44 (rec=7.31, folha=3.44, infra=2.10, premio=0.17)
+  Sem 14: budget=   67.49 saldo=+   1.32 (rec=7.31, folha=3.44, infra=2.10, premio=1.05)
+  Sem 15: budget=   68.81 saldo=+   1.32 (rec=7.31, folha=3.44, infra=2.10, premio=1.05)
+  Sem 16: budget=   69.25 saldo=+   0.44 (rec=7.31, folha=3.44, infra=2.10, premio=0.17)
+  Sem 17: budget=   70.57 saldo=+   1.32 (rec=7.31, folha=3.44, infra=2.10, premio=1.05)
+  Sem 18: budget=   71.36 saldo=+   0.79 (rec=7.31, folha=3.44, infra=2.10, premio=0.52)
+  Sem 19: budget=   71.80 saldo=+   0.44 (rec=7.31, folha=3.44, infra=2.10, premio=0.17)
+  Sem 20: budget=   72.59 saldo=+   0.79 (rec=7.31, folha=3.44, infra=2.10, premio=0.52)
+  Sem 21: budget=   73.38 saldo=+   0.79 (rec=7.31, folha=3.44, infra=2.10, premio=0.52)
+  Sem 22: budget=   73.82 saldo=+   0.44 (rec=7.31, folha=3.44, infra=2.10, premio=0.17)
+  Sem 23: budget=   53.26 saldo= -20.56 (rec=7.31, folha=3.89, infra=2.10, premio=-20.38)
+  Sem 24: budget=   53.60 saldo=+   0.34 (rec=7.31, folha=3.89, infra=2.10, premio=0.52)
+  Sem 25: budget=   33.15 saldo= -20.45 (rec=7.31, folha=4.51, infra=2.10, premio=-19.65)
+  Sem 26: budget=   32.87 saldo=  -0.28 (rec=7.31, folha=4.51, infra=2.10, premio=0.52)
+  Sem 27: budget=   32.59 saldo=  -0.28 (rec=7.31, folha=4.51, infra=2.10, premio=0.52)
+  Sem 28: budget=   32.84 saldo=+   0.25 (rec=7.31, folha=4.51, infra=2.10, premio=1.05)
+  Sem 29: budget=   33.09 saldo=+   0.25 (rec=7.31, folha=4.51, infra=2.10, premio=1.05)
+  Sem 30: budget=   32.81 saldo=  -0.28 (rec=7.31, folha=4.51, infra=2.10, premio=0.52)
+  Sem 31: budget=   33.06 saldo=+   0.25 (rec=7.31, folha=4.51, infra=2.10, premio=1.05)
+  Sem 32: budget=   33.31 saldo=+   0.25 (rec=7.31, folha=4.51, infra=2.10, premio=1.05)
+  Sem 33: budget=   33.56 saldo=+   0.25 (rec=7.31, folha=4.51, infra=2.10, premio=1.05)
+  Sem 34: budget=   33.28 saldo=  -0.28 (rec=7.31, folha=4.51, infra=2.10, premio=0.52)
+  Sem 35: budget=   33.00 saldo=  -0.28 (rec=7.31, folha=4.51, infra=2.10, premio=0.52)
+  Sem 36: budget=   32.37 saldo=  -0.63 (rec=7.31, folha=4.51, infra=2.10, premio=0.17)
+  Sem 37: budget=   32.09 saldo=  -0.28 (rec=7.31, folha=4.51, infra=2.10, premio=0.52)
+  Sem 38: budget=   31.46 saldo=  -0.63 (rec=7.31, folha=4.51, infra=2.10, premio=0.17)
+
+Juventude (rep 60):
+  Sem  1: budget=   48.53 saldo=+   1.13 (rec=6.05, folha=1.46, infra=2.10, premio=0.14)
+  Sem  2: budget=   49.95 saldo=+   1.42 (rec=6.05, folha=1.46, infra=2.10, premio=0.43)
+  Sem  3: budget=   51.37 saldo=+   1.42 (rec=6.05, folha=1.46, infra=2.10, premio=0.43)
+  Sem  4: budget=   52.79 saldo=+   1.42 (rec=6.05, folha=1.46, infra=2.10, premio=0.43)
+  Sem  5: budget=   53.92 saldo=+   1.13 (rec=6.05, folha=1.46, infra=2.10, premio=0.14)
+  Sem  6: budget=   55.05 saldo=+   1.13 (rec=6.05, folha=1.46, infra=2.10, premio=0.14)
+  Sem  7: budget=   56.18 saldo=+   1.13 (rec=6.05, folha=1.46, infra=2.10, premio=0.14)
+  Sem  8: budget=   57.60 saldo=+   1.42 (rec=6.05, folha=1.46, infra=2.10, premio=0.43)
+  Sem  9: budget=   58.73 saldo=+   1.13 (rec=6.05, folha=1.46, infra=2.10, premio=0.14)
+  Sem 10: budget=   60.58 saldo=+   1.85 (rec=6.05, folha=1.46, infra=2.10, premio=0.86)
+  Sem 11: budget=   61.71 saldo=+   1.13 (rec=6.05, folha=1.46, infra=2.10, premio=0.14)
+  Sem 12: budget=   62.84 saldo=+   1.13 (rec=6.05, folha=1.46, infra=2.10, premio=0.14)
+  Sem 13: budget=   63.97 saldo=+   1.13 (rec=6.05, folha=1.46, infra=2.10, premio=0.14)
+  Sem 14: budget=   65.10 saldo=+   1.13 (rec=6.05, folha=1.46, infra=2.10, premio=0.14)
+  Sem 15: budget=   66.23 saldo=+   1.13 (rec=6.05, folha=1.46, infra=2.10, premio=0.14)
+  Sem 16: budget=   67.65 saldo=+   1.42 (rec=6.05, folha=1.46, infra=2.10, premio=0.43)
+  Sem 17: budget=   68.78 saldo=+   1.13 (rec=6.05, folha=1.46, infra=2.10, premio=0.14)
+  Sem 18: budget=   70.20 saldo=+   1.42 (rec=6.05, folha=1.46, infra=2.10, premio=0.43)
+  Sem 19: budget=   71.33 saldo=+   1.13 (rec=6.05, folha=1.46, infra=2.10, premio=0.14)
+  Sem 20: budget=   72.46 saldo=+   1.13 (rec=6.05, folha=1.46, infra=2.10, premio=0.14)
+  Sem 21: budget=   73.88 saldo=+   1.42 (rec=6.05, folha=1.46, infra=2.10, premio=0.43)
+  Sem 22: budget=   75.01 saldo=+   1.13 (rec=6.05, folha=1.46, infra=2.10, premio=0.14)
+  Sem 23: budget=   76.43 saldo=+   1.42 (rec=6.05, folha=1.46, infra=2.10, premio=0.43)
+  Sem 24: budget=   77.85 saldo=+   1.42 (rec=6.05, folha=1.46, infra=2.10, premio=0.43)
+  Sem 25: budget=   79.27 saldo=+   1.42 (rec=6.05, folha=1.46, infra=2.10, premio=0.43)
+  Sem 26: budget=   80.69 saldo=+   1.42 (rec=6.05, folha=1.46, infra=2.10, premio=0.43)
+  Sem 27: budget=   81.82 saldo=+   1.13 (rec=6.05, folha=1.46, infra=2.10, premio=0.14)
+  Sem 28: budget=   83.24 saldo=+   1.42 (rec=6.05, folha=1.46, infra=2.10, premio=0.43)
+  Sem 29: budget=   85.09 saldo=+   1.85 (rec=6.05, folha=1.46, infra=2.10, premio=0.86)
+  Sem 30: budget=   86.51 saldo=+   1.42 (rec=6.05, folha=1.46, infra=2.10, premio=0.43)
+  Sem 31: budget=   87.64 saldo=+   1.13 (rec=6.05, folha=1.46, infra=2.10, premio=0.14)
+  Sem 32: budget=   89.06 saldo=+   1.42 (rec=6.05, folha=1.46, infra=2.10, premio=0.43)
+  Sem 33: budget=   90.19 saldo=+   1.13 (rec=6.05, folha=1.46, infra=2.10, premio=0.14)
+  Sem 34: budget=   91.61 saldo=+   1.42 (rec=6.05, folha=1.46, infra=2.10, premio=0.43)
+  Sem 35: budget=   93.03 saldo=+   1.42 (rec=6.05, folha=1.46, infra=2.10, premio=0.43)
+  Sem 36: budget=   94.45 saldo=+   1.42 (rec=6.05, folha=1.46, infra=2.10, premio=0.43)
+  Sem 37: budget=   95.87 saldo=+   1.42 (rec=6.05, folha=1.46, infra=2.10, premio=0.43)
+  Sem 38: budget=   97.00 saldo=+   1.13 (rec=6.05, folha=1.46, infra=2.10, premio=0.14)
+
+============================================================
+FIM DO RELATÓRIO
+============================================================

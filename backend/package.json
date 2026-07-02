@@ -13,7 +13,8 @@
     "lint:fix": "eslint src --fix",
     "format": "prettier --write src",
     "format:check": "prettier --check src",
-    "sim": "tsx headless_sim.ts"
+    "sim": "tsx headless_sim.ts",
+    "finance:audit": "tsx finance_audit.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",

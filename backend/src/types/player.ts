@@ -116,8 +116,8 @@ export interface Player {
   potentialAbility: number; // Estático, nunca muda
   
   // Valor e contrato
-  marketValue: number;      // em milhões
-  salary: number;           // em milhares
+  marketValue: number;      // em milhões de R$
+  salary: number;           // em milhares de R$ por semana
   contractEnd: number;      // em semanas
   contractClause: number;   // cláusula de rescisão
   

@@ -1,51 +1,34 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../../store/gameStore';
 import { Button } from '../ui/Button';
 import { MatchPitch2D } from './MatchPitch2D';
 import { PostMatchReportView } from './PostMatchReportView';
 import { PreMatchBriefing } from './PreMatchBriefing';
-import type { MatchEvent, MatchStats, PlayerMatchRating, MatchAction } from '../../types/game';
-import { useSortable } from '../../hooks/useSortable';
-import { Globe, Trophy, ArrowRight } from 'lucide-react';
+import { MomentumChart } from './MomentumChart';
+import { teamStrength, buildMomentum, goalsFromMatch } from '../../utils/winProbability';
+import type { MatchEvent, MatchStats, PlayerMatchRating, MatchAction, Team, Match, Player } from '../../types/game';
+import { Globe, Trophy, ArrowRight, Zap, Footprints, Shield, Hand, Wind, Route, OctagonAlert, PlayCircle, CornerUpRight, XCircle, Circle, Radio, ClipboardList, type LucideIcon } from 'lucide-react';
+import { PageHeader } from '../ui/PageHeader';
+import { MatchEventIcon } from '../ui/MatchEventIcon';
+import { TeamCrest } from '../ui/TeamCrest';
+import './MatchCenter.css';
 
-type MatchStandingsSortKey = 'name' | 'points' | 'played' | 'won' | 'drawn' | 'lost' | 'goalsFor' | 'goalsAgainst' | 'goalDifference';
-
-const EVENT_ICONS: Record<string, string> = {
-  goal: '⚽', shot: '👟', save: '🧤', corner: '🚩', foul: '🛑',
-  yellow: '🟨', red: '🟥', substitution: '🔄',
+const ACTION_ICON: Record<string, LucideIcon> = {
+  pass: ArrowRight, dribble: Zap, shot: Footprints, tackle: Shield, interception: Hand,
+  clearance: Wind, cross: Route, foul: OctagonAlert, kickoff: PlayCircle, goalKick: Hand, throwIn: CornerUpRight,
 };
+// These actions render the same icon regardless of success — only pass/dribble/shot/tackle/interception/cross flip to XCircle on failure.
+const SAME_ICON_ON_FAIL = new Set(['clearance', 'foul', 'kickoff', 'goalKick', 'throwIn']);
 
-const ACTION_ICONS: Record<string, string> = {
-  pass: '➡️', dribble: '⚡', shot: '👟', tackle: '🛑', interception: '🤚',
-  clearance: '💨', cross: '📐', foul: '⚠️', kickoff: '⚽', goalKick: '🧤', throwIn: '📤',
+const ActionIcon: React.FC<{ type: string; success: boolean; size?: number }> = ({ type, success, size = 13 }) => {
+  const Icon = (!success && !SAME_ICON_ON_FAIL.has(type)) ? XCircle : (ACTION_ICON[type] ?? Circle);
+  return <Icon size={size} />;
 };
-
-const ACTION_ICONS_FAIL: Record<string, string> = {
-  pass: '❌', dribble: '❌', shot: '❌', tackle: '❌', interception: '❌',
-  clearance: '💨', cross: '❌', foul: '⚠️', kickoff: '⚽', goalKick: '🧤', throwIn: '📤',
-};
-
-const EVENT_LABELS: Record<string, string> = {
-  goal: 'GOL', shot: 'Chute', save: 'Defesa', corner: 'Escanteio',
-  foul: 'Falta', yellow: 'Cartão Amarelo', red: 'Cartão Vermelho', substitution: 'Substituição',
-};
-
-const MatchEventDisplay: React.FC<{ event: MatchEvent }> = ({ event }) => (
-  <div className="fm-match-event">
-    <span className="fm-match-event__icon">{EVENT_ICONS[event.type]}</span>
-    <span className="fm-match-event__time">{event.minute}'</span>
-    <span className="fm-match-event__content">
-      <span className="fm-match-event__team-label">{event.team === 'home' ? 'Casa' : 'Fora'}</span>
-      {' '}{EVENT_LABELS[event.type]}
-      {event.player && <span className="fm-match-event__player"> - {event.player}</span>}
-    </span>
-  </div>
-);
 
 const MatchActionDisplay: React.FC<{ action: MatchAction }> = ({ action }) => (
   <div className={`fm-match-action ${action.success ? '' : 'fm-match-action--fail'}`}>
-    <span className="fm-match-action__icon">{action.success ? ACTION_ICONS[action.type] : ACTION_ICONS_FAIL[action.type]}</span>
+    <span className="fm-match-action__icon"><ActionIcon type={action.type} success={action.success} /></span>
     <span className="fm-match-action__time">{action.minute}'</span>
     <span className="fm-match-action__content">
       <span className="fm-match-action__team-label">{action.team === 'home' ? 'Casa' : 'Fora'}</span>
@@ -193,26 +176,185 @@ const PlayerRatingsDisplay: React.FC<{ ratings: PlayerMatchRating[]; bestPlayerI
   );
 };
 
+// ============================================================
+// MATCH-DAY REDESIGN HELPERS
+// ============================================================
+
+const FORM_CLASS: Record<string, string> = { W: 'w', V: 'w', D: 'd', E: 'd', L: 'l' };
+
+const FormDots: React.FC<{ form?: string[] }> = ({ form }) => {
+  const last = (form ?? []).slice(-5);
+  if (last.length === 0) return <span className="fm-form-dots fm-form-dots--empty">sem jogos</span>;
+  return (
+    <span className="fm-form-dots">
+      {last.map((r, i) => (
+        <span key={i} className={`fm-form-dot fm-form-dot--${FORM_CLASS[r] ?? 'd'}`} title={r}>{r}</span>
+      ))}
+    </span>
+  );
+};
+
+const ordinal = (n: number) => (n > 0 ? `${n}º` : '—');
+
+/** Compact fixture card for the rest of the round. */
+const FixtureCard: React.FC<{ home: Team; away: Team; match: Match; onClick?: () => void }> = ({ home, away, match, onClick }) => {
+  const done = match.completed;
+  const live = match.isLive;
+  const homeWin = done && match.homeGoals > match.awayGoals;
+  const awayWin = done && match.awayGoals > match.homeGoals;
+  return (
+    <button
+      type="button"
+      className={`fm-fixture ${done ? 'fm-fixture--done' : ''} ${live ? 'fm-fixture--live' : ''}`}
+      onClick={onClick}
+      disabled={!onClick}
+    >
+      <span className={`fm-fixture__status ${live ? 'fm-fixture__status--live' : ''}`}>
+        {live ? `${match.liveMinute}'` : done ? 'Fim' : 'Agendado'}
+      </span>
+      <div className={`fm-fixture__row ${homeWin ? 'fm-fixture__row--win' : ''}`}>
+        <TeamCrest name={home.name} reputation={home.reputation} size={20} />
+        <span className="fm-fixture__name">{home.name}</span>
+        <span className="fm-fixture__score">{done || live ? match.homeGoals : ''}</span>
+      </div>
+      <div className={`fm-fixture__row ${awayWin ? 'fm-fixture__row--win' : ''}`}>
+        <TeamCrest name={away.name} reputation={away.reputation} size={20} />
+        <span className="fm-fixture__name">{away.name}</span>
+        <span className="fm-fixture__score">{done || live ? match.awayGoals : ''}</span>
+      </div>
+    </button>
+  );
+};
+
+const commentaryLine = (e: MatchEvent, homeName: string, awayName: string): string => {
+  const t = e.team === 'home' ? homeName : awayName;
+  const who = e.player ? ` — ${e.player}` : '';
+  switch (e.type) {
+    case 'goal': return `GOL do ${t}!${who}`;
+    case 'shot': return `Finalização do ${t}${who}`;
+    case 'save': return `Grande defesa contra o ${t}`;
+    case 'corner': return `Escanteio para o ${t}`;
+    case 'foul': return `Falta marcada contra o ${t}`;
+    case 'yellow': return `Cartão amarelo — ${t}${who}`;
+    case 'red': return `VERMELHO! ${t} fica com um a menos${who}`;
+    case 'substitution': return `Substituição no ${t}`;
+    default: return e.description ?? '';
+  }
+};
+
+/** Broadcast-style narration feed built from match events. */
+const CommentaryFeed: React.FC<{ events: MatchEvent[]; homeName: string; awayName: string; live?: boolean }> = ({ events, homeName, awayName, live }) => (
+  <div className="fm-commentary">
+    <h3 className="fm-commentary__title">
+      {live && <span className="fm-commentary__live-dot" />}
+      Narração
+    </h3>
+    <div className="fm-commentary__feed">
+      {events.length === 0 ? (
+        <div className="fm-commentary__empty">{live ? 'A partida vai começar…' : 'Sem lances registrados.'}</div>
+      ) : (
+        [...events].reverse().map((e, i) => (
+          <div key={i} className={`fm-commentary__line fm-commentary__line--${e.team} ${e.type === 'goal' ? 'fm-commentary__line--goal' : ''} ${e.type === 'red' ? 'fm-commentary__line--red' : ''}`}>
+            <span className="fm-commentary__min">{e.minute}'</span>
+            <span className="fm-commentary__icon"><MatchEventIcon type={e.type} /></span>
+            <span className="fm-commentary__text">{commentaryLine(e, homeName, awayName)}</span>
+          </div>
+        ))
+      )}
+    </div>
+  </div>
+);
+
+/** League order: points, then goal difference, then goals for. */
+const standingsOrder = (a: Team, b: Team) =>
+  b.points - a.points ||
+  (b.goalsFor - b.goalsAgainst) - (a.goalsFor - a.goalsAgainst) ||
+  b.goalsFor - a.goalsFor;
+
+const zoneFor = (index: number, total: number) =>
+  index < 4 ? 'libertadores' : index < 6 ? 'sul-americana' : index >= total - 4 ? 'rebaixamento' : '';
+
+type ShoutKey = 'encourage' | 'demand' | 'praise' | 'calm';
+const SHOUTS: { key: ShoutKey; label: string }[] = [
+  { key: 'encourage', label: 'Incentivar' },
+  { key: 'demand', label: 'Exigir mais' },
+  { key: 'praise', label: 'Elogiar' },
+  { key: 'calm', label: 'Acalmar' },
+];
+
+/** Live touchline controls: typed shouts + real substitutions (pick out/in). */
+const LiveControls: React.FC<{
+  team: Team;
+  subs: number;
+  sentOff: string[];
+  onSub: (outId: string, inId: string) => void;
+  onShout: (s: ShoutKey) => void;
+}> = ({ team, subs, sentOff, onSub, onShout }) => {
+  const [outId, setOutId] = useState('');
+  const [inId, setInId] = useState('');
+  const onPitch = team.startingXI
+    .map(id => team.squad.find(p => p.id === id))
+    .filter((p): p is Player => !!p && !sentOff.includes(p.id));
+  const bench = team.squad.filter(p => !team.startingXI.includes(p.id) && !sentOff.includes(p.id));
+  const canSub = subs < 5 && !!outId && !!inId;
+  return (
+    <div className="fm-livectl">
+      <div className="fm-livectl__block">
+        <h4 className="fm-livectl__title">Gritos à equipa</h4>
+        <div className="fm-livectl__shouts">
+          {SHOUTS.map(s => (
+            <button key={s.key} type="button" className="fm-livectl__shout" onClick={() => onShout(s.key)}>{s.label}</button>
+          ))}
+        </div>
+      </div>
+      <div className="fm-livectl__block">
+        <h4 className="fm-livectl__title">Substituições <span className="fm-livectl__count">{subs}/5</span></h4>
+        <div className="fm-livectl__sub">
+          <select className="fm-livectl__select" value={outId} onChange={e => setOutId(e.target.value)} aria-label="Jogador que sai">
+            <option value="">Sai…</option>
+            {onPitch.map(p => <option key={p.id} value={p.id}>{p.position} · {p.name}</option>)}
+          </select>
+          <select className="fm-livectl__select" value={inId} onChange={e => setInId(e.target.value)} aria-label="Jogador que entra">
+            <option value="">Entra…</option>
+            {bench.map(p => <option key={p.id} value={p.id}>{p.position} · {p.name}</option>)}
+          </select>
+          <Button disabled={!canSub} onClick={() => { onSub(outId, inId); setOutId(''); setInId(''); }}>Trocar</Button>
+        </div>
+        {subs >= 5 && <span className="fm-livectl__note">Limite de 5 substituições atingido.</span>}
+      </div>
+    </div>
+  );
+};
+
 export const MatchCenter: React.FC = () => {
-  const { matches, teams, selectedTeam, currentWeek, currentSeason, simulateMatch, advanceWeek, applyMatchIntervention, generateLiveMatchMinute, finishMatch, isAdvancing } = useGameStore();
+  const { matches, teams, selectedTeam, currentWeek, simulateMatch, advanceWeek, substitutePlayer, applyShout, generateLiveMatchMinute, finishMatch } = useGameStore();
   const navigate = useNavigate();
-  const { sortState: standingsSort, toggleSort: toggleStandingsSort } = useSortable<MatchStandingsSortKey>('points', 'desc');
   const [selectedMatchIndex, setSelectedMatchIndex] = useState<number | null>(null);
   const [liveMatchWatching, setLiveMatchWatching] = useState<number | null>(null);
   const [matchSpeed, setMatchSpeed] = useState<number>(1);
   const [briefingMatchIndex, setBriefingMatchIndex] = useState<number | null>(null);
+  // Half-time: sim pauses at 45' until the manager resumes. Ref drives the
+  // interval (avoids stale closure); state drives the panel render.
+  const [halfTimeResumed, setHalfTimeResumed] = useState(false);
+  const halfTimeResumedRef = useRef(false);
+  const setHalfTime = (resumed: boolean) => { halfTimeResumedRef.current = resumed; setHalfTimeResumed(resumed); };
 
   // Reset selection when week changes (new matches are generated)
   useEffect(() => {
     setSelectedMatchIndex(null);
     setLiveMatchWatching(null);
     setMatchSpeed(1);
+    setHalfTime(false);
   }, [currentWeek]);
 
-  // Live match auto-advance effect
+  // Live match auto-advance effect — a single interval that holds at half-time.
   useEffect(() => {
     if (liveMatchWatching !== null && matches[liveMatchWatching]?.isLive) {
       const timer = setInterval(() => {
+        const cur = useGameStore.getState().matches[liveMatchWatching];
+        if (!cur || !cur.isLive) return;
+        // Pausa no intervalo (45') até o técnico iniciar o 2º tempo
+        if (cur.liveMinute >= 45 && cur.liveMinute < 90 && !halfTimeResumedRef.current) return;
         generateLiveMatchMinute(liveMatchWatching);
       }, 2000 / matchSpeed);
       return () => clearInterval(timer);
@@ -223,146 +365,127 @@ export const MatchCenter: React.FC = () => {
   const isUserMatch = (match: typeof matches[0]) =>
     selectedTeam && (match.homeTeam === selectedTeam || match.awayTeam === selectedTeam);
 
-  const userPendingMatch = matches.findIndex(m => isUserMatch(m) && !m.completed);
-
-  const getMatchData = (match: typeof matches[0]) => {
-    if (match.isLive) {
-      return {
-        isLive: true,
-        minute: match.liveMinute,
-        stats: match.liveStats,
-        events: match.liveEvents,
-      };
-    }
-    return {
-      isLive: false,
-      minute: null,
-      stats: match.stats,
-      events: match.events,
-    };
-  };
+  // `matches` accumulates the whole season (for standings); the current round is
+  // the last block of fixtures the engine appends each week. Every round has
+  // floor(teams/2) games, so the current round is the tail of that size.
+  const roundSize = Math.max(1, Math.floor(teams.length / 2));
+  const roundStart = Math.max(0, matches.length - roundSize);
 
   return (
     <div className="fms-page">
-      <header className="fms-topbar">
-        <div className="fms-topbar__left">
-          <div className="fms-club-logo">{(teams.find(t => t.id === selectedTeam)?.name ?? '?').charAt(0)}</div>
-          <div className="fms-title-block">
-            <span className="fms-title">Centro de Partidas</span>
-            <span className="fms-subtitle">Temporada {currentSeason} — Semana {currentWeek}</span>
-          </div>
-        </div>
-        <div className="fms-topbar__right">
-          <button className="fms-icon-btn" title="Visão do Clube" onClick={() => navigate('/clube')}><Globe size={15} /></button>
-          <button className="fms-icon-btn" title="Classificação" onClick={() => navigate('/classificacao')}><Trophy size={15} /></button>
-          <div className="fms-date">
-            <div className="fms-date__main">Temporada {currentSeason}</div>
-            <div className="fms-date__sub">Semana {currentWeek}</div>
-          </div>
-          <button className="fms-continue" onClick={advanceWeek} disabled={isAdvancing || matches.some(m => m.isLive)}>
-            {isAdvancing ? 'Processando...' : 'Continuar'}
-            <ArrowRight size={15} />
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        title="Centro de Partidas"
+        subtitle={`Semana ${currentWeek}`}
+        teamName={teams.find(t => t.id === selectedTeam)?.name}
+        teamReputation={teams.find(t => t.id === selectedTeam)?.reputation}
+        continueDisabled={matches.some(m => m.isLive)}
+        actions={[
+          { icon: <Globe size={15} />, title: 'Visão do Clube', onClick: () => navigate('/clube') },
+          { icon: <Trophy size={15} />, title: 'Classificação', onClick: () => navigate('/classificacao') },
+        ]}
+      />
 
       <div className="fms-body--scroll">
-        <h2>Próximas Partidas</h2>
         {matches.length === 0 ? (
           <div className="fm-empty">Nenhuma partida agendada. Avance a semana para gerar partidas.</div>
         ) : (
-          <div className="fm-match-list">
-            {matches.map((match, index) => {
-              const isUser = isUserMatch(match);
-              const isCompleted = match.completed;
-              const { isLive: isMatchLive, minute: liveMin } = getMatchData(match);
-              const statusLabel = isCompleted ? 'Finalizada' : isMatchLive ? 'Ao Vivo' : 'Agendada';
+          <>
+            {(() => {
+              const heroIdx = matches.findIndex((m, i) => i >= roundStart && isUserMatch(m));
+              if (heroIdx === -1) return null;
+              const m = matches[heroIdx];
+              const home = teams.find(t => t.id === m.homeTeam);
+              const away = teams.find(t => t.id === m.awayTeam);
+              if (!home || !away) return null;
+              const userIsHome = m.homeTeam === selectedTeam;
+              const done = m.completed;
+              const live = m.isLive;
               return (
-                <div
-                  key={index}
-                  className={`fm-match ${isUser ? 'fm-match--user' : ''} ${isCompleted ? 'fm-match--completed' : ''} ${isMatchLive ? 'fm-match--live' : ''} ${selectedMatchIndex === index ? 'fm-match--selected' : ''}`}
-                >
-                  <div className="fm-match__header">
-                    <span className={`fm-match__badge fm-match__badge--${isCompleted ? 'completed' : isMatchLive ? 'live' : 'scheduled'}`}>
-                      {isMatchLive && <span className="fm-match__live-dot" />}
-                      {statusLabel}
+                <section className={`fm-matchday ${live ? 'fm-matchday--live' : ''} ${done ? 'fm-matchday--done' : ''}`}>
+                  <div className="fm-matchday__top">
+                    <span className="fm-matchday__tag">
+                      {live ? <><span className="fm-match__live-dot" /> Ao vivo · {m.liveMinute}'</> : done ? 'Sua partida · encerrada' : 'Sua próxima partida'}
                     </span>
-                    {isUser && <span className="fm-match__user-tag">Seu Jogo</span>}
+                    <span className="fm-matchday__venue">{userIsHome ? 'Em casa' : 'Fora de casa'}</span>
                   </div>
-                  <div className="fm-match__teams">
-                    <div className="fm-match__team fm-match__team--home">
-                      <div className="fm-match__team-name">{getTeamName(match.homeTeam)}</div>
-                      <div className="fm-match__team-score">{isCompleted || isMatchLive ? match.homeGoals : '-'}</div>
-                    </div>
-                    <div className="fm-match__vs">
-                      <span className="fm-match__vs-text">VS</span>
-                    </div>
-                    <div className="fm-match__team fm-match__team--away">
-                      <div className="fm-match__team-score">{isCompleted || isMatchLive ? match.awayGoals : '-'}</div>
-                      <div className="fm-match__team-name">{getTeamName(match.awayTeam)}</div>
-                    </div>
-                  </div>
-                  {isMatchLive && (
-                    <div className="fm-match__status">
-                      <span className="fm-match__status-text">{liveMin}' — Ao Vivo</span>
-                    </div>
-                  )}
-                  {!isCompleted && !isMatchLive && isUser && (
-                    <div className="fm-match__action">
-                      <button
-                        className="fm-match__briefing-btn"
-                        onClick={() => setBriefingMatchIndex(index)}
-                      >
-                        Intelligence Center
-                      </button>
-                      <Button onClick={() => {
-                        simulateMatch(index);
-                        setLiveMatchWatching(index);
-                      }}>
-                        Simular Partida
-                      </Button>
-                    </div>
-                  )}
-                  {isCompleted && (
-                    <div className="fm-match__action">
-                      <button className="fm-match__details-btn" onClick={() => setSelectedMatchIndex(index)}>
-                        Ver Detalhes
-                      </button>
-                    </div>
-                  )}
-                  {isMatchLive && (
-                    <div className="fm-match__action">
-                      <Button onClick={() => {
-                        setLiveMatchWatching(index);
-                      }}>
-                        Iniciar
-                      </Button>
-                      <Button onClick={() => {
-                        finishMatch(index);
-                        setLiveMatchWatching(null);
-                      }} className="fm-match-finish-btn">
-                        Finalizar
-                      </Button>
-                      <div className="fm-match-speed">
-                        <button
-                          className={`fm-match-speed__btn ${matchSpeed === 1 ? 'fm-match-speed__btn--active' : ''}`}
-                          onClick={() => setMatchSpeed(1)}
-                        >1x</button>
-                        <button
-                          className={`fm-match-speed__btn ${matchSpeed === 2 ? 'fm-match-speed__btn--active' : ''}`}
-                          onClick={() => setMatchSpeed(2)}
-                        >2x</button>
-                        <button
-                          className={`fm-match-speed__btn ${matchSpeed === 4 ? 'fm-match-speed__btn--active' : ''}`}
-                          onClick={() => setMatchSpeed(4)}
-                        >4x</button>
+                  <div className="fm-matchday__teams">
+                    <div className="fm-matchday__team">
+                      <TeamCrest name={home.name} reputation={home.reputation} size={56} />
+                      <div className="fm-matchday__team-meta">
+                        <span className="fm-matchday__team-name">{home.name}</span>
+                        <span className="fm-matchday__team-pos">{ordinal(home.leaguePosition)} · casa</span>
+                        <FormDots form={home.leagueForm} />
                       </div>
                     </div>
-                  )}
-                </div>
+                    <div className="fm-matchday__center">
+                      {done || live ? (
+                        <div className="fm-matchday__score">{m.homeGoals}<span>·</span>{m.awayGoals}</div>
+                      ) : (
+                        <div className="fm-matchday__vs">VS</div>
+                      )}
+                    </div>
+                    <div className="fm-matchday__team fm-matchday__team--away">
+                      <TeamCrest name={away.name} reputation={away.reputation} size={56} />
+                      <div className="fm-matchday__team-meta">
+                        <span className="fm-matchday__team-name">{away.name}</span>
+                        <span className="fm-matchday__team-pos">{ordinal(away.leaguePosition)} · fora</span>
+                        <FormDots form={away.leagueForm} />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="fm-matchday__actions">
+                    {!done && !live && (
+                      <>
+                        <button className="fm-btn-ghost" onClick={() => setBriefingMatchIndex(heroIdx)}>
+                          <ClipboardList size={16} /> Central de Inteligência
+                        </button>
+                        <Button onClick={() => { setHalfTime(false); simulateMatch(heroIdx); setLiveMatchWatching(heroIdx); }}>
+                          <PlayCircle size={16} /> Iniciar Partida
+                        </Button>
+                      </>
+                    )}
+                    {live && (
+                      <>
+                        <Button onClick={() => setLiveMatchWatching(heroIdx)}>
+                          <Radio size={16} /> Assistir ao Vivo
+                        </Button>
+                        <button className="fm-btn-ghost" onClick={() => { finishMatch(heroIdx); setLiveMatchWatching(null); }}>
+                          Simular até o fim
+                        </button>
+                      </>
+                    )}
+                    {done && (
+                      <Button onClick={() => setSelectedMatchIndex(heroIdx)}>Ver Detalhes</Button>
+                    )}
+                  </div>
+                </section>
               );
-            })}
-          </div>
+            })()}
+
+            {matches.slice(roundStart).some(m => !isUserMatch(m)) && (
+              <>
+                <h2 className="fm-section-title">Outros jogos da rodada</h2>
+                <div className="fm-fixtures-grid">
+                  {matches.map((match, index) => {
+                    if (index < roundStart) return null;
+                    if (isUserMatch(match)) return null;
+                    const home = teams.find(t => t.id === match.homeTeam);
+                    const away = teams.find(t => t.id === match.awayTeam);
+                    if (!home || !away) return null;
+                    return (
+                      <FixtureCard
+                        key={index}
+                        home={home}
+                        away={away}
+                        match={match}
+                        onClick={match.completed ? () => setSelectedMatchIndex(index) : undefined}
+                      />
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </>
         )}
 
       {/* Live Match View */}
@@ -409,6 +532,34 @@ export const MatchCenter: React.FC = () => {
               <span className="fm-match-live-view__progress-label">{matches[liveMatchWatching].liveMinute}' / 90'</span>
             </div>
             {(() => {
+              const m = matches[liveMatchWatching];
+              const atHT = m.liveMinute >= 45 && m.liveMinute < 90 && !halfTimeResumed;
+              if (!atHT) return null;
+              return (
+                <div className="fm-halftime">
+                  <span className="fm-halftime__label">Intervalo · {m.homeGoals} - {m.awayGoals}</span>
+                  <p className="fm-halftime__hint">Ajuste os gritos e as substituições antes de recomeçar.</p>
+                  <Button onClick={() => setHalfTime(true)}><PlayCircle size={16} /> Iniciar 2º tempo</Button>
+                </div>
+              );
+            })()}
+            {(() => {
+              const m = matches[liveMatchWatching];
+              const userTeam = teams.find(t => t.id === selectedTeam);
+              if (!userTeam || (m.homeTeam !== selectedTeam && m.awayTeam !== selectedTeam)) return null;
+              const isHome = m.homeTeam === selectedTeam;
+              const sentOff = (isHome ? m.liveMatchState?.sentOff?.home : m.liveMatchState?.sentOff?.away) ?? [];
+              return (
+                <LiveControls
+                  team={userTeam}
+                  subs={isHome ? m.homeSubstitutions : m.awaySubstitutions}
+                  sentOff={sentOff}
+                  onSub={(outId, inId) => substitutePlayer(liveMatchWatching, outId, inId)}
+                  onShout={(s) => applyShout(liveMatchWatching, s)}
+                />
+              );
+            })()}
+            {(() => {
               const lm = matches[liveMatchWatching];
               const home = teams.find(t => t.id === lm.homeTeam);
               const away = teams.find(t => t.id === lm.awayTeam);
@@ -439,16 +590,12 @@ export const MatchCenter: React.FC = () => {
                 </div>
               </div>
             )}
-            {matches[liveMatchWatching].liveEvents && matches[liveMatchWatching].liveEvents.length > 0 && (
-              <div className="fm-match-live-view__events">
-                <h3>Eventos da Partida</h3>
-                <div className="fm-match-events-list">
-                  {matches[liveMatchWatching].liveEvents!.map((event, i) => (
-                    <MatchEventDisplay key={i} event={event} />
-                  ))}
-                </div>
-              </div>
-            )}
+            <CommentaryFeed
+              events={matches[liveMatchWatching].liveEvents ?? []}
+              homeName={getTeamName(matches[liveMatchWatching].homeTeam)}
+              awayName={getTeamName(matches[liveMatchWatching].awayTeam)}
+              live
+            />
             {matches[liveMatchWatching].liveStats && (
               <MatchStatsDisplay
                 stats={matches[liveMatchWatching].liveStats!}
@@ -462,6 +609,22 @@ export const MatchCenter: React.FC = () => {
               isLive={true}
               minute={matches[liveMatchWatching].liveMinute}
             />
+            {(() => {
+              const lm = matches[liveMatchWatching];
+              const strH = teamStrength(teams.find(t => t.id === lm.homeTeam));
+              const strA = teamStrength(teams.find(t => t.id === lm.awayTeam));
+              const goals = goalsFromMatch(lm, true);
+              const points = buildMomentum(goals, strH, strA, Math.max(1, lm.liveMinute));
+              return (
+                <MomentumChart
+                  live
+                  homeName={getTeamName(lm.homeTeam)}
+                  awayName={getTeamName(lm.awayTeam)}
+                  points={points}
+                  goals={goals}
+                />
+              );
+            })()}
           </div>
         </div>
       )}
@@ -496,15 +659,12 @@ export const MatchCenter: React.FC = () => {
                 />
               );
             })()}
-            {matches[selectedMatchIndex].events && (
-              <div className="fm-match-details-modal__events">
-                <h3>Eventos</h3>
-                <div className="fm-match-events-list">
-                  {matches[selectedMatchIndex].events!.map((event, i) => (
-                    <MatchEventDisplay key={i} event={event} />
-                  ))}
-                </div>
-              </div>
+            {matches[selectedMatchIndex].events && matches[selectedMatchIndex].events!.length > 0 && (
+              <CommentaryFeed
+                events={matches[selectedMatchIndex].events ?? []}
+                homeName={getTeamName(matches[selectedMatchIndex].homeTeam)}
+                awayName={getTeamName(matches[selectedMatchIndex].awayTeam)}
+              />
             )}
             {matches[selectedMatchIndex].stats && (
               <MatchStatsDisplay
@@ -518,6 +678,21 @@ export const MatchCenter: React.FC = () => {
               events={matches[selectedMatchIndex].events ?? []}
               isLive={false}
             />
+            {(() => {
+              const dm = matches[selectedMatchIndex];
+              const strH = teamStrength(teams.find(t => t.id === dm.homeTeam));
+              const strA = teamStrength(teams.find(t => t.id === dm.awayTeam));
+              const goals = goalsFromMatch(dm, false);
+              const points = buildMomentum(goals, strH, strA, 90);
+              return (
+                <MomentumChart
+                  homeName={getTeamName(dm.homeTeam)}
+                  awayName={getTeamName(dm.awayTeam)}
+                  points={points}
+                  goals={goals}
+                />
+              );
+            })()}
             {/* Player Ratings (Tarefa 2.2) */}
             {matches[selectedMatchIndex].playerRatings && matches[selectedMatchIndex].playerRatings.length > 0 && (
               <PlayerRatingsDisplay
@@ -536,24 +711,6 @@ export const MatchCenter: React.FC = () => {
         </div>
       )}
 
-      <div className="fm-match-center__intervention">
-        <h3>Intervenção</h3>
-        <div className="fm-match-center__intervention-buttons">
-          <Button
-            onClick={() => applyMatchIntervention(userPendingMatch !== -1 ? userPendingMatch : (liveMatchWatching ?? -1), 'substitution')}
-            disabled={userPendingMatch === -1 && (liveMatchWatching === null || !matches[liveMatchWatching]?.isLive)}
-          >
-            Substituição
-          </Button>
-          <Button
-            onClick={() => applyMatchIntervention(userPendingMatch !== -1 ? userPendingMatch : (liveMatchWatching ?? -1), 'shout')}
-            disabled={userPendingMatch === -1 && (liveMatchWatching === null || !matches[liveMatchWatching]?.isLive)}
-          >
-            Gritos à Equipa
-          </Button>
-        </div>
-      </div>
-
       <div className="fm-match-center__controls">
         <Button onClick={advanceWeek} disabled={matches.some(m => m.isLive)}>
           Avançar Semana
@@ -561,47 +718,49 @@ export const MatchCenter: React.FC = () => {
       </div>
 
       <div className="fm-match-center__standings">
-        <h2>Classificação</h2>
-        <table className="fm-standings-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th className="fm-standings-table__th--sortable" onClick={() => toggleStandingsSort('name')}>Time {standingsSort.key === 'name' ? (standingsSort.direction === 'asc' ? '↑' : '↓') : ''}</th>
-              <th className="fm-standings-table__th--sortable" onClick={() => toggleStandingsSort('points')}>P {standingsSort.key === 'points' ? (standingsSort.direction === 'asc' ? '↑' : '↓') : ''}</th>
-              <th className="fm-standings-table__th--sortable" onClick={() => toggleStandingsSort('played')}>J {standingsSort.key === 'played' ? (standingsSort.direction === 'asc' ? '↑' : '↓') : ''}</th>
-              <th className="fm-standings-table__th--sortable" onClick={() => toggleStandingsSort('won')}>V {standingsSort.key === 'won' ? (standingsSort.direction === 'asc' ? '↑' : '↓') : ''}</th>
-              <th className="fm-standings-table__th--sortable" onClick={() => toggleStandingsSort('drawn')}>E {standingsSort.key === 'drawn' ? (standingsSort.direction === 'asc' ? '↑' : '↓') : ''}</th>
-              <th className="fm-standings-table__th--sortable" onClick={() => toggleStandingsSort('lost')}>D {standingsSort.key === 'lost' ? (standingsSort.direction === 'asc' ? '↑' : '↓') : ''}</th>
-              <th className="fm-standings-table__th--sortable" onClick={() => toggleStandingsSort('goalsFor')}>GM {standingsSort.key === 'goalsFor' ? (standingsSort.direction === 'asc' ? '↑' : '↓') : ''}</th>
-              <th className="fm-standings-table__th--sortable" onClick={() => toggleStandingsSort('goalsAgainst')}>GS {standingsSort.key === 'goalsAgainst' ? (standingsSort.direction === 'asc' ? '↑' : '↓') : ''}</th>
-              <th className="fm-standings-table__th--sortable" onClick={() => toggleStandingsSort('goalDifference')}>SG {standingsSort.key === 'goalDifference' ? (standingsSort.direction === 'asc' ? '↑' : '↓') : ''}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[...teams].sort((a, b) => {
-              let cmp: number;
-              if (standingsSort.key === 'name') {
-                cmp = a.name.localeCompare(b.name);
-              } else if (standingsSort.key === 'goalDifference') {
-                cmp = (a.goalsFor - a.goalsAgainst) - (b.goalsFor - b.goalsAgainst);
-              } else {
-                cmp = (a as any)[standingsSort.key] - (b as any)[standingsSort.key];
-              }
-              return standingsSort.direction === 'asc' ? cmp : -cmp;
-            }).map((t, index) => {
-              const zone = index < 4 ? 'libertadores' : index < 6 ? 'sul-americana' : index >= teams.length - 4 ? 'rebaixamento' : '';
-              return (
-                <tr key={t.id} className={`fm-standings-table__row ${t.id === selectedTeam ? 'fm-standings-table--user' : ''} ${zone ? `fm-standings-table__row--${zone}` : ''}`}>
-                  <td className="fm-standings-table__pos"><span className={`fm-standings-table__pos-marker ${zone ? `fm-standings-table__pos-marker--${zone}` : ''}`}>{index + 1}</span></td>
-                  <td className="fm-standings-table__team-name">{t.name}</td><td>{t.points}</td><td>{t.played}</td>
-                  <td>{t.won}</td><td>{t.drawn}</td><td>{t.lost}</td>
-                  <td>{t.goalsFor}</td><td>{t.goalsAgainst}</td>
-                  <td>{t.goalsFor - t.goalsAgainst}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <div className="fm-mini-standings__head">
+          <h2 className="fm-section-title">Classificação</h2>
+          <button className="fm-btn-ghost fm-btn-ghost--sm" onClick={() => navigate('/classificacao')}>
+            Tabela completa <ArrowRight size={14} />
+          </button>
+        </div>
+        {(() => {
+          const sorted = [...teams].sort(standingsOrder);
+          const userPos = sorted.findIndex(t => t.id === selectedTeam);
+          const rows = sorted
+            .map((t, i) => ({ t, i }))
+            .filter(({ i }) => i < 6 || (userPos >= 6 && (i === userPos || i === userPos - 1 || i === userPos + 1)));
+          let prev = -1;
+          return (
+            <table className="fm-mini-standings">
+              <thead>
+                <tr><th>#</th><th>Time</th><th>P</th><th>J</th><th>SG</th></tr>
+              </thead>
+              <tbody>
+                {rows.map(({ t, i }) => {
+                  const zone = zoneFor(i, sorted.length);
+                  const gap = i - prev > 1;
+                  prev = i;
+                  return (
+                    <React.Fragment key={t.id}>
+                      {gap && <tr className="fm-mini-standings__gap"><td colSpan={5}>···</td></tr>}
+                      <tr className={`${t.id === selectedTeam ? 'fm-mini-standings__row--user' : ''}`}>
+                        <td><span className={`fm-mini-standings__pos ${zone ? `fm-mini-standings__pos--${zone}` : ''}`}>{i + 1}</span></td>
+                        <td className="fm-mini-standings__name">
+                          <TeamCrest name={t.name} reputation={t.reputation} size={18} />
+                          {t.name}
+                        </td>
+                        <td className="fm-mini-standings__pts">{t.points}</td>
+                        <td>{t.played}</td>
+                        <td>{t.goalsFor - t.goalsAgainst}</td>
+                      </tr>
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          );
+        })()}
         <div className="fm-standings-legend">
           <span className="fm-standings-legend__item"><span className="fm-standings-legend__dot fm-standings-legend__dot--libertadores" />Libertadores</span>
           <span className="fm-standings-legend__item"><span className="fm-standings-legend__dot fm-standings-legend__dot--sul-americana" />Sul-Americana</span>

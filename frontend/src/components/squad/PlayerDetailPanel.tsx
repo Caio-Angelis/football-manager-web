@@ -2,6 +2,7 @@ import React from 'react';
 import { StatBar } from '../ui/StatBar';
 import type { Player } from '../../types/game';
 import { getFullName } from '../../utils/player';
+import { getPositionColor, getRatingColor } from '../../utils/statusColors';
 
 interface PlayerDetailPanelProps {
   player: Player | null;
@@ -14,14 +15,6 @@ const STATUS_LABELS: Record<string, string> = {
   'Rotation': 'Rotação',
   'Young Talent': 'Promessa',
   'Excess': 'Outro',
-};
-
-const getBarColor = (val: number) => {
-  if (val >= 80) return '#4CAF50';
-  if (val >= 60) return '#8BC34A';
-  if (val >= 40) return '#FFC107';
-  if (val >= 20) return '#FF9800';
-  return '#F44336';
 };
 
 const getOverall = (ca: number) => Math.round(ca / 2);
@@ -43,7 +36,7 @@ export const PlayerDetailPanel: React.FC<PlayerDetailPanelProps> = ({
       </div>
 
       <div className="fm-player-detail-panel__identity">
-        <div className="fm-player-detail-panel__position-badge" style={{ backgroundColor: player.position === 'GK' ? '#2196F3' : player.position === 'DEF' ? '#4CAF50' : player.position === 'MID' ? '#FF9800' : '#F44336' }}>
+        <div className="fm-player-detail-panel__position-badge" style={{ backgroundColor: getPositionColor(player.position) }}>
           {player.position}
         </div>
         <div className="fm-player-detail-panel__name">
@@ -65,19 +58,19 @@ export const PlayerDetailPanel: React.FC<PlayerDetailPanelProps> = ({
       <div className="fm-player-detail-panel__status">
         <div className="fm-player-detail-panel__status-item">
           <span className="fm-player-detail-panel__status-label">Forma</span>
-          <div className="fm-player-detail-panel__status-bar" style={{ backgroundColor: getBarColor(player.form) }}>
+          <div className="fm-player-detail-panel__status-bar" style={{ backgroundColor: getRatingColor(player.form) }}>
             {player.form}%
           </div>
         </div>
         <div className="fm-player-detail-panel__status-item">
           <span className="fm-player-detail-panel__status-label">Condição Física</span>
-          <div className="fm-player-detail-panel__status-bar" style={{ backgroundColor: getBarColor(player.fitness) }}>
+          <div className="fm-player-detail-panel__status-bar" style={{ backgroundColor: getRatingColor(player.fitness) }}>
             {player.fitness}%
           </div>
         </div>
         <div className="fm-player-detail-panel__status-item">
           <span className="fm-player-detail-panel__status-label">Moral</span>
-          <div className="fm-player-detail-panel__status-bar" style={{ backgroundColor: getBarColor(player.morale) }}>
+          <div className="fm-player-detail-panel__status-bar" style={{ backgroundColor: getRatingColor(player.morale) }}>
             {player.morale}%
           </div>
         </div>

@@ -218,6 +218,17 @@
   opacity: 0.6;
 }
 
+.fm-press__status,
+.fm-press__dashboard-title,
+.fm-press__headline,
+.fm-press__related-player,
+.fm-press__trend-badge,
+.fm-press__action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .fm-press__status {
   font-size: 0.82rem;
   font-weight: 600;

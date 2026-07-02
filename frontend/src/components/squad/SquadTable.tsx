@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import type { Player } from '../../types/game';
 import { getFullName } from '../../utils/player';
 import { useSortable } from '../../hooks/useSortable';
+import { getPositionColor, getPositionTint, getRatingColor } from '../../utils/statusColors';
 
 interface SquadTableProps {
   players: Player[];
@@ -105,14 +106,6 @@ export const SquadTable: React.FC<SquadTableProps> = ({
     });
   }, [players, filterPos, search, sortKey, sortDir]);
 
-  const getStatColor = (val: number) => {
-    if (val >= 80) return 'var(--color-success)';
-    if (val >= 60) return '#8BC34A';
-    if (val >= 40) return '#FFC107';
-    if (val >= 20) return '#FF9800';
-    return '#F44336';
-  };
-
   const getOverall = (ca: number) => Math.round(ca / 2);
 
   const totalPlayers = filtered.length;
@@ -141,7 +134,7 @@ export const SquadTable: React.FC<SquadTableProps> = ({
             {SORT_OPTIONS.find(o => o.key === sortKey)?.label ?? 'Ordenar'} ({sortDir === 'asc' ? '↑' : '↓'}) ▾
           </button>
           {showSortMenu && (
-            <div style={{ position: 'absolute', top: '100%', right: 0, zIndex: 10, background: 'var(--t-panel)', border: '1px solid var(--t-border-strong)', borderRadius: 6, padding: 4, display: 'flex', flexDirection: 'column', gap: 2, minWidth: 140 }}>
+            <div style={{ position: 'absolute', top: '100%', right: 0, zIndex: 10, background: 'var(--t-panel)', border: '1px solid var(--t-border-strong)', borderRadius: 6, padding: 4, display: 'flex', flexDirection: 'column', gap: 2, minWidth: 140, boxShadow: 'var(--t-elevation-2)' }}>
               {SORT_OPTIONS.map(opt => (
                 <button
                   key={opt.key}
@@ -189,8 +182,8 @@ export const SquadTable: React.FC<SquadTableProps> = ({
                     <span style={{
                       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                       width: 28, height: 20, borderRadius: 4, fontSize: 10, fontWeight: 700,
-                      backgroundColor: player.position === 'GK' ? 'rgba(33,150,243,0.2)' : player.position === 'DEF' ? 'rgba(76,175,80,0.2)' : player.position === 'MID' ? 'rgba(255,152,0,0.2)' : 'rgba(244,67,54,0.2)',
-                      color: player.position === 'GK' ? '#5aa3f0' : player.position === 'DEF' ? '#4caf50' : player.position === 'MID' ? '#ff9800' : '#f44336',
+                      backgroundColor: getPositionTint(player.position),
+                      color: getPositionColor(player.position),
                     }}>
                       {player.position}
                     </span>
@@ -209,14 +202,14 @@ export const SquadTable: React.FC<SquadTableProps> = ({
                     </td>
                   )}
                   <td>
-                    <div className="fms-bar"><div className="fms-bar__fill" style={{ width: `${player.form}%`, backgroundColor: getStatColor(player.form) }} /></div>
+                    <div className="fms-bar"><div className="fms-bar__fill" style={{ width: `${player.form}%`, backgroundColor: getRatingColor(player.form) }} /></div>
                   </td>
                   <td>
-                    <div className="fms-bar"><div className="fms-bar__fill" style={{ width: `${player.fitness}%`, backgroundColor: getStatColor(player.fitness) }} /></div>
+                    <div className="fms-bar"><div className="fms-bar__fill" style={{ width: `${player.fitness}%`, backgroundColor: getRatingColor(player.fitness) }} /></div>
                   </td>
                   {!isNarrow && (
                     <td>
-                      <div className="fms-bar"><div className="fms-bar__fill" style={{ width: `${player.morale}%`, backgroundColor: getStatColor(player.morale) }} /></div>
+                      <div className="fms-bar"><div className="fms-bar__fill" style={{ width: `${player.morale}%`, backgroundColor: getRatingColor(player.morale) }} /></div>
                     </td>
                   )}
                   <td><span className="fms-badge">{STATUS_LABELS[player.squadStatus] || player.squadStatus}</span></td>

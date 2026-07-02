@@ -14,6 +14,6 @@
     "noEmit": false,
     "declaration": true
   },
-  "include": ["src", "headless_sim.ts"],
+  "include": ["src", "headless_sim.ts", "finance_audit.ts"],
   "exclude": ["node_modules", "dist"]
 }

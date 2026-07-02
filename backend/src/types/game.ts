@@ -148,6 +148,7 @@ export interface GameState {
   fanMood: FanMood;
   mediaPressure: MediaPressure;
   isAdvancing: boolean;
+  matchBlockMessage: string | null;
 }
 
 export interface GameActions {
@@ -161,7 +162,7 @@ export interface GameActions {
   updatePlayerAttributes: (playerId: string, trainingType: string) => void;
   completeYouthIntake: () => void;
   updateTeam: (teamId: string, updater: (team: Team) => Team) => void;
-  buyPlayer: (playerId: string, sellerTeamId: string) => boolean;
+  buyPlayer: (playerId: string, sellerTeamId: string, useInstallments?: boolean) => boolean;
   makeOffer: (playerId: string, sellerTeamId: string, offerPrice: number, negotiationRound?: number) => NegotiationResult;
   acceptOffer: (playerId: string, sellerTeamId: string, offerPrice: number, agreedSalary: number) => boolean;
   negotiatePlayerContract: (playerId: string, sellerTeamId: string, offeredSalary: number, negotiationRound: number) => ContractNegotiationResult;
@@ -175,6 +176,8 @@ export interface GameActions {
   applyWeeklyTraining: () => void;
   handleInboxAction: (messageId: string, actionLabel: string) => void;
   applyMatchIntervention: (matchIndex: number, type: 'substitution' | 'shout') => void;
+  substitutePlayer: (matchIndex: number, outId: string, inId: string) => void;
+  applyShout: (matchIndex: number, shout: 'encourage' | 'demand' | 'praise' | 'calm') => void;
   negotiateCounterOffer: (playerId: string) => boolean;
   // Métodos para cláusulas parceladas e bónus
   payInstallment: (installmentId: string) => boolean;

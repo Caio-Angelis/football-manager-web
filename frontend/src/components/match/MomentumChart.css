@@ -1,0 +1,112 @@
+.fm-momentum {
+  background: #1b1e26;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 16px 16px 10px;
+  margin-top: 16px;
+}
+
+.fm-momentum__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.fm-momentum__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display, 'Oswald', sans-serif);
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #e8eaf0;
+  margin: 0;
+}
+
+.fm-momentum__pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #6b7080;
+  flex-shrink: 0;
+}
+
+.fm-momentum__pulse--live {
+  background: #e25c52;
+  box-shadow: 0 0 0 0 rgba(226, 92, 82, 0.6);
+  animation: fm-momentum-pulse 1.6s ease-out infinite;
+}
+
+@keyframes fm-momentum-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(226, 92, 82, 0.5); }
+  70% { box-shadow: 0 0 0 7px rgba(226, 92, 82, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(226, 92, 82, 0); }
+}
+
+.fm-momentum__readout {
+  display: flex;
+  gap: 18px;
+}
+
+.fm-momentum__stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 0;
+}
+
+.fm-momentum__stat-value {
+  font-family: var(--font-display, 'Oswald', sans-serif);
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.fm-momentum__stat-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #9aa0ad;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fm-momentum__tip {
+  background: #14161c;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: #e8eaf0;
+}
+
+.fm-momentum__tip-min {
+  color: #9aa0ad;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.fm-momentum__tip div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fm-momentum__tip i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fm-momentum__pulse--live { animation: none; }
+}

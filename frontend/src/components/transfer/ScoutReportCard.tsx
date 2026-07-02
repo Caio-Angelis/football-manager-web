@@ -1,5 +1,6 @@
 import React from 'react';
 import type { ScoutReport } from '../../types/game';
+import { getGradeColor } from '../../utils/statusColors';
 
 interface ScoutReportCardProps {
   report: ScoutReport;
@@ -10,15 +11,7 @@ export const ScoutReportCard: React.FC<ScoutReportCardProps> = ({ report, onBuy 
   const stars = '★'.repeat(report.stars) + '☆'.repeat(5 - report.stars);
   const reliability = '●'.repeat(report.reliability) + '○'.repeat(5 - report.reliability);
 
-  const gradeColors: Record<string, string> = {
-    A: '#4CAF50',
-    B: '#8BC34A',
-    C: '#FFC107',
-    D: '#FF9800',
-    E: '#FF5722',
-    F: '#F44336',
-  };
-  const gradeColor = report.grade ? gradeColors[report.grade] : '#9E9E9E';
+  const gradeColor = getGradeColor(report.grade);
 
   return (
     <div className="fm-scout-report">

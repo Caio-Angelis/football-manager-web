@@ -53,6 +53,8 @@ export interface LiveMatchState {
   actions: MatchAction[];
   goalDetails: { team: 'home' | 'away'; minute: number; scorerId: string; scorerName: string; assistId?: string; assistName?: string }[];
   interventionBoost?: { team: 'home' | 'away'; type: string; untilMinute: number };
+  cards?: Record<string, number>;                 // playerId -> yellow count this match
+  sentOff?: { home: string[]; away: string[] };    // playerIds sent off, per side
 }
 
 // ============================================================

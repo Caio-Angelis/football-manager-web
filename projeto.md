@@ -6,6 +6,8 @@ Football Manager Web é um simulador de gestão de futebol inspirado no Football
 
 O jogo roda com arquitetura cliente-servidor: um backend em Express mantém todo o estado do jogo em memória, e o frontend em React consome esse estado via API REST. Todas as regras e simulações acontecem no backend. O jogo suporta até **3 temporadas consecutivas** — ao final de cada uma, um resumo é exibido e o usuário pode iniciar a próxima temporada com os stats resetados.
 
+> **Documentação de regras:** A pasta `docs/regras/` contém arquivos detalhados com todas as regras do jogo, organizadas por sistema (partidas, finanças, transferências, táticas, treino, lesões, dinâmica, imprensa, IA adversária, base juvenil, diretoria, saves, classificação). Ver `docs/regras/README.md` para o índice completo.
+
 ---
 
 ## Manager Dashboard
@@ -52,6 +54,7 @@ A página inicial do jogo (rota `/dashboard`) é um **painel de comando** que co
 ### Partida do Usuário vs. Partidas da IA
 
 - **Partidas do usuário:** Ficam **pendentes** a cada rodada. O usuário pode jogá-las ao vivo no Centro de Partidas, com visualização 2D em tempo real (campo com discos representando os 22 jogadores, bola animada, placar ao vivo). Se o usuário avançar a semana sem jogar, a partida é **auto-finalizada** na próxima rodada usando o motor de simulação.
+- **Bloqueio por lesão:** Se houver um jogador lesionado (`injury.active`) no XI titular do time do usuário, a partida **não pode iniciar** nem ser auto-simulada. Tanto `simulateMatch` quanto `advanceWeek` (frontend e backend) verificam o XI titular e bloqueiam a execução, definindo `matchBlockMessage` no estado global. Um **modal centralizado** é exibido na tela com a mensagem "Partida não pode iniciar: (nome do jogador) lesionado". O usuário deve substituir o jogador lesionado no XI antes de prosseguir.
 - **Partidas dos outros times:** São **simuladas automaticamente** quando o usuário avança a semana. O resultado é calculado instantaneamente e aplicado à classificação.
 
 ### Motor de Simulação (Passo a Passo)
@@ -283,7 +286,7 @@ Após o time aceitar a oferta, o jogador precisa concordar com o contrato. O sal
 ### Acordos Contratuais
 
 Cada transferência gera um **acordo contratual** completo com:
-- Salário semanal (100-150% do salário anterior)
+- Salário semanal (100-130% do salário anterior)
 - Duração do contrato (1 a 4 anos, em semanas)
 - Cláusula de rescisão (120-150% do valor da transferência)
 - Possivelmente bônus de performance (40% de chance)
@@ -607,10 +610,10 @@ Todas as fórmulas financeiras estão centralizadas em `backend/src/store/helper
 - **Valor de mercado** (`calculateMarketValue`): Escala exponencial baseada no overall (0-100):
   - Overall < 60: aleatório (0 a 1M)
   - 60-69: `(o-60) × 0.8 + aleatório` (até ~8M)
-  - 70-77: `(o-70) × 3 + 8 + aleatório` (até ~30M)
-  - 78-84: `(o-78) × 10 + 30 + aleatório` (até ~95M)
-  - 85+: `(o-85) × 25 + 95 + aleatório` (até ~200M+)
-- **Salário semanal** (`calculatePlayerSalary`): `max(5, marketValue × 20 + aleatório)` em milhares
+  - 70-77: `(o-70) × 2.1 + 8 + aleatório` (até ~25M)
+  - 78-84: `(o-78) × 3.5 + 25 + aleatório` (até ~50M)
+  - 85+: `(o-85) × 5 + 35 + aleatório` (até ~80M)
+- **Salário semanal** (`calculatePlayerSalary`): `max(5, marketValue × 30 + aleatório)` em milhares de R$ por semana
 
 ### Receitas e Despesas Semanais
 
@@ -621,37 +624,49 @@ A cada avanço de semana, o orçamento do clube é atualizado:
   - Patrocínio: `(reputação/50)² × 1.2` por semana
   - Transmissão: `(reputação/50)² × 1.5` por semana
 - **Despesas:**
-  - Salários (semanal): `wageBill × (12/52)` — folha mensal prorrateada
-  - Infraestruturas: `facilitiesLevel × 0.2` por semana
-- **Balanço semanal:** `bilheteira + patrocínio + transmissão - salários - infraestruturas`
+  - Salários (semanal): `wageBill` direto (milhões/semana = Σ salary / 1000)
+  - Infraestruturas: `facilitiesLevel × 0.35` por semana
+  - Staff: `staffLevel × 0.25` por semana
+- **Balanço semanal:** `bilheteira + patrocínio + transmissão - salários - infraestruturas - staff`
+- **Piso de caixa:** Orçamento pode ir até -50M (dívida controlada), não mais `Math.max(0, …)`
 
 ### Premiação por Partida
 
 Além das receitas semanais fixas, cada partida disputada gera premiação baseada no resultado e reputação do clube (`calculateMatchPrizeMoney`):
 
-- **Base:** `(reputação/50)² × 1.0`
+- **Base:** `(reputação/50)² × 0.2`
 - **Vitória:** base × 3.0
 - **Empate:** base × 1.5
 - **Derrota:** base × 0.5
 
 A premiação é creditada ao orçamento de ambos os times ao final da partida (em `applyMatchResultToTeams`). Times que vencem mais ganham significativamente mais, criando incentivo de desempenho.
 
+### Prêmio por Colocação Final da Temporada
+
+Ao final das 38 rodadas (`championshipEnded` em `advanceWeek`), cada time recebe um prêmio baseado na posição final na tabela (`calculateSeasonFinalPrize`):
+
+- **Base:** `(reputação/50)² × 10`
+- **Fator de posição:** `max(0.05, 1 - (posição - 1) / total de times)`
+- Campeão (rep 90): ~R$32M | Último colocado: ~R$1.6M
+- O prêmio é creditado ao orçamento antes do processamento da semana final.
+
 ### Orçamento e Limite Salarial
 
-- **Orçamento do time** (`calculateTeamBudget`): `(reputação/30)² × 20 + aleatório` (em milhões)
-- **Orçamento de transferências** (`calculateTransferBudget`): `40% a 60% do orçamento total`
-- **Limite salarial recomendado** (`calculateWageLimit`): `60% da renda mensal estimada`
-  - Renda mensal = `(bilheteira + patrocínio + transmissão) × 52/12`
+- **Orçamento do time** (`calculateTeamBudget`): `(reputação/30)² × 10 + aleatório` (em milhões) — carteira única, usada para transferências e operação
+- **Limite salarial recomendado** (`calculateWageLimit`): `60% da renda semanal estimada`
+  - Renda semanal = `bilheteira + patrocínio + transmissão`
   - Se a folha salarial exceder o limite, é exibido alerta "Folha acima do limite recomendado"
 
 ### Gestão Financeira
 
-- **Orçamento de transferência:** Usado para comprar jogadores. Reduz com compras à vista ou entrada de parceladas.
+- **Orçamento (carteira única):** Usado para comprar jogadores e operar o clube. Reduz com compras à vista ou entrada de parceladas. Não há mais `transferBudget` separado.
 - **Folha salarial:** Soma de todos os salários do elenco (`recalcWageBill`). Recalculada automaticamente após transferências.
 - **Ajuste de salários:** O usuário pode ajustar o salário individual de cada jogador via slider na tela de Finanças.
-- **Projeção:** O sistema projeta o balanço financeiro para as próximas 6 semanas.
+- **Extrato semanal:** Tela de Finanças mostra receitas (bilheteira, patrocínio, transmissão, prêmios por partida) e despesas (salários, infraestruturas, staff) linha a linha, com saldo total.
+- **Fôlego (runway):** Mostra quantas semanas o caixa dura no ritmo atual; alerta visual quando ≤10 semanas.
+- **Projeção:** O sistema projeta o balanço financeiro para as próximas 6 semanas (MiniAreaChart).
 - **Parcelas vencidas:** Se o orçamento não cobrir uma parcela, ela fica vencida e gera alerta no inbox.
-- **Relatório financeiro** (`FinancialReport`): Inclui `facilityCosts` como campo distinto de despesa e `broadcastingRevenue` como campo de receita.
+- **Relatório financeiro** (`FinancialReport`): Inclui `facilityCosts`, `staffCosts` como campos distintos de despesa e `broadcastingRevenue` como campo de receita.
 
 ---
 
@@ -951,10 +966,11 @@ Não existe um sistema de "High Score" que avalie o patrimônio acumulado, títu
 ### Estado Atual
 
 - **Receitas semanais:** Bilheteira = `(reputação/50)² × 1.5M` + Patrocínio = `(reputação/50)² × 1.2M` + Transmissão = `(reputação/50)² × 1.5M`. Um time médio (reputação 50) recebe ~4.2M por semana em receitas fixas.
-- **Premiação por partida:** Vitória = `(rep/50)² × 3.0M`, Empate = `(rep/50)² × 1.5M`, Derrota = `(rep/50)² × 0.5M`. Um time médio que vence 50% das 38 rodadas ganha ~38M adicionais na temporada.
+- **Premiação por partida:** Vitória = `(rep/50)² × 0.6M`, Empate = `(rep/50)² × 0.3M`, Derrota = `(rep/50)² × 0.1M`. Um time médio que vence 50% das 38 rodadas ganha ~15M adicionais na temporada.
+- **Prêmio por colocação final:** Campeão (rep 50) = R$10M, último colocado = R$0.5M. Creditado ao final das 38 rodadas.
 - **Despesas semanais:** Folha salarial = `wageBill × (12/52)` — prorrateado mensal. Infraestruturas = `facilitiesLevel × 0.2`.
 - **Orçamento inicial:** Definido pelo database/geração procedural, variando por tier.
-- **Contratos:** Duração de 1 a 4 anos (52 a 208 semanas). Cláusula de rescisão de 120-150% do valor da transferência.
+- **Contratos:** Duração de 1 a 4 anos (52 a 208 semanas). Cláusula de rescisão inicial = 150% do valor de mercado. Cláusula pós-transferência = 120-150% do valor da transferência.
 
 ### Problema
 
@@ -964,11 +980,11 @@ Não existe um sistema de "High Score" que avalie o patrimônio acumulado, títu
 
 ### Pontos de Atenção
 
-- **Aceleração econômica:** Considerar aumentar as receitas (ex: bilheteira por resultados em casa, premiação por posição na tabela, prêmio de TV) para injetar capital mais rápido.
-- **Premiação por colocação:** Não existe prêmio financeiro por posição final na tabela. Adicionar prêmios (ex: campeão = 20M, top 4 = 10M, top 8 = 5M) injetaria capital e daria significado financeiro à classificação.
+- **Aceleração econômica:** Considerar aumentar as receitas (ex: bilheteira por resultados em casa, prêmio de TV) para injetar capital mais rápido.
+- **Premiação por colocação:** ✅ Implementado via `calculateSeasonFinalPrize` — prêmio por posição final na tabela, creditado ao final das 38 rodadas.
 - **Duração de contratos:** Reduzir o teto de duração para 2-3 anos (104-156 semanas) ou alinhar com a duração do save. Alternativamente, manter 4 anos mas garantir que a renovação seja uma mecânica ativa (jogadores podem recusar renovação, exigir mais, ameaçar sair).
 - **Cláusulas de rescisão:** Atualmente 120-150% do valor da transferência. Em 3 temporadas, isso pode ser irrelevante se o jogador já está perto do fim do contrato.
-- **Recomendação:** Adicionar premiação por colocação final, aumentar receitas de bilheteira com base em resultados (mais vitórias em casa = mais público), e reduzir duração máxima de contrato para 3 anos.
+- **Recomendação:** Aumentar receitas de bilheteira com base em resultados (mais vitórias em casa = mais público), e reduzir duração máxima de contrato para 3 anos.
 
 ---
 
@@ -1081,6 +1097,19 @@ cd backend && python run_batch.py
 - `training.ts`: Recálculo de CA com curva de idade
 - `headless_sim.ts`: Receitas financeiras escaladas (bilheteira + patrocínio + TV)
 - `aiManager.ts`: Diversificação de escolhas táticas da IA
+
+### Testes de Regressão Financeira (Vitest)
+
+O arquivo `backend/src/tests/balance.test.ts` contém 8 testes que verificam os invariantes do rebalanceamento financeiro:
+
+1. **Idle club viability:** Time sem contratações termina a temporada com budget >= -50 e < 5x inicial
+2. **No passive bankruptcy:** Folha salarial < 100% da receita semanal para todos os times
+3. **Star player cost:** Jogador mais caro custa >= 30% do maior budget
+4. **Season final prize:** Prêmio do campeão entre 5-50M; último colocado > 0 e < 5M
+5. **Match prize calibration:** Prêmio médio por partida < 15% da receita semanal
+6. **Market value calibration:** OVR 85 = 30-55% do budget de clube grande; OVR 70 < 15%
+
+Rodar: `cd backend && npx vitest run src/tests/balance.test.ts`
 
 ---
 

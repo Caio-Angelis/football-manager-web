@@ -12,7 +12,7 @@ import type {
 } from '../types/game';
 import { apiAction, apiPost } from '../api/client';
 import { getFullName } from '../utils/player';
-import { calculateTicketRevenue, calculateSponsorshipRevenue, calculateBroadcastingRevenue, calculateFacilityCosts, weeklyWages } from '../utils/finance';
+import { calculateTicketRevenue, calculateSponsorshipRevenue, calculateBroadcastingRevenue, calculateFacilityCosts, calculateStaffCosts, weeklyWages } from '../utils/finance';
 
 // ============================================================
 // HELPER FUNCTIONS (mirrored from backend for local getters)
@@ -107,6 +107,7 @@ const INITIAL_STATE = {
   fanMood: { value: 50, trend: 'stable' as const, sentiment: 'neutral' as const },
   mediaPressure: { value: 50, level: 'low' as const },
   isAdvancing: false,
+  matchBlockMessage: null as string | null,
 };
 
 // ============================================================
@@ -115,6 +116,15 @@ const INITIAL_STATE = {
 
 function syncFromResponse(data: { result?: any; state: any }) {
   useGameStore.setState(data.state);
+}
+
+function findInjuredInXI(state: GameStore): Player | null {
+  if (!state.selectedTeam) return null;
+  const team = state.teams.find(t => t.id === state.selectedTeam);
+  if (!team) return null;
+  return (team.startingXI ?? [])
+    .map(id => team.squad.find(p => p.id === id))
+    .find(p => p?.injury?.active) ?? null;
 }
 
 export const useGameStore = create<GameStore>()((set, get) => ({
@@ -286,9 +296,10 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     const sponsorship = calculateSponsorshipRevenue(team.reputation);
     const broadcasting = calculateBroadcastingRevenue(team.reputation);
     const facilityCosts = calculateFacilityCosts(team.facilitiesLevel);
+    const staffCosts = calculateStaffCosts(team.staffLevel);
     const weeklyWageCost = weeklyWages(team.wageBill);
     const totalIncome = ticketRevenue + sponsorship + broadcasting;
-    const totalExpenses = weeklyWageCost + facilityCosts;
+    const totalExpenses = weeklyWageCost + facilityCosts + staffCosts;
     const profit = totalIncome - totalExpenses;
     const transferSpending = state.transferAgreements
       .filter(a => a.toTeamId === state.selectedTeam)
@@ -307,6 +318,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       broadcastingRevenue: broadcasting,
       totalIncome,
       facilityCosts,
+      staffCosts,
       totalExpenses,
       profit,
       transferSpending,
@@ -369,12 +381,23 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   },
 
   simulateMatch: (matchIndex: number) => {
+    const injured = findInjuredInXI(get());
+    if (injured) {
+      set({ matchBlockMessage: `Partida não pode iniciar: ${getFullName(injured)} lesionado` });
+      return;
+    }
+    set({ matchBlockMessage: null });
     apiAction('simulateMatch', [matchIndex]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   advanceWeek: () => {
     if (get().isAdvancing) return;
-    set({ isAdvancing: true });
+    const injured = findInjuredInXI(get());
+    if (injured) {
+      set({ matchBlockMessage: `Partida não pode iniciar: ${getFullName(injured)} lesionado` });
+      return;
+    }
+    set({ isAdvancing: true, matchBlockMessage: null });
     apiAction('advanceWeek', []).then(data => {
       syncFromResponse(data);
       set({ isAdvancing: false });
@@ -470,6 +493,14 @@ export const useGameStore = create<GameStore>()((set, get) => ({
 
   applyMatchIntervention: (matchIndex: number, type: 'substitution' | 'shout') => {
     apiAction('applyMatchIntervention', [matchIndex, type]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
+  },
+
+  substitutePlayer: (matchIndex: number, outId: string, inId: string) => {
+    apiAction('substitutePlayer', [matchIndex, outId, inId]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
+  },
+
+  applyShout: (matchIndex: number, shout: 'encourage' | 'demand' | 'praise' | 'calm') => {
+    apiAction('applyShout', [matchIndex, shout]).then(syncFromResponse).catch(err => console.error('API action failed:', err));
   },
 
   negotiateCounterOffer: (playerId: string) => {

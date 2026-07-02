@@ -66,6 +66,7 @@ export const useGameStore = create<GameStore>()(
     fanMood: { value: 50, trend: 'stable', sentiment: 'neutral' },
     mediaPressure: { value: 50, level: 'low' },
     isAdvancing: false,
+    matchBlockMessage: null,
 
     // --- Slices (actions) ---
     ...createCoreSlice(set, get),

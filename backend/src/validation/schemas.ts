@@ -19,6 +19,8 @@ export const actionSchemas: Record<string, z.ZodTypeAny> = {
   simulateMatch: z.tuple([zMatchIndex]),
   generateLiveMatchMinute: z.tuple([zMatchIndex]),
   applyMatchIntervention: z.tuple([zMatchIndex, z.enum(['substitution', 'shout'])]),
+  substitutePlayer: z.tuple([zMatchIndex, zString, zString]),
+  applyShout: z.tuple([zMatchIndex, z.enum(['encourage', 'demand', 'praise', 'calm'])]),
   finishMatch: z.tuple([zMatchIndex]),
   getPreMatchAnalysis: z.tuple([zMatchIndex]),
 

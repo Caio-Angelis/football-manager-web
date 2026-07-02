@@ -727,51 +727,9 @@ body {
   gap: 16px;
 }
 
-/* ===== Match Center ===== */
-.fm-match-center {
-  /* ponytail: Glassmorphism container */
-  padding: 32px 24px;
-  background: var(--gradient-surface);
-}
-
-.fm-match-center__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-  /* ponytail: Glassmorphism header */
-  background: var(--glass-bg);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-xl);
-  padding: 20px 28px;
-  box-shadow: var(--glass-shadow);
-}
-
-.fm-match-center__header h1 {
-  font-size: 28px;
-  font-weight: 700;
-  /* ponytail: Gradient text */
-  background: var(--gradient-primary);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.fm-match-center__week {
-  font-size: var(--font-size-lg);
-  font-weight: 600;
-  color: var(--color-primary);
-  /* ponytail: Glass chip */
-  background: var(--glass-bg-strong);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  padding: 6px 14px;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--glass-border);
-}
-
+/* ===== Match List ===== */
+/* fm-match-center / fm-match-center__header / __week were orphaned (no matching
+   element in MatchCenter.tsx, which uses <PageHeader> instead) — removed. */
 .fm-match-list {
   display: flex;
   flex-direction: column;
@@ -780,28 +738,22 @@ body {
 }
 
 .fm-match {
-  /* ponytail: Glassmorphism match card */
-  background: var(--glass-bg);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-xl);
+  background: var(--t-panel);
+  border: 1px solid var(--t-border);
+  border-radius: var(--radius-lg);
   padding: 16px;
-  transition: all var(--motion-normal) ease-out;
-  box-shadow: var(--shadow-surface);
+  transition: border-color var(--motion-normal) ease-out, transform var(--motion-normal) ease-out;
 }
 
 .fm-match:hover {
-  /* ponytail: Deep shadow elevation on hover */
-  box-shadow: var(--shadow-elevated), var(--shadow-glow);
+  border-color: var(--t-accent);
   transform: translateY(-2px);
-  border-color: var(--color-primary);
 }
 
 .fm-match--user {
-  background: var(--glass-bg-strong);
-  border-color: var(--color-primary);
-  box-shadow: var(--shadow-surface), 0 0 0 1px var(--color-primary) inset;
+  background: var(--t-panel-2);
+  border-color: var(--t-accent);
+  box-shadow: 0 0 0 1px var(--t-accent) inset;
 }
 
 .fm-match--completed {
@@ -826,19 +778,16 @@ body {
 }
 
 .fm-match__team-score {
-  font-size: 24px;
-  font-weight: 700;
-  /* ponytail: Gradient text for score */
-  background: var(--gradient-primary);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--t-text);
 }
 
 .fm-match__vs {
   padding: 0 16px;
   font-weight: 700;
-  color: var(--color-text-secondary);
+  color: var(--t-text-2);
 }
 
 .fm-match__action,
@@ -857,9 +806,8 @@ body {
 
 .fm-match__status-text {
   font-size: var(--font-size-sm);
-  color: var(--color-success);
+  color: var(--t-green);
   font-weight: 600;
-  /* ponytail: Live indicator with pulsing dot */
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -870,9 +818,8 @@ body {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--color-danger);
+  background: var(--t-red);
   animation: fm-pulse 1.5s ease-in-out infinite;
-  box-shadow: 0 0 8px var(--color-danger);
 }
 
 /* ===== Match Card Header (badges) ===== */
@@ -896,25 +843,25 @@ body {
 }
 
 .fm-match__badge--scheduled {
-  background: var(--badge-neutral-bg);
-  color: var(--badge-neutral-fg);
+  background: var(--t-panel-2);
+  color: var(--t-text-2);
 }
 
 .fm-match__badge--live {
-  background: var(--badge-danger-bg);
-  color: var(--badge-danger-fg);
+  background: rgba(226, 92, 82, 0.15);
+  color: var(--t-red);
 }
 
 .fm-match__badge--completed {
-  background: var(--badge-success-bg);
-  color: var(--badge-success-fg);
+  background: rgba(63, 191, 107, 0.15);
+  color: var(--t-green);
 }
 
 .fm-match__live-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--color-danger);
+  background: var(--t-red);
   animation: fm-pulse 1.5s ease-in-out infinite;
   flex-shrink: 0;
 }
@@ -924,7 +871,7 @@ body {
   border-radius: var(--radius-full);
   font-size: 11px;
   font-weight: 700;
-  background: var(--color-primary);
+  background: var(--t-accent);
   color: #fff;
 }
 
@@ -939,13 +886,7 @@ body {
 .fm-match__vs-text {
   font-size: 18px;
   font-weight: 700;
-  color: var(--color-text-secondary);
-}
-
-.fm-match__team-score {
-  font-size: 28px;
-  font-weight: 800;
-  line-height: 1;
+  color: var(--t-text-2);
 }
 
 /* ===== Stat Bar (dual comparison) ===== */
@@ -961,6 +902,7 @@ body {
   flex: 0 0 50px;
   font-size: 14px;
   font-weight: 700;
+  color: var(--t-text);
 }
 
 .fm-stat-bar__home-value {
@@ -982,7 +924,7 @@ body {
 .fm-stat-bar__label {
   font-size: 11px;
   font-weight: 600;
-  color: var(--color-text-secondary);
+  color: var(--t-text-2);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -993,16 +935,16 @@ body {
   height: 6px;
   border-radius: 3px;
   overflow: hidden;
-  background: var(--color-background);
+  background: var(--t-panel-2);
 }
 
 .fm-stat-bar__fill--home {
-  background: var(--color-primary);
+  background: var(--t-accent);
   transition: width 0.4s ease;
 }
 
 .fm-stat-bar__fill--away {
-  background: var(--color-warning);
+  background: var(--t-amber);
   transition: width 0.4s ease;
 }
 
@@ -1014,21 +956,22 @@ body {
   gap: 16px;
   margin-bottom: 16px;
   padding-bottom: 12px;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--t-border);
 }
 
 .fm-match-stats__team-name {
   font-weight: 700;
   font-size: var(--font-size-base);
+  color: var(--t-text);
 }
 
 .fm-match-stats__vs {
   font-size: 11px;
   font-weight: 700;
-  color: var(--color-text-secondary);
+  color: var(--t-text-2);
   padding: 2px 8px;
   border-radius: var(--radius-full);
-  background: var(--color-background);
+  background: var(--t-panel-2);
 }
 
 .fm-match-stats__xg-row {
@@ -1038,7 +981,7 @@ body {
   margin-bottom: 16px;
   padding: 12px;
   border-radius: var(--radius);
-  background: var(--color-background);
+  background: var(--t-panel-2);
 }
 
 .fm-match-stats__xg {
@@ -1047,17 +990,17 @@ body {
 }
 
 .fm-match-stats__xg--home {
-  color: var(--color-primary);
+  color: var(--t-accent);
 }
 
 .fm-match-stats__xg--away {
-  color: var(--color-warning);
+  color: var(--t-amber);
 }
 
 .fm-match-stats__xg-label {
   font-size: 11px;
   font-weight: 600;
-  color: var(--color-text-secondary);
+  color: var(--t-text-2);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -1073,9 +1016,9 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 24px;
-  padding: 24px 16px;
-  border-bottom: 1px solid var(--color-border);
+  gap: 20px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--t-border);
 }
 
 .fm-match-live-view__side {
@@ -1097,18 +1040,20 @@ body {
 .fm-match-live-view__side-name {
   font-size: var(--font-size-lg);
   font-weight: 600;
+  color: var(--t-text);
 }
 
 .fm-match-live-view__side-score {
-  font-size: 48px;
+  font-size: 36px;
   font-weight: 800;
   line-height: 1;
+  color: var(--t-text);
 }
 
 .fm-match-live-view__score-separator {
-  font-size: 28px;
+  font-size: 22px;
   font-weight: 700;
-  color: var(--color-text-secondary);
+  color: var(--t-text-2);
 }
 
 /* ===== Live View Progress Bar ===== */
@@ -1116,20 +1061,20 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 8px 16px;
 }
 
 .fm-match-live-view__progress-track {
   flex: 1;
   height: 4px;
   border-radius: 2px;
-  background: var(--color-background);
+  background: var(--t-panel-2);
   overflow: hidden;
 }
 
 .fm-match-live-view__progress-fill {
   height: 100%;
-  background: var(--color-success);
+  background: var(--t-green);
   border-radius: 2px;
   transition: width 0.5s ease;
 }
@@ -1137,7 +1082,7 @@ body {
 .fm-match-live-view__progress-label {
   font-size: 13px;
   font-weight: 700;
-  color: var(--color-text-secondary);
+  color: var(--t-text-2);
   white-space: nowrap;
 }
 
@@ -1149,6 +1094,7 @@ body {
 .fm-player-ratings h3 {
   margin-bottom: 16px;
   font-size: var(--font-size-lg);
+  color: var(--t-text);
 }
 
 .fm-player-ratings__best-player {
@@ -1158,10 +1104,11 @@ body {
   padding: 12px 16px;
   margin-bottom: 16px;
   border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, rgba(217, 154, 43, 0.12), rgba(217, 154, 43, 0.04));
-  border: 1px solid rgba(217, 154, 43, 0.3);
+  background: rgba(224, 179, 65, 0.12);
+  border: 1px solid rgba(224, 179, 65, 0.3);
   font-weight: 600;
   font-size: var(--font-size-base);
+  color: var(--t-text);
 }
 
 .fm-player-ratings__list {
@@ -1176,15 +1123,14 @@ body {
   gap: 12px;
   padding: 10px 14px;
   border-radius: var(--radius);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  transition: all 0.15s ease;
+  background: var(--t-panel);
+  border: 1px solid var(--t-border);
+  transition: border-color 0.15s ease, transform 0.15s ease;
 }
 
 .fm-player-rating:hover {
-  border-color: var(--color-primary);
+  border-color: var(--t-accent);
   transform: translateY(-1px);
-  box-shadow: var(--shadow-hover);
 }
 
 .fm-player-rating__badge {
@@ -1214,6 +1160,7 @@ body {
 .fm-player-rating__name {
   font-weight: 600;
   font-size: var(--font-size-base);
+  color: var(--t-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1221,7 +1168,7 @@ body {
 
 .fm-player-rating__position {
   font-size: 11px;
-  color: var(--color-text-secondary);
+  color: var(--t-text-2);
 }
 
 .fm-player-rating__label {
@@ -1229,13 +1176,14 @@ body {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: var(--color-text-tertiary);
+  color: var(--t-text-3);
 }
 
 .fm-player-rating__goal {
   flex-shrink: 0;
   font-size: 13px;
   font-weight: 700;
+  color: var(--t-text);
 }
 
 /* ===== Standings Zone Indicators ===== */
@@ -1244,20 +1192,10 @@ body {
 }
 
 .fm-standings-table__row:hover {
-  background: var(--hover-subtle);
+  background: var(--t-panel-2);
 }
 
-.fm-standings-table__row--libertadores {
-  border-left: 3px solid var(--color-primary);
-}
-
-.fm-standings-table__row--sul-americana {
-  border-left: 3px solid var(--color-warning);
-}
-
-.fm-standings-table__row--rebaixamento {
-  border-left: 3px solid var(--color-danger);
-}
+/* Zone is carried by the pos-marker badge color below — no side-stripe border on the row itself. */
 
 .fm-standings-table__pos {
   width: 32px;
@@ -1272,26 +1210,29 @@ body {
   border-radius: 50%;
   font-size: 12px;
   font-weight: 700;
+  background: var(--t-panel-2);
+  color: var(--t-text-2);
 }
 
 .fm-standings-table__pos-marker--libertadores {
-  background: var(--badge-purple-bg);
-  color: var(--badge-purple-fg);
+  background: rgba(109, 94, 240, 0.15);
+  color: var(--t-purple);
 }
 
 .fm-standings-table__pos-marker--sul-americana {
-  background: var(--badge-warning-bg);
-  color: var(--badge-warning-fg);
+  background: rgba(224, 179, 65, 0.15);
+  color: var(--t-amber);
 }
 
 .fm-standings-table__pos-marker--rebaixamento {
-  background: var(--badge-danger-bg);
-  color: var(--badge-danger-fg);
+  background: rgba(226, 92, 82, 0.15);
+  color: var(--t-red);
 }
 
 .fm-standings-table__team-name {
   text-align: left;
   font-weight: 600;
+  color: var(--t-text);
 }
 
 /* ===== Standings Legend ===== */
@@ -1308,7 +1249,7 @@ body {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: var(--color-text-secondary);
+  color: var(--t-text-2);
 }
 
 .fm-standings-legend__dot {
@@ -1318,22 +1259,22 @@ body {
 }
 
 .fm-standings-legend__dot--libertadores {
-  background: var(--color-primary);
+  background: var(--t-purple);
 }
 
 .fm-standings-legend__dot--sul-americana {
-  background: var(--color-warning);
+  background: var(--t-amber);
 }
 
 .fm-standings-legend__dot--rebaixamento {
-  background: var(--color-danger);
+  background: var(--t-red);
 }
 
 /* ===== Standings Table ===== */
 .fm-standings-table {
   width: 100%;
   border-collapse: collapse;
-  background: var(--color-surface);
+  background: var(--t-panel);
   border-radius: var(--radius);
   overflow: hidden;
 }
@@ -1342,18 +1283,19 @@ body {
 .fm-standings-table td {
   padding: 12px 16px;
   text-align: center;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--t-border);
+  color: var(--t-text);
 }
 
 .fm-standings-table th {
-  background: var(--color-background);
+  background: var(--t-panel-2);
   font-weight: 600;
   font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
+  color: var(--t-text-2);
 }
 
 .fm-standings-table--user {
-  background: rgba(26, 115, 232, 0.1);
+  background: rgba(61, 123, 245, 0.1);
 }
 
 /* ===== Transfer Market ===== */
@@ -2398,7 +2340,7 @@ input:focus-visible {
 }
 
 .fm-modal__icon {
-  font-size: 24px;
+  display: inline-flex;
 }
 
 .fm-modal__title {
@@ -2460,20 +2402,22 @@ input:focus-visible {
   gap: 12px;
   padding: 8px 12px;
   margin-bottom: 8px;
-  background: var(--color-background);
+  background: var(--t-panel-2);
   border-radius: var(--radius);
   font-size: var(--font-size-sm);
+  color: var(--t-text);
 }
 
 .fm-match-event__icon {
-  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 28px;
-  text-align: center;
 }
 
 .fm-match-event__time {
   font-weight: 700;
-  color: var(--color-primary);
+  color: var(--t-accent);
   min-width: 35px;
 }
 
@@ -2486,19 +2430,19 @@ input:focus-visible {
 
 .fm-match-event__team-label {
   font-size: 11px;
-  color: var(--color-text-secondary);
+  color: var(--t-text-2);
   font-weight: 600;
 }
 
 .fm-match-event__player {
   font-style: italic;
-  color: var(--color-text-secondary);
+  color: var(--t-text-2);
 }
 
 /* Match Stats Display */
 .fm-match-stats {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  background: var(--t-panel);
+  border: 1px solid var(--t-border);
   border-radius: var(--radius-lg);
   padding: 24px;
   margin: 16px 0;
@@ -2507,61 +2451,13 @@ input:focus-visible {
 .fm-match-stats h3 {
   margin-bottom: 20px;
   font-size: var(--font-size-lg);
-  color: var(--color-text);
-}
-
-.fm-stats-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--color-border);
-  font-size: var(--font-size-sm);
-}
-
-.fm-stats-row:last-child {
-  border-bottom: none;
-}
-
-.fm-stats-row__team {
-  flex: 0 0 120px;
-  text-align: center;
-  font-weight: 600;
-}
-
-.fm-stats-row__bar {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 0 16px;
-}
-
-.fm-stats-row__progress {
-  height: 6px;
-  background: var(--color-background);
-  border-radius: 3px;
-  overflow: hidden;
-  width: 100%;
-}
-
-.fm-stats-row__progress-fill {
-  height: 100%;
-  background: var(--color-primary);
-  transition: width 0.3s;
-}
-
-.fm-stats-row__xg-value {
-  font-size: 11px;
-  color: var(--color-text-secondary);
-  margin-bottom: 4px;
+  color: var(--t-text);
 }
 
 /* Live Data Hub */
 .fm-live-data-hub {
-  background: linear-gradient(135deg, rgba(26, 115, 232, 0.05), rgba(26, 115, 232, 0.02));
-  border: 1px solid rgba(26, 115, 232, 0.2);
+  background: rgba(61, 123, 245, 0.06);
+  border: 1px solid rgba(61, 123, 245, 0.2);
   border-radius: var(--radius-lg);
   padding: 20px;
   margin: 16px 0;
@@ -2570,7 +2466,7 @@ input:focus-visible {
 .fm-live-data-hub h3 {
   margin-bottom: 16px;
   font-size: var(--font-size-lg);
-  color: var(--color-primary);
+  color: var(--t-accent);
 }
 
 .fm-live-data-hub__indicators {
@@ -2584,21 +2480,22 @@ input:focus-visible {
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  background: var(--color-surface);
+  background: var(--t-panel);
   border-radius: var(--radius);
   font-size: var(--font-size-sm);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--t-border);
+  color: var(--t-text);
 }
 
 .fm-live-data-hub__indicator--active {
-  border-color: var(--color-success);
-  background: rgba(15, 157, 88, 0.05);
+  border-color: var(--t-green);
+  background: rgba(63, 191, 107, 0.06);
 }
 
 .fm-live-data-hub__pulse {
   width: 8px;
   height: 8px;
-  background: var(--color-success);
+  background: var(--t-green);
   border-radius: 50%;
   animation: fm-pulse 1.5s ease-in-out infinite;
   flex-shrink: 0;
@@ -2610,14 +2507,14 @@ input:focus-visible {
     opacity: 1;
   }
   50% {
-    box-shadow: 0 0 0 4px rgba(15, 157, 88, 0.1);
+    box-shadow: 0 0 0 4px rgba(63, 191, 107, 0.15);
   }
 }
 
 /* Match Live View */
 .fm-match-live-view {
-  background: var(--color-surface);
-  border: 2px solid var(--color-success);
+  background: var(--t-panel);
+  border: 2px solid var(--t-green);
   border-radius: var(--radius-lg);
   margin: 16px 0;
   overflow: hidden;
@@ -2625,70 +2522,42 @@ input:focus-visible {
 }
 
 @keyframes fm-live-border {
-  0%, 100% { border-color: var(--color-success); }
-  50% { border-color: rgba(15, 157, 88, 0.5); }
+  0%, 100% { border-color: var(--t-green); }
+  50% { border-color: rgba(63, 191, 107, 0.5); }
 }
 
 .fm-match-live-view__content {
-  padding: 24px;
+  padding: 16px;
 }
 
 .fm-match-live-view__header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--t-border);
 }
 
 .fm-match-live-view__header h2 {
   font-size: var(--font-size-xl);
-  color: var(--color-success);
+  color: var(--t-green);
 }
 
 .fm-match-live-view__minute {
   font-size: var(--font-size-lg);
   font-weight: 700;
-  color: var(--color-primary);
-}
-
-.fm-match-live-view__score {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 24px;
-  padding: 24px 0;
-  margin: 24px 0;
-  border-top: 1px solid var(--color-border);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.fm-match-live-view__score > span:first-child {
-  font-size: 48px;
-  font-weight: 700;
-  color: var(--color-primary);
-}
-
-.fm-match-live-view__score > span:nth-child(2) {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--color-text-secondary);
-}
-
-.fm-match-live-view__score > span:last-child {
-  font-size: 48px;
-  font-weight: 700;
-  color: var(--color-primary);
+  color: var(--t-accent);
 }
 
 .fm-match-live-view__events {
-  margin: 24px 0;
+  margin: 14px 0;
 }
 
 .fm-match-live-view__events h3 {
   margin-bottom: 16px;
   font-size: var(--font-size-lg);
+  color: var(--t-text);
 }
 
 /* Match Events List */
@@ -2705,10 +2574,9 @@ input:focus-visible {
   left: 0;
   right: 0;
   bottom: 0;
-  /* ponytail: Backdrop-blur for modal */
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2717,18 +2585,16 @@ input:focus-visible {
 }
 
 .fm-match-details-modal__content {
-  /* ponytail: Glassmorphism modal with deep shadow */
-  background: var(--glass-bg-strong);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
+  background: var(--t-panel);
+  border: 1px solid var(--t-border-strong);
   border-radius: var(--radius-xl);
   max-width: 700px;
   width: 100%;
   max-height: 80vh;
   overflow-y: auto;
-  box-shadow: var(--shadow-modal), var(--shadow-elevated);
+  box-shadow: var(--t-elevation-3);
   position: relative;
+  color: var(--t-text);
 }
 
 .fm-match-details-modal__close {
@@ -2739,18 +2605,18 @@ input:focus-visible {
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: var(--color-text-secondary);
+  color: var(--t-text-2);
   padding: 4px 8px;
   transition: color 0.2s;
 }
 
 .fm-match-details-modal__close:hover {
-  color: var(--color-text);
+  color: var(--t-text);
 }
 
 .fm-match-details-modal__header {
   padding: 24px 24px 16px;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--t-border);
   text-align: center;
 }
 
@@ -2769,19 +2635,19 @@ input:focus-visible {
 .fm-match-details-modal__score > span:first-child {
   font-size: 40px;
   font-weight: 700;
-  color: var(--color-primary);
+  color: var(--t-accent);
 }
 
 .fm-match-details-modal__score > span:nth-child(2) {
   font-size: 24px;
   font-weight: 700;
-  color: var(--color-text-secondary);
+  color: var(--t-text-2);
 }
 
 .fm-match-details-modal__score > span:last-child {
   font-size: 40px;
   font-weight: 700;
-  color: var(--color-primary);
+  color: var(--t-accent);
 }
 
 .fm-match-details-modal__events {
@@ -2791,12 +2657,13 @@ input:focus-visible {
 .fm-match-details-modal__events h3 {
   margin-bottom: 16px;
   font-size: var(--font-size-lg);
+  color: var(--t-text);
 }
 
 /* Match Center Intervention */
 .fm-match-center__intervention {
-  background: linear-gradient(135deg, rgba(26, 115, 232, 0.08), rgba(26, 115, 232, 0.03));
-  border: 1px solid rgba(26, 115, 232, 0.3);
+  background: rgba(61, 123, 245, 0.08);
+  border: 1px solid rgba(61, 123, 245, 0.25);
   border-radius: var(--radius-lg);
   padding: 20px;
   margin: 16px 0;
@@ -2805,7 +2672,7 @@ input:focus-visible {
 .fm-match-center__intervention h3 {
   margin-bottom: 16px;
   font-size: var(--font-size-lg);
-  color: var(--color-primary);
+  color: var(--t-accent);
 }
 
 .fm-match-center__intervention-buttons {
@@ -2815,7 +2682,7 @@ input:focus-visible {
 
 /* Match Matched (selected) */
 .fm-match--selected {
-  box-shadow: 0 0 0 2px var(--color-primary);
+  box-shadow: 0 0 0 2px var(--t-accent);
 }
 
 /* ===== Legacy component styles (kept for components not yet migrated to supplement) ===== */
@@ -3097,198 +2964,11 @@ input:focus-visible {
   border-color: var(--color-danger);
 }
 
-/* ===== Match Center ===== */
-.fm-match-center {
-  max-width: 900px;
-  margin: 0 auto;
-}
-
-.fm-match-center__header {
-  margin-bottom: 24px;
-}
-
-.fm-match-center__header p {
-  color: var(--color-text-secondary);
-  margin-top: 4px;
-}
-
-.fm-match-center__matches {
-  display: grid;
-  gap: 16px;
-}
-
-.fm-match-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  padding: 16px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.fm-match-card__teams {
-  flex: 1;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.fm-match-card__team {
-  font-weight: 600;
-}
-
-.fm-match-card__score {
-  font-size: 18px;
-  font-weight: 700;
-  padding: 4px 12px;
-  background: var(--color-background);
-  border-radius: 4px;
-}
-
-.fm-match-card__live {
-  margin-left: auto;
-  color: var(--color-danger);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-/* ===== Match Details Modal ===== */
-.fm-match-details-modal {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-/* ===== Live Data Hub ===== */
-.fm-live-data-hub {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  padding: 16px;
-  margin-top: 16px;
-}
-
-.fm-live-data-hub__header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.fm-live-data-hub__live-indicator {
-  width: 8px;
-  height: 8px;
-  background: var(--color-danger);
-  border-radius: 50%;
-  animation: pulse 1.5s infinite;
-}
-
-.fm-live-data-hub__title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-danger);
-}
-
-/* ===== Match Stats ===== */
-.fm-match-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.fm-match-stats__item {
-  text-align: center;
-  padding: 8px;
-  background: var(--color-background);
-  border-radius: 4px;
-}
-
-.fm-match-stats__item-label {
-  font-size: 11px;
-  color: var(--color-text-secondary);
-  margin-bottom: 4px;
-}
-
-.fm-match-stats__item-value {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-/* ===== Match Events List ===== */
-.fm-match-events-list {
-  margin-top: 16px;
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.fm-match-event {
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--color-border);
-  font-size: 13px;
-}
-
-.fm-match-event__minute {
-  font-weight: 600;
-  color: var(--color-primary);
-  margin-right: 8px;
-}
-
-.fm-match-event__type {
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-size: 11px;
-  margin-right: 8px;
-}
-
-.fm-match-event__type--goal {
-  background: var(--badge-success-bg);
-  color: var(--badge-success-fg);
-}
-
-.fm-match-event__type--shot {
-  background: var(--badge-warning-bg);
-  color: var(--badge-warning-fg);
-}
-
-.fm-match-event__type--save {
-  background: var(--badge-purple-bg);
-  color: var(--badge-purple-fg);
-}
-
-.fm-match-event__type--foul {
-  background: var(--badge-danger-bg);
-  color: var(--badge-danger-fg);
-}
-
-.fm-match-event__type--yellow {
-  background: var(--badge-warning-bg);
-  color: var(--badge-warning-fg);
-}
-
-.fm-match-event__type--red {
-  background: var(--color-danger);
-  color: #fff;
-}
-
-.fm-match-event__type--corner {
-  background: var(--badge-neutral-bg);
-  color: var(--badge-neutral-fg);
-}
-
-.fm-match-event__type--substitution {
-  background: var(--badge-success-bg);
-  color: var(--badge-success-fg);
-}
+/* Note: an entire dead duplicate "Match Center" block (fm-match-card*, fm-match-stats__item*,
+   fm-live-data-hub__header/__live-indicator/__title, fm-match-event__type--*) lived here from an
+   earlier redesign iteration — none of those classes exist in MatchCenter.tsx. Removed; it was also
+   silently overriding the real dark-theme rules above via cascade order for shared selector names
+   (.fm-match-details-modal, .fm-live-data-hub, .fm-match-stats, .fm-match-events-list, .fm-match-event). */
 
 .fm-transfer-market__actions {
   display: flex;
@@ -4964,6 +4644,31 @@ input:focus-visible {
   background: rgba(255, 255, 255, 0.04);
 }
 
+.fm-save-slot--clickable {
+  cursor: pointer;
+}
+
+.fm-save-slot--clickable:hover {
+  border-color: rgba(61, 123, 245, 0.4);
+  background: rgba(61, 123, 245, 0.06);
+}
+
+.fm-save-slot--clickable:focus-visible {
+  outline: 2px solid var(--l-accent, #3d7bf5);
+  outline-offset: 2px;
+}
+
+.fm-save-slot--clickable:hover .fm-save-slot__empty-icon,
+.fm-save-slot--clickable:focus-visible .fm-save-slot__empty-icon {
+  color: var(--l-accent, #3d7bf5);
+}
+
+.fm-save-slot--clickable:hover .fm-save-slot__btn--create {
+  background: rgba(61, 123, 245, 0.12);
+  border-color: rgba(61, 123, 245, 0.3);
+  color: #cfe0ff;
+}
+
 .fm-save-slot__badge {
   position: absolute;
   top: 14px;
@@ -5138,15 +4843,16 @@ input:focus-visible {
 }
 
 .fm-save-slot__btn--load {
-  background: rgba(130, 200, 100, 0.12);
-  border-color: rgba(130, 200, 100, 0.25);
-  color: oklch(0.82 0.19 130);
+  background: #3fbf6b;
+  border-color: #3fbf6b;
+  color: #08150c;
+  font-weight: 600;
 }
 
 .fm-save-slot__btn--load:hover:not(:disabled) {
-  background: rgba(130, 200, 100, 0.2);
-  border-color: rgba(130, 200, 100, 0.4);
-  color: oklch(0.88 0.20 130);
+  background: #4bd079;
+  border-color: #4bd079;
+  color: #061109;
 }
 
 .fm-save-slot__btn--save {

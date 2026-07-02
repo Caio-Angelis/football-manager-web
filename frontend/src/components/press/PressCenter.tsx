@@ -6,7 +6,12 @@ import type {
   PressConference, PressQuestion, PressResponseTone,
 } from '../../types/game';
 import { RESPONSE_OPTIONS } from '../../types/game';
-import { Globe, Users, ArrowRight } from 'lucide-react';
+import {
+  Globe, Users, Circle, Clock, CheckCircle2, SkipForward, User, Newspaper,
+  Megaphone, TrendingUp, TrendingDown, Minus, Mic,
+} from 'lucide-react';
+import { PageHeader } from '../ui/PageHeader';
+import { STATUS_COLOR } from '../../utils/statusColors';
 
 // ============================================================
 // HELPERS
@@ -19,11 +24,16 @@ const TONE_LABELS: Record<string, string> = {
   provocative: 'Provocativo',
 };
 
-const TONE_ICONS: Record<string, string> = {
-  aggressive: '🔴',
-  neutral: '⚪',
-  friendly: '🟢',
-  provocative: '🟡',
+const TONE_COLORS: Record<string, string> = {
+  aggressive: STATUS_COLOR.red,
+  neutral: STATUS_COLOR.muted,
+  friendly: STATUS_COLOR.green,
+  provocative: STATUS_COLOR.amber,
+};
+
+const ToneDot: React.FC<{ tone: string }> = ({ tone }) => {
+  const color = TONE_COLORS[tone] ?? STATUS_COLOR.muted;
+  return <Circle size={9} fill={color} stroke={color} style={{ verticalAlign: -1 }} />;
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -144,9 +154,9 @@ const PressConferenceCard: React.FC<{
           <span className="fm-press__card-week">Semana {conference.week} · Temporada {conference.season}</span>
         </div>
         <div className="fm-press__card-status">
-          {isPending && <span className="fm-press__status fm-press__status--pending">⏳ Pendente</span>}
-          {isCompleted && <span className="fm-press__status fm-press__status--completed">✅ Concluída</span>}
-          {isSkipped && <span className="fm-press__status fm-press__status--skipped">⏭️ Pulada</span>}
+          {isPending && <span className="fm-press__status fm-press__status--pending"><Clock size={13} /> Pendente</span>}
+          {isCompleted && <span className="fm-press__status fm-press__status--completed"><CheckCircle2 size={13} /> Concluída</span>}
+          {isSkipped && <span className="fm-press__status fm-press__status--skipped"><SkipForward size={13} /> Pulada</span>}
         </div>
       </div>
 
@@ -171,7 +181,7 @@ const PressConferenceCard: React.FC<{
                 <span className="fm-press__question-meta">
                   <span className="fm-press__category-badge">{CATEGORY_LABELS[question.category] ?? question.category}</span>
                   <span className="fm-press__tone-badge" title={TONE_LABELS[question.tone] ?? question.tone}>
-                    {TONE_ICONS[question.tone] ?? '⚪'} {TONE_LABELS[question.tone] ?? question.tone}
+                    <ToneDot tone={question.tone} /> {TONE_LABELS[question.tone] ?? question.tone}
                   </span>
                 </span>
               </div>
@@ -183,7 +193,7 @@ const PressConferenceCard: React.FC<{
                 </div>
                 <p className="fm-press__question-text">"{question.question}"</p>
                 {question.relatedPlayerName && (
-                  <span className="fm-press__related-player">👤 {question.relatedPlayerName}</span>
+                  <span className="fm-press__related-player"><User size={12} /> {question.relatedPlayerName}</span>
                 )}
               </div>
 
@@ -243,7 +253,7 @@ const PressConferenceCard: React.FC<{
 
       {isCompleted && conference.effects && (
         <div className="fm-press__effects">
-          <div className="fm-press__headline">📰 {conference.effects.headline}</div>
+          <div className="fm-press__headline"><Newspaper size={14} /> {conference.effects.headline}</div>
           <div className="fm-press__effects-grid">
             <div className={`fm-press__effect ${conference.effects.moraleChange >= 0 ? 'fm-press__effect--positive' : 'fm-press__effect--negative'}`}>
               <span className="fm-press__effect-label">Moral</span>
@@ -275,7 +285,7 @@ const PressConferenceCard: React.FC<{
 export const PressCenter: React.FC = () => {
   const {
     pressConferences, fanMood, mediaPressure,
-    matches, selectedTeam, teams, currentWeek, currentSeason, advanceWeek, isAdvancing,
+    matches, selectedTeam, teams,
     generatePreMatchPressConference, generatePostMatchPressConference,
   } = useGameStore();
   const navigate = useNavigate();
@@ -319,34 +329,23 @@ export const PressCenter: React.FC = () => {
 
   return (
     <div className="fms-page">
-      <header className="fms-topbar">
-        <div className="fms-topbar__left">
-          <div className="fms-club-logo">{(userTeam?.name ?? '?').charAt(0)}</div>
-          <div className="fms-title-block">
-            <span className="fms-title">Centro de Imprensa</span>
-            <span className="fms-subtitle">{userTeam?.name ?? '—'}</span>
-          </div>
-        </div>
-        <div className="fms-topbar__right">
-          <button className="fms-icon-btn" title="Visão do Clube" onClick={() => navigate('/clube')}><Globe size={15} /></button>
-          <button className="fms-icon-btn" title="Elenco" onClick={() => navigate('/elenco')}><Users size={15} /></button>
-          <div className="fms-date">
-            <div className="fms-date__main">Temporada {currentSeason}</div>
-            <div className="fms-date__sub">Semana {currentWeek}</div>
-          </div>
-          <button className="fms-continue" onClick={advanceWeek} disabled={isAdvancing}>
-            {isAdvancing ? 'Processando...' : 'Continuar'}
-            <ArrowRight size={15} />
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        title="Centro de Imprensa"
+        subtitle={userTeam?.name ?? '—'}
+        teamName={userTeam?.name}
+        teamReputation={userTeam?.reputation}
+        actions={[
+          { icon: <Globe size={15} />, title: 'Visão do Clube', onClick: () => navigate('/clube') },
+          { icon: <Users size={15} />, title: 'Elenco', onClick: () => navigate('/elenco') },
+        ]}
+      />
 
       <div className="fms-body--scroll">
 
       {/* Painel de Sentimento */}
       <div className="fm-press__dashboard">
         <div className="fm-press__dashboard-card">
-          <h3 className="fm-press__dashboard-title">📣 Humor da Torcida</h3>
+          <h3 className="fm-press__dashboard-title"><Megaphone size={15} /> Humor da Torcida</h3>
           <SentimentBar
             label="Sentimento"
             value={fanMood?.value ?? 50}
@@ -357,13 +356,13 @@ export const PressCenter: React.FC = () => {
           <div className="fm-press__trend">
             Tendência:{' '}
             <span className={`fm-press__trend-badge fm-press__trend--${fanMood?.trend ?? 'stable'}`}>
-              {fanMood?.trend === 'rising' ? '📈 Subindo' : fanMood?.trend === 'falling' ? '📉 Caindo' : '➡️ Estável'}
+              {fanMood?.trend === 'rising' ? <><TrendingUp size={13} /> Subindo</> : fanMood?.trend === 'falling' ? <><TrendingDown size={13} /> Caindo</> : <><Minus size={13} /> Estável</>}
             </span>
           </div>
         </div>
 
         <div className="fm-press__dashboard-card">
-          <h3 className="fm-press__dashboard-title">📰 Pressão Midiática</h3>
+          <h3 className="fm-press__dashboard-title"><Newspaper size={15} /> Pressão Midiática</h3>
           <SentimentBar
             label="Pressão"
             value={mediaPressure?.value ?? 30}
@@ -388,7 +387,7 @@ export const PressCenter: React.FC = () => {
             disabled={hasPendingConference}
             className="fm-press__action-btn"
           >
-            🎤 Coletiva Pré-Jogo
+            <Mic size={15} /> Coletiva Pré-Jogo
           </Button>
         )}
         {lastCompletedMatchIdx >= 0 && (
@@ -398,7 +397,7 @@ export const PressCenter: React.FC = () => {
             disabled={hasPendingConference}
             className="fm-press__action-btn"
           >
-            🎙️ Coletiva Pós-Jogo
+            <Mic size={15} /> Coletiva Pós-Jogo
           </Button>
         )}
         {hasPendingConference && (

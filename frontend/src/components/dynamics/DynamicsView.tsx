@@ -4,7 +4,8 @@ import { useGameStore } from '../../store/gameStore';
 import type { Player } from '../../types/game';
 import { getFullName } from '../../utils/player';
 import { useSortable } from '../../hooks/useSortable';
-import { Globe, Users, ArrowRight } from 'lucide-react';
+import { Globe, Users } from 'lucide-react';
+import { PageHeader } from '../ui/PageHeader';
 
 type DynamicsSortKey = 'name' | 'playingTime' | 'contract' | 'morale' | 'performance' | 'squadStatus' | 'coachTreatment' | 'trustLevel';
 
@@ -62,7 +63,7 @@ function getInfluenceColor(influence: number): string {
 }
 
 export const DynamicsView: React.FC = () => {
-  const { selectedTeam, teams, currentWeek, currentSeason, advanceWeek, isAdvancing, socialTree, generateSocialTree, getActivePromises } = useGameStore();
+  const { selectedTeam, teams, socialTree, generateSocialTree, getActivePromises } = useGameStore();
   const navigate = useNavigate();
   const team = teams.find(t => t.id === selectedTeam);
 
@@ -111,27 +112,16 @@ export const DynamicsView: React.FC = () => {
 
   return (
     <div className="fms-page">
-      <header className="fms-topbar">
-        <div className="fms-topbar__left">
-          <div className="fms-club-logo">{(team.name ?? '?').charAt(0)}</div>
-          <div className="fms-title-block">
-            <span className="fms-title">Dinâmica do Plantel</span>
-            <span className="fms-subtitle">{team.name}</span>
-          </div>
-        </div>
-        <div className="fms-topbar__right">
-          <button className="fms-icon-btn" title="Visão do Clube" onClick={() => navigate('/clube')}><Globe size={15} /></button>
-          <button className="fms-icon-btn" title="Elenco" onClick={() => navigate('/elenco')}><Users size={15} /></button>
-          <div className="fms-date">
-            <div className="fms-date__main">Temporada {currentSeason}</div>
-            <div className="fms-date__sub">Semana {currentWeek}</div>
-          </div>
-          <button className="fms-continue" onClick={advanceWeek} disabled={isAdvancing}>
-            {isAdvancing ? 'Processando...' : 'Continuar'}
-            <ArrowRight size={15} />
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        title="Dinâmica do Plantel"
+        subtitle={team.name}
+        teamName={team.name}
+        teamReputation={team.reputation}
+        actions={[
+          { icon: <Globe size={15} />, title: 'Visão do Clube', onClick: () => navigate('/clube') },
+          { icon: <Users size={15} />, title: 'Elenco', onClick: () => navigate('/elenco') },
+        ]}
+      />
 
       <div className="fms-body--scroll">
 

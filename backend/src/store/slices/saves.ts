@@ -1,6 +1,7 @@
 import type { GameStore, SaveSlot } from '../../types/game';
 import { persistSave, loadSaveFromDisk, deleteSaveFromDisk } from '../../services/saveService';
 import { useGameStore } from '../gameStore';
+import { healTeamsXI } from '../../utils/lineup';
 
 type Set = (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void;
 type Get = () => GameStore;
@@ -65,6 +66,7 @@ export const createSavesSlice = (set: Set, get: Get) => ({
         fanMood: state.fanMood,
         mediaPressure: state.mediaPressure,
         isAdvancing: false,
+        matchBlockMessage: null,
       },
     };
 
@@ -92,7 +94,7 @@ export const createSavesSlice = (set: Set, get: Get) => ({
       currentWeek: gameState.currentWeek,
       currentSeason: gameState.currentSeason,
       matches: gameState.matches,
-      teams: gameState.teams,
+      teams: healTeamsXI(gameState.teams),
       transfers: gameState.transfers,
       incomingTransfers: gameState.incomingTransfers,
       counterOffers: gameState.counterOffers,

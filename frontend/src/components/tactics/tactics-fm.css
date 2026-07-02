@@ -3,23 +3,9 @@
    Scoped under .fm-tactics-fm
    ============================================================ */
 
+/* --t-* tokens come from the shared .fms-page scope (fm-shared.css) — this view
+   also carries that class so it stays on the one canonical dark palette. */
 .fm-tactics-fm {
-  --t-bg: #14161c;
-  --t-panel: #1b1e26;
-  --t-panel-2: #20242e;
-  --t-row: #1d212a;
-  --t-row-alt: #191c24;
-  --t-border: rgba(255, 255, 255, 0.06);
-  --t-border-strong: rgba(255, 255, 255, 0.12);
-  --t-text: #e8eaf0;
-  --t-text-2: #9aa0ad;
-  --t-text-3: #6b7080;
-  --t-accent: #3d7bf5;
-  --t-purple: #6d5ef0;
-  --t-green: #3fbf6b;
-  --t-amber: #e0b341;
-  --t-red: #e25c52;
-
   position: absolute;
   inset: 0;
   display: flex;
@@ -35,59 +21,15 @@
 .fm-main__content { position: relative; }
 
 /* ===================== TOP BAR ===================== */
-.fmt-topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 20px;
-  background: var(--t-panel);
-  border-bottom: 1px solid var(--t-border);
-  flex-shrink: 0;
-}
-
-.fmt-topbar__left { display: flex; align-items: center; gap: 14px; }
-
-.fmt-club-logo {
-  width: 36px; height: 36px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  background: radial-gradient(circle at 30% 30%, #2a3550, #131722);
-  border: 1px solid var(--t-border-strong);
-  color: #cfd6e6; font-weight: 800; font-size: 16px;
-}
-
-.fmt-title-block { display: flex; flex-direction: column; gap: 2px; }
-.fmt-title { font-size: 18px; font-weight: 700; line-height: 1; }
-.fmt-subtitle { font-size: 12px; color: var(--t-text-2); }
-
+/* Topbar chrome itself now comes from the shared <PageHeader> (fms-topbar/fms-icon-btn/
+   fms-club-logo in fm-shared.css) — only Tactics' own formation-cycle arrows live here. */
 .fmt-navarrows { display: flex; flex-direction: column; gap: 2px; margin-left: 4px; }
 .fmt-navarrows button {
-  width: 18px; height: 14px; border: none; background: none;
+  width: 28px; height: 22px; border: none; background: none;
   color: var(--t-text-3); cursor: pointer; line-height: 1; font-size: 10px;
+  display: flex; align-items: center; justify-content: center;
 }
 .fmt-navarrows button:hover { color: var(--t-text); }
-
-.fmt-topbar__right { display: flex; align-items: center; gap: 16px; }
-
-.fmt-icon-btn {
-  width: 30px; height: 30px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  background: transparent; border: 1px solid var(--t-border);
-  color: var(--t-text-2); cursor: pointer; transition: all .15s;
-}
-.fmt-icon-btn:hover { color: var(--t-text); border-color: var(--t-border-strong); }
-
-.fmt-date { text-align: right; line-height: 1.25; }
-.fmt-date__main { font-size: 13px; font-weight: 600; }
-.fmt-date__sub { font-size: 11px; color: var(--t-text-2); }
-
-.fmt-continue {
-  display: flex; align-items: center; gap: 8px;
-  padding: 9px 18px; border-radius: 8px; border: none;
-  background: var(--t-accent); color: #fff; font-weight: 600; font-size: 13px;
-  cursor: pointer; transition: filter .15s;
-}
-.fmt-continue:hover { filter: brightness(1.1); }
-.fmt-continue:disabled { opacity: .6; cursor: default; }
 
 /* ===================== SUB TABS ===================== */
 .fmt-subtabs {
@@ -165,10 +107,14 @@
   transform: translate(-50%, -50%);
   display: flex; flex-direction: column; align-items: center; gap: 3px;
   width: 76px; cursor: grab; user-select: none;
+  background: none; border: none; padding: 4px; border-radius: 8px;
+  font-family: inherit;
 }
 .fmt-marker--dragging { z-index: 50; cursor: grabbing; }
 .fmt-marker--drop-target { z-index: 49; }
 .fmt-marker--drop-target .fmt-marker__shirt { color: var(--t-accent); filter: drop-shadow(0 0 6px var(--t-accent)); }
+.fmt-marker--selected { background: rgba(61, 123, 245, 0.15); box-shadow: 0 0 0 2px var(--t-accent); }
+.fmt-marker--selected .fmt-marker__shirt { color: var(--t-accent); }
 .fmt-marker__role { font-size: 10px; font-weight: 700; white-space: nowrap; }
 .fmt-marker__role--gk, .fmt-marker__role--def { color: var(--t-green); }
 .fmt-marker__role--mid { color: var(--t-amber); }
@@ -205,8 +151,10 @@
 .fmt-bench-item {
   display: flex; flex-direction: column; align-items: center; gap: 3px;
   cursor: pointer; opacity: .7; transition: opacity .15s;
+  background: none; border: none; padding: 2px; font-family: inherit;
 }
 .fmt-bench-item:hover { opacity: 1; }
+.fmt-bench-item:disabled { cursor: default; opacity: .5; }
 .fmt-bench-item--dragging { opacity: .4; cursor: grabbing; }
 .fmt-bench-item--drop-target { opacity: 1; }
 .fmt-bench-item--drop-target .fmt-bench-item__shirt { color: var(--t-accent); filter: drop-shadow(0 0 4px var(--t-accent)); }
@@ -290,12 +238,25 @@
 
 .fmt-dash { color: var(--t-text-3); }
 
+/* Morale — colored dot plus an always-visible number, so it isn't color-only */
+.fmt-morale { display: inline-flex; align-items: center; gap: 5px; }
+.fmt-morale__dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
 /* Empty filler rows */
 .fmt-table tr.fmt-empty-row td { color: var(--t-text-3); }
 .fmt-table-bench-row { cursor: grab; }
 .fmt-table-bench-row:active { cursor: grabbing; }
 .fmt-table-bench-row--dragging { opacity: .4; }
 .fmt-table-bench-row:hover { background: var(--t-panel-2) !important; }
+.fmt-table-bench-row:focus-visible { outline: 2px solid var(--t-accent); outline-offset: -2px; }
+
+/* Click-to-place hint (keyboard/click alternative to drag-and-drop) */
+.fmt-select-hint {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; margin-bottom: 12px; border-radius: 6px;
+  background: rgba(61, 123, 245, 0.12); border: 1px solid var(--t-accent);
+  color: var(--t-text); font-size: 11px;
+}
 
 /* ===================== EDIT TACTIC PANEL ===================== */
 .fmt-edit-panel {
@@ -378,3 +339,22 @@
 }
 .fmt-sp-select:hover { border-color: var(--t-border-strong); }
 .fmt-sp-select:focus { outline: none; border-color: var(--t-accent); }
+
+/* ===================== RESPONSIVE ===================== */
+@media (max-width: 1024px) {
+  .fmt-body {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr;
+    overflow-y: auto;
+  }
+  .fmt-pitch-panel { border-right: none; border-bottom: 1px solid var(--t-border); }
+  .fmt-bench {
+    flex-direction: row; flex-wrap: nowrap;
+    overflow-x: auto; overflow-y: hidden;
+    border-right: none; border-bottom: 1px solid var(--t-border);
+    padding: 10px 12px;
+  }
+  .fmt-table-panel { min-height: 420px; }
+  .fmt-setpieces { grid-template-columns: 1fr; }
+  .fmt-sp-section:first-child { border-right: none; border-bottom: 1px solid var(--t-border); }
+}

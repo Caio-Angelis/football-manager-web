@@ -1810,6 +1810,8 @@ export function initLiveMatchState(homeTeam: Team, awayTeam: Team): LiveMatchSta
     events: [],
     actions: [],
     goalDetails: [],
+    cards: {},
+    sentOff: { home: [], away: [] },
   };
 }
 
@@ -1855,10 +1857,59 @@ export function simulateMinute(
     }
   }
 
+  // Efeito de expulsões: time com menos jogadores cria menos e sofre mais
+  const homeDown = state.sentOff?.home.length ?? 0;
+  const awayDown = state.sentOff?.away.length ?? 0;
+  const attDown = side === 'home' ? homeDown : awayDown;
+  const defDown = side === 'home' ? awayDown : homeDown;
+  if (attDown > 0 || defDown > 0) {
+    shotChance = clamp(shotChance * (1 - attDown * 0.12) * (1 + defDown * 0.14), 0.005, 0.5);
+    dribbleChance = clamp(dribbleChance * (1 - attDown * 0.08), 0.02, 0.5);
+    pressure = clamp(pressure * (1 + attDown * 0.06) * (1 - defDown * 0.05), 0.1, 0.95);
+  }
+
   const roll = Math.random();
   const newActions: MatchAction[] = [];
   const newEvents: MatchEvent[] = [];
   const newState: LiveMatchState = { ...state, pressure };
+
+  // Books a foul: yellow accumulates (2nd = red), plus a small straight-red chance.
+  // Realistic per-foul odds — card cadence comes from foul volume, not inflated odds.
+  const bookOffender = (offender: Player, foulSide: 'home' | 'away', teamName: string) => {
+    const cards = { ...(newState.cards ?? {}) };
+    const sentOff = {
+      home: [...(newState.sentOff?.home ?? [])],
+      away: [...(newState.sentOff?.away ?? [])],
+    };
+    if (sentOff[foulSide].includes(offender.id)) return;
+    const cardRoll = Math.random();
+    if (cardRoll < 0.012) {
+      sentOff[foulSide].push(offender.id);
+      newEvents.push({ minute, type: 'red', team: foulSide, player: offender.name, description: `VERMELHO direto para ${offender.name}! ${teamName} com um a menos` });
+    } else if (cardRoll < 0.22) {
+      const yc = (cards[offender.id] ?? 0) + 1;
+      cards[offender.id] = yc;
+      if (yc >= 2) {
+        sentOff[foulSide].push(offender.id);
+        newEvents.push({ minute, type: 'red', team: foulSide, player: offender.name, description: `Segundo amarelo — ${offender.name} está expulso! ${teamName} com um a menos` });
+      } else {
+        newEvents.push({ minute, type: 'yellow', team: foulSide, player: offender.name, description: `Cartão amarelo para ${offender.name}` });
+      }
+    }
+    newState.cards = cards;
+    newState.sentOff = sentOff;
+  };
+
+  // Faltas esparsas ao longo do minuto (fora das disputas de drible), para dar
+  // volume realista de cartões. Só emite evento quando há cartão.
+  if (Math.random() < 0.12) {
+    const foulSide2: 'home' | 'away' = Math.random() < 0.5 ? 'home' : 'away';
+    const team2 = foulSide2 === 'home' ? homeTeam : awayTeam;
+    const outfield = startingXI(team2).filter(p => p.position !== 'GK');
+    if (outfield.length > 0) {
+      bookOffender(outfield[Math.floor(Math.random() * outfield.length)], foulSide2, team2.name);
+    }
+  }
 
   // Acumula passes para stats
   let homePasses = state.stats.homePasses;
@@ -2004,16 +2055,8 @@ export function simulateMinute(
           player: defender.name,
           description: `Falta de ${defender.name} em ${holder.name}`,
         });
-        // Cartão amarelo ocasional
-        if (Math.random() < 0.15) {
-          newEvents.push({
-            minute,
-            type: 'yellow',
-            team: side === 'home' ? 'away' : 'home',
-            player: defender.name,
-            description: `Cartão amarelo para ${defender.name}`,
-          });
-        }
+        // Cartão pela falta no drible (amarelo acumula, 2º = vermelho)
+        bookOffender(defender, side === 'home' ? 'away' : 'home', defendingTeam.name);
         // Verifica se a falta é em posição perigosa
         if (attackProgress > 0.9 && Math.random() < 0.08) {
           // Pênalti!

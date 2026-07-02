@@ -6,7 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import type { Player, PlayerAttribute, GKAttributes, HiddenAttributes, Team } from '../types/game';
 import { createDefaultTacticsConfig } from './playerGenerator';
-import { calculateMarketValue, calculatePlayerSalary, calculateTeamBudget, calculateTransferBudget } from '../store/helpers/finance';
+import { calculateMarketValue, calculatePlayerSalary, calculateTeamBudget } from '../store/helpers/finance';
 
 // ============================================================
 // TIPOS DA DATABASE JSON
@@ -289,7 +289,7 @@ function convertPlayer(json: JsonPlayer, teamId: string, index: number): Player 
     marketValue,
     salary,
     contractEnd: 52 + Math.floor(Math.random() * 156),
-    contractClause: marketValue * 2,
+    contractClause: parseFloat((marketValue * 1.5).toFixed(1)),
     morale: 70 + Math.floor(Math.random() * 30),
     form: 60 + Math.floor(Math.random() * 40),
     fitness: 80 + Math.floor(Math.random() * 20),
@@ -370,7 +370,6 @@ function convertTeam(json: JsonTeam, teamId: string): Team {
     highLine: false,
     aggressiveTackling: false,
     boardExpectation: 'midtable',
-    transferBudget: calculateTransferBudget(budget),
     staffLevel: Math.floor(reputation / 10),
     scouts: [],
     boardPromises: [],

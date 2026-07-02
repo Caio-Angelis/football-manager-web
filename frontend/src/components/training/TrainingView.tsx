@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../../store/gameStore';
 import { Button } from '../ui/Button';
 import type { TrainingSession, WeeklyTrainingPlan } from '../../types/game';
-import { Globe, Users, ArrowRight } from 'lucide-react';
+import { Globe, Users } from 'lucide-react';
+import { PageHeader } from '../ui/PageHeader';
+import { getInverseRatingColor, getRatingColor } from '../../utils/statusColors';
 
 const TRAINING_TYPES = [
   { id: 'physical', label: 'Físico', desc: 'Velocidade e resistência (+risco de lesão)', icon: '🏃' },
@@ -98,7 +100,7 @@ function generateWeeklySchedule(focus: string): TrainingSession[] {
 }
 
 export const TrainingView: React.FC = () => {
-  const { selectedTeam, teams, currentWeek, currentSeason, advanceWeek, isAdvancing, trainingPlan, setTrainingPlan, applyWeeklyTraining, calculateInjuryRisk, schedulePreventionSession, getInjuryRiskSummary, applyPreventionSession, captureWeeklyAttributeSnapshot } = useGameStore();
+  const { selectedTeam, teams, currentWeek, trainingPlan, setTrainingPlan, applyWeeklyTraining, calculateInjuryRisk, schedulePreventionSession, getInjuryRiskSummary, applyPreventionSession, captureWeeklyAttributeSnapshot } = useGameStore();
   const navigate = useNavigate();
   const team = teams.find(t => t.id === selectedTeam);
   const [teamFocus, setTeamFocus] = useState(trainingPlan?.teamFocus ?? 'technical');
@@ -138,12 +140,7 @@ export const TrainingView: React.FC = () => {
     setTrainingPlan(plan);
   };
 
-  const getRiskColor = (risk: number) => {
-    if (risk >= 80) return '#F44336'; // critical - red
-    if (risk >= 60) return '#FF9800'; // high - orange
-    if (risk >= 30) return '#FFC107'; // moderate - yellow
-    return '#4CAF50'; // low - green
-  };
+  const getRiskColor = (risk: number) => getInverseRatingColor(risk, { high: 60, medium: 30 });
 
   const getRiskLabel = (risk: number) => {
     if (risk >= 80) return 'Crítico';
@@ -156,27 +153,16 @@ export const TrainingView: React.FC = () => {
 
   return (
     <div className="fms-page">
-      <header className="fms-topbar">
-        <div className="fms-topbar__left">
-          <div className="fms-club-logo">{(team?.name ?? '?').charAt(0)}</div>
-          <div className="fms-title-block">
-            <span className="fms-title">Treino</span>
-            <span className="fms-subtitle">Semana {currentWeek} — {team?.name ?? '—'}</span>
-          </div>
-        </div>
-        <div className="fms-topbar__right">
-          <button className="fms-icon-btn" title="Visão do Clube" onClick={() => navigate('/clube')}><Globe size={15} /></button>
-          <button className="fms-icon-btn" title="Elenco" onClick={() => navigate('/elenco')}><Users size={15} /></button>
-          <div className="fms-date">
-            <div className="fms-date__main">Temporada {currentSeason}</div>
-            <div className="fms-date__sub">Semana {currentWeek}</div>
-          </div>
-          <button className="fms-continue" onClick={advanceWeek} disabled={isAdvancing}>
-            {isAdvancing ? 'Processando...' : 'Continuar'}
-            <ArrowRight size={15} />
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        title="Treino"
+        subtitle={`Semana ${currentWeek} — ${team?.name ?? '—'}`}
+        teamName={team?.name}
+        teamReputation={team?.reputation}
+        actions={[
+          { icon: <Globe size={15} />, title: 'Visão do Clube', onClick: () => navigate('/clube') },
+          { icon: <Users size={15} />, title: 'Elenco', onClick: () => navigate('/elenco') },
+        ]}
+      />
 
       <div className="fms-body--scroll">
 
@@ -295,7 +281,7 @@ export const TrainingView: React.FC = () => {
                     className="fm-fatigue-card__fill"
                     style={{
                       width: `${player.fitness}%`,
-                      backgroundColor: player.fitness >= 70 ? '#4CAF50' : player.fitness >= 40 ? '#FFC107' : '#F44336',
+                      backgroundColor: getRatingColor(player.fitness, { high: 70, medium: 40 }),
                     }}
                   />
                 </div>

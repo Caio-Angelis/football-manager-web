@@ -7,17 +7,18 @@ import {
   calculateSponsorshipRevenue,
   calculateBroadcastingRevenue,
   calculateFacilityCosts,
+  calculateStaffCosts,
   weeklyWages,
 } from '../../utils/finance';
-import {
-  AreaChart, Area, ResponsiveContainer, XAxis, Tooltip,
-} from 'recharts';
+import { MiniAreaChart } from '../charts/MiniAreaChart';
 import {
   Users, Calendar, BarChart3, ArrowLeftRight, ClipboardList,
   Dumbbell, Activity, Inbox, Wallet,
   ArrowRight, TrendingUp, TrendingDown, Minus, AlertTriangle,
   Trophy, Heart, Zap, Target, Shield, Footprints,
 } from 'lucide-react';
+import { PageHeader } from '../ui/PageHeader';
+import { TeamCrest } from '../ui/TeamCrest';
 
 const FORM_LABELS: Record<string, string> = { W: 'V', D: 'E', L: 'D' };
 const FORM_COLORS: Record<string, string> = { W: '#3fbf6b', D: '#e0b341', L: '#e25c52' };
@@ -92,7 +93,7 @@ function StatBar({ label, homeValue, awayValue, homeLabel, awayLabel }: {
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const {
-    selectedTeam, teams, matches, leagueTable, currentWeek, currentSeason,
+    selectedTeam, teams, matches, leagueTable, currentWeek,
     advanceWeek, isAdvancing, inbox, fanMood, boardSatisfaction,
   } = useGameStore();
 
@@ -114,9 +115,10 @@ export const Dashboard: React.FC = () => {
     const sponsorRev = calculateSponsorshipRevenue(team.reputation);
     const broadcastRev = calculateBroadcastingRevenue(team.reputation);
     const facilityCosts = calculateFacilityCosts(team.facilitiesLevel);
+    const staffCosts = calculateStaffCosts(team.staffLevel);
     const wageCost = weeklyWages(team.wageBill);
     const weeklyIncome = ticketRev + sponsorRev + broadcastRev;
-    const weeklyExpenses = wageCost + facilityCosts;
+    const weeklyExpenses = wageCost + facilityCosts + staffCosts;
     const weeklyBalance = weeklyIncome - weeklyExpenses;
 
     const projection = Array.from({ length: 8 }, (_, i) => ({
@@ -182,25 +184,12 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="fms-page">
-      <header className="fms-topbar">
-        <div className="fms-topbar__left">
-          <div className="fms-club-logo">{team.name.charAt(0)}</div>
-          <div className="fms-title-block">
-            <span className="fms-title">Dashboard</span>
-            <span className="fms-subtitle">{team.name} — {team.division}</span>
-          </div>
-        </div>
-        <div className="fms-topbar__right">
-          <div className="fms-date">
-            <div className="fms-date__main">Temporada {currentSeason}</div>
-            <div className="fms-date__sub">Semana {currentWeek}</div>
-          </div>
-          <button className="fms-continue" onClick={advanceWeek} disabled={isAdvancing}>
-            {isAdvancing ? 'Processando...' : 'Continuar'}
-            <ArrowRight size={15} />
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        title="Dashboard"
+        subtitle={`${team.name} — ${team.division}`}
+        teamName={team.name}
+        teamReputation={team.reputation}
+      />
 
       <div className="fms-body--scroll fm-dash">
         {/* ===== ROW 1: Hero + Next Match + Quick Actions ===== */}
@@ -209,7 +198,7 @@ export const Dashboard: React.FC = () => {
           <div className="fm-dash__card fm-dash__hero">
             <div className="fm-dash__hero-top">
               <div className="fm-dash__hero-crest" style={{ borderColor: ZONE_COLORS[userStandings?.zone ?? 'safe'] }}>
-                {team.name.charAt(0)}
+                <TeamCrest name={team.name} reputation={team.reputation} size={34} />
               </div>
               <div className="fm-dash__hero-info">
                 <h2 className="fm-dash__hero-name">{team.name}</h2>
@@ -376,27 +365,14 @@ export const Dashboard: React.FC = () => {
               </div>
             </div>
             <div className="fm-dash__finance-chart">
-              <ResponsiveContainer width="100%" height={80}>
-                <AreaChart data={projection} margin={{ top: 5, right: 5, bottom: 0, left: 0 }}>
-                  <defs>
-                    <linearGradient id="dashFinanceGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={weeklyBalance >= 0 ? '#3fbf6b' : '#e25c52'} stopOpacity={0.4} />
-                      <stop offset="100%" stopColor={weeklyBalance >= 0 ? '#3fbf6b' : '#e25c52'} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="week" tick={{ fill: '#6b7080', fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <Tooltip
-                    contentStyle={{ background: '#1b1e26', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, fontSize: 12 }}
-                    labelStyle={{ color: '#9aa0ad' }}
-                    labelFormatter={(w) => `Semana ${w}`}
-                    formatter={(v: any) => [`R$ ${v}M`, 'Orçamento']}
-                  />
-                  <Area
-                    type="monotone" dataKey="budget" stroke={weeklyBalance >= 0 ? '#3fbf6b' : '#e25c52'}
-                    strokeWidth={2} fill="url(#dashFinanceGrad)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              <MiniAreaChart
+                data={projection}
+                xKey="week"
+                yKey="budget"
+                color={weeklyBalance >= 0 ? '#3fbf6b' : '#e25c52'}
+                labelFormatter={(w) => `Semana ${w}`}
+                valueFormatter={(v) => `R$ ${v}M`}
+              />
             </div>
             <div className="fm-dash__finance-detail">
               <span>Receitas: R$ {weeklyIncome.toFixed(2)}M/sem</span>

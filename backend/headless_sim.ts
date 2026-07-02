@@ -6,7 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { useGameStore } from './src/store/gameStore';
 import { updatePlayerAttributes } from './src/store/helpers/training';
-import { calculateTicketRevenue, calculateSponsorshipRevenue, calculateFacilityCosts, weeklyWages } from './src/store/helpers/finance';
+import { calculateTicketRevenue, calculateSponsorshipRevenue, calculateFacilityCosts, calculateStaffCosts, weeklyWages } from './src/store/helpers/finance';
 import type { Team } from './src/types/game';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -85,10 +85,11 @@ function applyFinancesToAllTeams(teams: Team[]): Team[] {
     const ticketRevenue = calculateTicketRevenue(team.reputation);
     const sponsorship = calculateSponsorshipRevenue(team.reputation);
     const facilityCosts = calculateFacilityCosts(team.facilitiesLevel);
+    const staffCosts = calculateStaffCosts(team.staffLevel);
     const wageCost = weeklyWages(team.wageBill);
     return {
       ...team,
-      budget: Math.max(0, team.budget + ticketRevenue + sponsorship - wageCost - facilityCosts),
+      budget: Math.max(-50, team.budget + ticketRevenue + sponsorship - wageCost - facilityCosts - staffCosts),
     };
   });
 }

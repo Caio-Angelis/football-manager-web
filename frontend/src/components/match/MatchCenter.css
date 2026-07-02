@@ -1,0 +1,170 @@
+/* ============================================================
+   MATCH CENTER REDESIGN (match-day layout, fixtures, narration)
+   ============================================================ */
+
+.fm-section-title {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--t-text);
+  margin: 26px 0 12px;
+}
+
+.fm-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: 1px solid var(--t-border-strong);
+  color: var(--t-text);
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--motion-normal), background var(--motion-normal), color var(--motion-normal);
+}
+.fm-btn-ghost:hover { border-color: var(--t-accent); background: rgba(61, 123, 245, 0.1); }
+.fm-btn-ghost--sm { padding: 5px 11px; font-size: 0.8rem; }
+
+/* --- Match-day hero --- */
+.fm-matchday {
+  background: linear-gradient(160deg, var(--t-panel-2), var(--t-panel));
+  border: 1px solid var(--t-border-strong);
+  border-radius: 16px;
+  padding: 20px 24px;
+  margin-bottom: 8px;
+}
+.fm-matchday--live { border-color: rgba(226, 92, 82, 0.4); box-shadow: inset 0 0 0 1px rgba(226, 92, 82, 0.2); }
+.fm-matchday__top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+.fm-matchday__tag {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--t-accent);
+}
+.fm-matchday--live .fm-matchday__tag { color: var(--t-red); }
+.fm-matchday__venue { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--t-text-3); }
+.fm-matchday__teams { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; }
+.fm-matchday__team { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.fm-matchday__team--away { flex-direction: row-reverse; }
+.fm-matchday__team-meta { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.fm-matchday__team--away .fm-matchday__team-meta { align-items: flex-end; }
+.fm-matchday__team-name {
+  font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; text-transform: uppercase;
+  color: var(--t-text); line-height: 1.05; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px;
+}
+.fm-matchday__team-pos { font-size: 11px; color: var(--t-text-2); text-transform: uppercase; letter-spacing: 0.03em; }
+.fm-matchday__center { text-align: center; padding: 0 8px; }
+.fm-matchday__vs { font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; color: var(--t-text-3); }
+.fm-matchday__score { font-family: var(--font-display); font-size: 2.6rem; font-weight: 800; color: var(--t-text); display: flex; align-items: center; gap: 10px; line-height: 1; }
+.fm-matchday__score span { color: var(--t-text-3); font-size: 1.4rem; }
+.fm-matchday__actions { display: flex; gap: 12px; justify-content: center; margin-top: 20px; flex-wrap: wrap; }
+
+/* --- Form dots --- */
+.fm-form-dots { display: inline-flex; gap: 4px; }
+.fm-form-dots--empty { font-size: 10px; color: var(--t-text-3); }
+.fm-form-dot {
+  width: 16px; height: 16px; border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 700; color: #fff;
+}
+.fm-form-dot--w { background: var(--t-green); }
+.fm-form-dot--d { background: #6b7080; }
+.fm-form-dot--l { background: var(--t-red); }
+
+/* --- Round fixtures grid --- */
+.fm-fixtures-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; margin-bottom: 8px; }
+.fm-fixture {
+  text-align: left; background: var(--t-panel); border: 1px solid var(--t-border);
+  border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;
+  font: inherit; color: inherit; cursor: default;
+  transition: border-color var(--motion-normal), transform var(--motion-normal);
+}
+.fm-fixture--done { cursor: pointer; }
+.fm-fixture--done:hover { border-color: var(--t-accent); transform: translateY(-2px); }
+.fm-fixture__status { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--t-text-3); }
+.fm-fixture__status--live { color: var(--t-red); }
+.fm-fixture__row { display: flex; align-items: center; gap: 9px; }
+.fm-fixture__name { flex: 1; font-size: 0.9rem; font-weight: 600; color: var(--t-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fm-fixture__score { font-family: var(--font-display); font-size: 1.1rem; font-weight: 800; color: var(--t-text); min-width: 16px; text-align: right; }
+.fm-fixture__row--win .fm-fixture__score { color: var(--t-green); }
+
+/* --- Commentary feed --- */
+.fm-commentary { background: var(--t-panel); border: 1px solid var(--t-border); border-radius: 12px; padding: 14px 16px; margin-top: 16px; }
+.fm-commentary__title { display: flex; align-items: center; gap: 8px; font-family: var(--font-display); font-size: 0.95rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--t-text); margin: 0 0 12px; }
+.fm-commentary__live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--t-red); animation: fm-pulse 1.5s ease-in-out infinite; }
+.fm-commentary__feed { display: flex; flex-direction: column; gap: 3px; max-height: 300px; overflow-y: auto; }
+.fm-commentary__empty { font-size: 0.85rem; color: var(--t-text-3); padding: 8px 0; }
+.fm-commentary__line { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; }
+.fm-commentary__line--home { background: rgba(61, 123, 245, 0.07); }
+.fm-commentary__line--away { background: rgba(226, 92, 82, 0.07); }
+.fm-commentary__line--goal { background: rgba(63, 191, 107, 0.13); }
+.fm-commentary__line--red { background: rgba(226, 92, 82, 0.18); }
+.fm-commentary__min { font-family: var(--font-display); font-size: 0.8rem; font-weight: 700; color: var(--t-text-2); min-width: 26px; }
+.fm-commentary__icon { display: flex; color: var(--t-text-2); }
+.fm-commentary__line--goal .fm-commentary__icon { color: var(--t-green); }
+.fm-commentary__text { font-size: 0.85rem; color: var(--t-text); }
+.fm-commentary__line--goal .fm-commentary__text { font-weight: 700; }
+
+/* --- Compact mini standings --- */
+.fm-mini-standings__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.fm-mini-standings { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.fm-mini-standings thead th { text-align: center; padding: 8px 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--t-text-3); border-bottom: 1px solid var(--t-border); }
+.fm-mini-standings thead th:nth-child(-n+2) { text-align: left; }
+.fm-mini-standings tbody td { padding: 8px 10px; border-bottom: 1px solid var(--t-border); color: var(--t-text-2); text-align: center; }
+.fm-mini-standings tbody td:nth-child(2) { text-align: left; }
+.fm-mini-standings__name { display: flex; align-items: center; gap: 8px; color: var(--t-text); font-weight: 600; }
+.fm-mini-standings__pts { color: var(--t-text); font-weight: 700; }
+.fm-mini-standings__pos { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 6px; font-size: 11px; font-weight: 700; color: var(--t-text-2); background: var(--t-panel-2); }
+.fm-mini-standings__pos--libertadores { color: var(--t-green); box-shadow: inset 0 0 0 1px rgba(63, 191, 107, 0.4); }
+.fm-mini-standings__pos--sul-americana { color: #6cb2ff; box-shadow: inset 0 0 0 1px rgba(108, 178, 255, 0.4); }
+.fm-mini-standings__pos--rebaixamento { color: var(--t-red); box-shadow: inset 0 0 0 1px rgba(226, 92, 82, 0.4); }
+.fm-mini-standings__row--user td { background: rgba(61, 123, 245, 0.1); }
+.fm-mini-standings__gap td { text-align: center; color: var(--t-text-3); padding: 2px; letter-spacing: 2px; }
+
+/* --- Live touchline controls (subs + shouts) --- */
+.fm-livectl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+  background: var(--t-panel);
+  border: 1px solid var(--t-border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-top: 16px;
+}
+.fm-livectl__title {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--t-text-3); margin: 0 0 10px; display: flex; align-items: center; gap: 8px;
+}
+.fm-livectl__count { color: var(--t-text-2); font-weight: 700; }
+.fm-livectl__shouts { display: flex; flex-wrap: wrap; gap: 8px; }
+.fm-livectl__shout {
+  padding: 8px 14px; border-radius: var(--radius-md); cursor: pointer;
+  background: var(--t-panel-2); border: 1px solid var(--t-border-strong);
+  color: var(--t-text); font: inherit; font-size: 0.85rem; font-weight: 600;
+  transition: border-color var(--motion-normal), background var(--motion-normal);
+}
+.fm-livectl__shout:hover { border-color: var(--t-accent); background: rgba(61, 123, 245, 0.12); }
+.fm-livectl__sub { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.fm-livectl__select {
+  flex: 1; min-width: 120px; padding: 8px 10px; border-radius: var(--radius-md);
+  background: var(--t-panel-2); border: 1px solid var(--t-border-strong);
+  color: var(--t-text); font: inherit; font-size: 0.85rem;
+}
+.fm-livectl__note { font-size: 0.78rem; color: var(--t-amber); margin-top: 8px; display: block; }
+
+/* --- Half-time panel --- */
+.fm-halftime {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  text-align: center; padding: 18px;
+  background: linear-gradient(160deg, rgba(61,123,245,0.12), var(--t-panel));
+  border: 1px solid var(--t-accent); border-radius: 14px; margin-top: 16px;
+}
+.fm-halftime__label {
+  font-family: var(--font-display); font-size: 1.2rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.04em; color: var(--t-text);
+}
+.fm-halftime__hint { font-size: 0.85rem; color: var(--t-text-2); margin: 0 0 4px; }

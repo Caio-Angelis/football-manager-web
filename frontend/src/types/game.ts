@@ -118,8 +118,8 @@ export interface Player {
   potentialAbility: number; // Estático, nunca muda
   
   // Valor e contrato
-  marketValue: number;      // em milhões
-  salary: number;           // em milhares
+  marketValue: number;      // em milhões de R$
+  salary: number;           // em milhares de R$ por semana
   contractEnd: number;      // em semanas
   contractClause: number;   // cláusula de rescisão
   
@@ -206,8 +206,8 @@ export interface Team {
   division: string;
   league: string;
   reputation: number;       // 1-100 (reputação do clube)
-  budget: number;           // orçamento em milhões
-  wageBill: number;         // folha salarial
+  budget: number;           // orçamento em milhões de R$
+  wageBill: number;         // folha salarial em milhões de R$ por semana (= Σ salary / 1000)
   facilitiesLevel: number;  // nível das instalações (1-10)
   youthFacilitiesLevel: number; // nível das camadas jovens
   scoutingLevel: number;    // nível do scouting
@@ -262,7 +262,6 @@ export interface Team {
   
   // Diretoria
   boardExpectation: string; // 'relegation', 'midtable', 'top4', 'title'
-  transferBudget: number;
   staffLevel: number;
   
   // Olheiros
@@ -328,6 +327,8 @@ export interface LiveMatchState {
   actions: MatchAction[];
   goalDetails: { team: 'home' | 'away'; minute: number; scorerId: string; scorerName: string; assistId?: string; assistName?: string }[];
   interventionBoost?: { team: 'home' | 'away'; type: string; untilMinute: number };
+  cards?: Record<string, number>;
+  sentOff?: { home: string[]; away: string[] };
 }
 
 // ============================================================
@@ -758,6 +759,7 @@ export interface FinancialReport {
   broadcastingRevenue: number; // em milhões
   totalIncome: number; // em milhões
   facilityCosts: number; // em milhões (semanal)
+  staffCosts: number; // em milhões (semanal)
   totalExpenses: number; // em milhões
   profit: number; // em milhões
   transferSpending: number; // em milhões
@@ -1264,6 +1266,7 @@ export interface GameState {
   fanMood: FanMood;
   mediaPressure: MediaPressure;
   isAdvancing: boolean;
+  matchBlockMessage: string | null;
 }
 
 export interface GameActions {
@@ -1291,6 +1294,8 @@ export interface GameActions {
   applyWeeklyTraining: () => void;
   handleInboxAction: (messageId: string, actionLabel: string) => void;
   applyMatchIntervention: (matchIndex: number, type: 'substitution' | 'shout') => void;
+  substitutePlayer: (matchIndex: number, outId: string, inId: string) => void;
+  applyShout: (matchIndex: number, shout: 'encourage' | 'demand' | 'praise' | 'calm') => void;
   negotiateCounterOffer: (playerId: string) => boolean;
   // Métodos para cláusulas parceladas e bónus
   payInstallment: (installmentId: string) => boolean;

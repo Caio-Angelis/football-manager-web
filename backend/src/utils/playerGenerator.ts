@@ -2,7 +2,7 @@
 // Baseado na especificação Football Manager Web
 
 import type { Player, HiddenAttributes, Team, PlayerAttribute, GKAttributes, TeamTacticsConfig, SetPiecesConfig, InjuryHistory } from '../types/game';
-import { calculateMarketValue, calculatePlayerSalary, calculateTeamBudget, calculateTransferBudget } from '../store/helpers/finance';
+import { calculateMarketValue, calculatePlayerSalary, calculateTeamBudget } from '../store/helpers/finance';
 
 export function createDefaultSetPiecesConfig(): SetPiecesConfig {
   return {
@@ -244,7 +244,7 @@ export function generatePlayer(options: {
     marketValue,
     salary,
     contractEnd: 52 + Math.floor(Math.random() * 156), // 1-4 anos
-    contractClause: marketValue * 2,
+    contractClause: parseFloat((marketValue * 1.5).toFixed(1)),
     morale: 70 + Math.floor(Math.random() * 30),
     form: 60 + Math.floor(Math.random() * 40),
     fitness: 80 + Math.floor(Math.random() * 20),
@@ -387,7 +387,6 @@ export function generateTeam(options: {
     highLine: false,
     aggressiveTackling: false,
     boardExpectation: 'midtable',
-    transferBudget: calculateTransferBudget(budget),
     staffLevel: Math.floor(reputation / 10),
     scouts: [],
     boardPromises: [],

@@ -4,8 +4,10 @@ import { useGameStore } from '../../store/gameStore';
 import type { Player, Team, SetPiecesConfig } from '../../types/game';
 import {
   ChevronUp, ChevronDown, Plus, Download, Pencil, ListFilter,
-  ThumbsUp, Star, Globe, Trophy, ArrowRight, Info,
+  ThumbsUp, Star, Globe, Trophy, Info,
 } from 'lucide-react';
+import { PageHeader } from '../ui/PageHeader';
+import { getRatingColor } from '../../utils/statusColors';
 import './tactics-fm.css';
 
 // ============================================================
@@ -154,14 +156,14 @@ const AbilityStars: React.FC<{ ca: number }> = ({ ca }) => {
   );
 };
 
-const moraleColor = (m: number) => (m >= 66 ? 'var(--t-green)' : m >= 40 ? 'var(--t-amber)' : 'var(--t-red)');
-const conditionColor = (f: number) => (f >= 85 ? 'var(--t-green)' : f >= 65 ? 'var(--t-amber)' : 'var(--t-red)');
+const moraleColor = (m: number) => getRatingColor(m, { high: 66, medium: 40 });
+const conditionColor = (f: number) => getRatingColor(f, { high: 85, medium: 65 });
 
 // ============================================================
 // Main component
 // ============================================================
 export const TacticsView: React.FC = () => {
-  const { teams, selectedTeam, currentWeek, currentSeason, matches, updateTeam, advanceWeek, isAdvancing, saveGame } = useGameStore();
+  const { teams, selectedTeam, matches, updateTeam, saveGame } = useGameStore();
   const navigate = useNavigate();
   const team = teams.find(t => t.id === selectedTeam) as Team | undefined;
 
@@ -174,10 +176,12 @@ export const TacticsView: React.FC = () => {
   const [dragOverBench, setDragOverBench] = useState<number | null>(null);
   const [showAllSquad, setShowAllSquad] = useState(false);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  /** Click/keyboard alternative to drag-and-drop: select a slot, then a bench player (or another slot) to place them. */
+  const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
 
   if (!team) {
     return (
-      <div className="fm-tactics-fm">
+      <div className="fm-tactics-fm fms-page">
         <div style={{ margin: 'auto', color: 'var(--t-text-2)' }}>Selecione um time para ver as táticas.</div>
       </div>
     );
@@ -352,38 +356,41 @@ export const TacticsView: React.FC = () => {
     });
   };
 
+  // Keyboard/click alternative to drag-and-drop: select a slot, then a slot or bench player to place.
+  const activateSlot = (i: number) => {
+    if (selectedSlot === null) setSelectedSlot(i);
+    else if (selectedSlot === i) setSelectedSlot(null);
+    else { swapSlots(selectedSlot, i); setSelectedSlot(null); }
+  };
+  const activateBenchPlayer = (playerId: string) => {
+    if (selectedSlot === null) return;
+    swapBenchToSlot(playerId, selectedSlot);
+    setSelectedSlot(null);
+  };
+
   return (
-    <div className="fm-tactics-fm">
+    <div className="fm-tactics-fm fms-page">
       {/* ============ TOP BAR ============ */}
-      <header className="fmt-topbar">
-        <div className="fmt-topbar__left">
-          <div className="fmt-club-logo">{team.name.charAt(0)}</div>
-          <div className="fmt-title-block">
-            <span className="fmt-title">Táticas</span>
-            <span className="fmt-subtitle">
-              {nextFixture
-                ? `Próximo jogo: ${nextFixture.name} (${nextFixture.isHome ? 'C' : 'F'}) — Liga`
-                : `${team.name} — ${team.league}`}
-            </span>
-          </div>
+      <PageHeader
+        title="Táticas"
+        subtitle={
+          nextFixture
+            ? `Próximo jogo: ${nextFixture.name} (${nextFixture.isHome ? 'C' : 'F'}) — Liga`
+            : `${team.name} — ${team.league}`
+        }
+        teamName={team.name}
+        teamReputation={team.reputation}
+        titleExtra={
           <div className="fmt-navarrows">
             <button title="Formação anterior" onClick={() => cycleFormation(-1)}><ChevronUp size={12} /></button>
             <button title="Próxima formação" onClick={() => cycleFormation(1)}><ChevronDown size={12} /></button>
           </div>
-        </div>
-        <div className="fmt-topbar__right">
-          <button className="fmt-icon-btn" title="Visão do Clube" onClick={() => navigate('/clube')}><Globe size={15} /></button>
-          <button className="fmt-icon-btn" title="Classificação" onClick={() => navigate('/classificacao')}><Trophy size={15} /></button>
-          <div className="fmt-date">
-            <div className="fmt-date__main">Temporada {currentSeason}</div>
-            <div className="fmt-date__sub">Semana {currentWeek}</div>
-          </div>
-          <button className="fmt-continue" onClick={advanceWeek} disabled={isAdvancing}>
-            {isAdvancing ? 'Processando...' : 'Continuar'}
-            <ArrowRight size={15} />
-          </button>
-        </div>
-      </header>
+        }
+        actions={[
+          { icon: <Globe size={15} />, title: 'Visão do Clube', onClick: () => navigate('/clube') },
+          { icon: <Trophy size={15} />, title: 'Classificação', onClick: () => navigate('/classificacao') },
+        ]}
+      />
 
       {/* ============ SUB TABS ============ */}
       <nav className="fmt-subtabs">
@@ -411,6 +418,12 @@ export const TacticsView: React.FC = () => {
             {saveStatus && <span style={{ fontSize: 10, color: 'var(--t-text-3)', marginLeft: 4 }}>{saveStatus}</span>}
           </div>
 
+          {selectedSlot !== null && (
+            <div className="fmt-select-hint" role="status">
+              Posição selecionada — clique noutra posição ou num reserva para trocar. <button type="button" className="fmt-link-btn" onClick={() => setSelectedSlot(null)}>Cancelar</button>
+            </div>
+          )}
+
           {editOpen && (
             <div className="fmt-edit-panel" style={{ marginBottom: 14 }}>
               <EditTacticPanel
@@ -432,10 +445,14 @@ export const TacticsView: React.FC = () => {
               const p = starters[i];
               const { code, duty } = roleInfo(i);
               return (
-                <div
+                <button
                   key={i}
-                  className={`fmt-marker ${dragSlot === i ? 'fmt-marker--dragging' : ''} ${dragOverSlot === i ? 'fmt-marker--drop-target' : ''}`}
+                  type="button"
+                  className={`fmt-marker ${dragSlot === i ? 'fmt-marker--dragging' : ''} ${dragOverSlot === i ? 'fmt-marker--drop-target' : ''} ${selectedSlot === i ? 'fmt-marker--selected' : ''}`}
                   style={{ left: `${slot.x * 100}%`, top: `${slot.y * 100}%` }}
+                  aria-pressed={selectedSlot === i}
+                  aria-label={`Posição ${code}${p ? `, ${p.surname || p.name}` : ', vazia'}. Selecionar para trocar.`}
+                  onClick={() => activateSlot(i)}
                   draggable
                   onDragStart={() => setDragSlot(i)}
                   onDragOver={e => { e.preventDefault(); setDragOverSlot(i); }}
@@ -457,7 +474,7 @@ export const TacticsView: React.FC = () => {
                   <span className={`fmt-marker__name ${p ? '' : 'fmt-marker__name--empty'}`}>
                     {p ? p.surname || p.name : 'Selecionar'}
                   </span>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -484,9 +501,13 @@ export const TacticsView: React.FC = () => {
           {Array.from({ length: 7 }).map((_, i) => {
             const p = benchPlayers[i];
             return (
-              <div
+              <button
                 key={i}
+                type="button"
                 className={`fmt-bench-item ${dragBenchIndex === i ? 'fmt-bench-item--dragging' : ''} ${dragOverBench === i ? 'fmt-bench-item--drop-target' : ''}`}
+                disabled={!p}
+                aria-label={p ? `Reserva: ${p.surname || p.name}. Selecionar para posicionar.` : `Reserva ${i + 1} vazia`}
+                onClick={() => p && activateBenchPlayer(p.id)}
                 draggable={!!p}
                 onDragStart={() => setDragBenchIndex(i)}
                 onDragOver={e => { e.preventDefault(); setDragOverBench(i); }}
@@ -501,7 +522,7 @@ export const TacticsView: React.FC = () => {
               >
                 <ShirtIcon className={`fmt-bench-item__shirt ${p ? '' : 'fmt-marker__shirt--empty'}`} />
                 <span className="fmt-bench-item__label">{p ? (p.surname || p.name) : `Reserva ${String(i + 1).padStart(2, '0')}`}</span>
-              </div>
+              </button>
             );
           })}
         </aside>
@@ -521,18 +542,18 @@ export const TacticsView: React.FC = () => {
             <table className="fmt-table">
               <thead>
                 <tr>
-                  <th>Instruções</th>
-                  <th>Nac</th>
-                  <th>Habilidade</th>
-                  <th>Jogador</th>
-                  <th>Posição</th>
-                  <th className="fmt-center">Con</th>
-                  <th className="fmt-center">Pre</th>
-                  <th className="fmt-center">Mor</th>
-                  <th className="fmt-center">Carga</th>
-                  <th className="fmt-center">Desempenho</th>
-                  <th className="fmt-center">Últ. 5</th>
-                  <th className="fmt-center">Méd</th>
+                  <th scope="col">Instruções</th>
+                  <th scope="col">Nac</th>
+                  <th scope="col">Habilidade</th>
+                  <th scope="col">Jogador</th>
+                  <th scope="col">Posição</th>
+                  <th scope="col" className="fmt-center"><abbr title="Condição física">Con</abbr></th>
+                  <th scope="col" className="fmt-center"><abbr title="Coluna ainda não implementada">Pre</abbr></th>
+                  <th scope="col" className="fmt-center"><abbr title="Moral">Mor</abbr></th>
+                  <th scope="col" className="fmt-center">Carga</th>
+                  <th scope="col" className="fmt-center">Desempenho</th>
+                  <th scope="col" className="fmt-center"><abbr title="Últimos 5 jogos">Últ. 5</abbr></th>
+                  <th scope="col" className="fmt-center"><abbr title="Média de notas">Méd</abbr></th>
                 </tr>
               </thead>
               <tbody>
@@ -562,7 +583,7 @@ export const TacticsView: React.FC = () => {
                       </td>
                       <td className="fmt-center">{p ? <span style={{ color: conditionColor(p.fitness) }}>{Math.round(p.fitness)}%</span> : <span className="fmt-dash">-</span>}</td>
                       <td className="fmt-center"><span className="fmt-dash">-</span></td>
-                      <td className="fmt-center">{p ? <span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: '50%', background: moraleColor(p.morale) }} title={`Moral ${Math.round(p.morale)}`} /> : <span className="fmt-dash">-</span>}</td>
+                      <td className="fmt-center">{p ? <span className="fmt-morale"><span className="fmt-morale__dot" style={{ background: moraleColor(p.morale) }} aria-hidden="true" />{Math.round(p.morale)}</span> : <span className="fmt-dash">-</span>}</td>
                       <td className="fmt-center">{p ? <div className="fmt-load-bar"><div className="fmt-load-bar__fill" style={{ width: `${Math.round(p.fitness)}%`, background: conditionColor(p.fitness) }} /></div> : <span className="fmt-dash">-</span>}</td>
                       <td className="fmt-center"><div className="fmt-perf-bar" /></td>
                       <td className="fmt-center"><span className="fmt-dash">-</span></td>
@@ -574,6 +595,13 @@ export const TacticsView: React.FC = () => {
                   <tr
                     key={`b-${i}`}
                     className={`fmt-empty-row fmt-table-bench-row ${dragTableBenchId === p.id ? 'fmt-table-bench-row--dragging' : ''}`}
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`Reserva: ${p.name} ${p.surname}. Selecionar para posicionar.`}
+                    onClick={() => activateBenchPlayer(p.id)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activateBenchPlayer(p.id); }
+                    }}
                     draggable
                     onDragStart={() => setDragTableBenchId(p.id)}
                     onDragEnd={() => { setDragTableBenchId(null); }}
@@ -591,7 +619,7 @@ export const TacticsView: React.FC = () => {
                     <td><div className="fmt-pos-cell">{p.position}</div></td>
                     <td className="fmt-center"><span style={{ color: conditionColor(p.fitness) }}>{Math.round(p.fitness)}%</span></td>
                     <td className="fmt-center"><span className="fmt-dash">-</span></td>
-                    <td className="fmt-center"><span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: '50%', background: moraleColor(p.morale) }} title={`Moral ${Math.round(p.morale)}`} /></td>
+                    <td className="fmt-center"><span className="fmt-morale"><span className="fmt-morale__dot" style={{ background: moraleColor(p.morale) }} aria-hidden="true" />{Math.round(p.morale)}</span></td>
                     <td className="fmt-center"><span className="fmt-dash">-</span></td>
                     <td className="fmt-center"><div className="fmt-perf-bar" /></td>
                     <td className="fmt-center"><span className="fmt-dash">-</span></td>
@@ -628,7 +656,7 @@ export const TacticsView: React.FC = () => {
             <div className="fmt-table-wrap">
               <table className="fmt-table">
                 <thead>
-                  <tr><th>Slot</th><th>Posição</th><th>Papel</th><th>Função</th><th>Jogador</th></tr>
+                  <tr><th scope="col">Slot</th><th scope="col">Posição</th><th scope="col">Papel</th><th scope="col">Função</th><th scope="col">Jogador</th></tr>
                 </thead>
                 <tbody>
                   {slots.map((slot, i) => {

@@ -111,8 +111,8 @@ export interface Team {
   division: string;
   league: string;
   reputation: number;       // 1-100 (reputação do clube)
-  budget: number;           // orçamento em milhões
-  wageBill: number;         // folha salarial
+  budget: number;           // orçamento em milhões de R$
+  wageBill: number;         // folha salarial em milhões de R$ por semana (= Σ salary / 1000)
   facilitiesLevel: number;  // nível das instalações (1-10)
   youthFacilitiesLevel: number; // nível das camadas jovens
   scoutingLevel: number;    // nível do scouting
@@ -167,7 +167,6 @@ export interface Team {
   
   // Diretoria
   boardExpectation: string; // 'relegation', 'midtable', 'top4', 'title'
-  transferBudget: number;
   staffLevel: number;
 
   // Olheiros

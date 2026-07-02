@@ -71,7 +71,7 @@ export const createTransferSlice = (set: Set, get: Get) => ({
 
     // Criar cláusula contratual completa (Item 7.10)
     const contractWeeks = 52 + Math.floor(Math.random() * 156); // 1-4 anos
-    const weeklySalary = Math.round(player.salary * (1.0 + Math.random() * 0.5)); // Salário 100-150% do atual
+    const weeklySalary = Math.round(player.salary * (1.0 + Math.random() * 0.3)); // Salário 100-130% do atual
     const releaseClause = Math.round(fee * (1.2 + Math.random() * 0.3) * 10) / 10;
 
     const contract: ContractClause = {

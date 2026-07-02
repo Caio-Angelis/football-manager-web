@@ -1,13 +1,8 @@
 import React from 'react';
 import type { SeasonSummary } from '../../types/game';
 import { useGameStore } from '../../store/gameStore';
-
-const ZONE_ICONS: Record<string, string> = {
-  title: '🏆',
-  europe: '🌍',
-  safe: '✅',
-  relegation: '⬇️',
-};
+import { ZoneIcon } from '../ui/ZoneIcon';
+import { Footprints, Target } from 'lucide-react';
 
 const POSITION_SUFFIX = (pos: number) => {
   if (pos === 1) return '1º';
@@ -42,7 +37,7 @@ export const SeasonSummaryModal: React.FC = () => {
             </div>
             <div className="fm-season-modal__zone">
               <span className={`fm-season-modal__zone-badge fm-season-modal__zone-badge--${s.zone}`}>
-                {ZONE_ICONS[s.zone]} {s.zoneLabel}
+                <ZoneIcon zone={s.zone} /> {s.zoneLabel}
               </span>
             </div>
           </div>
@@ -76,7 +71,7 @@ export const SeasonSummaryModal: React.FC = () => {
 
           <div className="fm-season-modal__awards">
             <div className="fm-season-modal__award">
-              <span className="fm-season-modal__award-icon">⚽</span>
+              <span className="fm-season-modal__award-icon"><Footprints size={18} /></span>
               <div className="fm-season-modal__award-info">
                 <span className="fm-season-modal__award-label">Artilheiro do Time</span>
                 {s.topScorer ? (
@@ -88,7 +83,7 @@ export const SeasonSummaryModal: React.FC = () => {
             </div>
 
             <div className="fm-season-modal__award">
-              <span className="fm-season-modal__award-icon">🅰️</span>
+              <span className="fm-season-modal__award-icon"><Target size={18} /></span>
               <div className="fm-season-modal__award-info">
                 <span className="fm-season-modal__award-label">Líder de Assistências</span>
                 {s.topAssister ? (

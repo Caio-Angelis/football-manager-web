@@ -6,6 +6,7 @@ import {
 } from '../helpers/matchEngine';
 import { calculateLeagueStandings } from '../helpers/league';
 import { generatePreMatchAnalysis } from '../helpers/preMatchAnalysis';
+import { getFullName } from '../../utils/playerName';
 
 type Set = (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void;
 type Get = () => GameStore;
@@ -20,6 +21,19 @@ export const createMatchSlice = (set: Set, get: Get) => ({
     const homeTeam = state.teams.find(t => t.id === match.homeTeam);
     const awayTeam = state.teams.find(t => t.id === match.awayTeam);
     if (!homeTeam || !awayTeam) return;
+
+    // Bloqueia início da partida se o time do usuário tiver jogadores lesionados no XI
+    if (state.selectedTeam) {
+      const userTeam = state.selectedTeam === match.homeTeam ? homeTeam : awayTeam;
+      const injuredInXI = (userTeam.startingXI ?? [])
+        .map(id => userTeam.squad.find(p => p.id === id))
+        .find(p => p?.injury?.active);
+      if (injuredInXI) {
+        console.warn(`Partida não pode iniciar: ${getFullName(injuredInXI)} lesionado`);
+        return;
+      }
+    }
+
     const liveState = initLiveMatchState(homeTeam, awayTeam);
 
     const updatedMatches = [...state.matches];
@@ -187,6 +201,102 @@ export const createMatchSlice = (set: Set, get: Get) => ({
         },
       };
       set({ matches: updatedMatches });
+    }
+  },
+
+  // Substituição real: troca outId por inId no startingXI do time do usuário.
+  // Como generateLiveMatchMinute lê state.teams a cada minuto, o novo XI passa
+  // a jogar imediatamente.
+  substitutePlayer: (matchIndex: number, outId: string, inId: string) => {
+    const state = get();
+    const match = state.matches[matchIndex];
+    if (!match || !state.selectedTeam || !match.isLive || !match.liveMatchState) return;
+
+    const isHome = match.homeTeam === state.selectedTeam;
+    const userSide: 'home' | 'away' = isHome ? 'home' : 'away';
+    const subCount = isHome ? match.homeSubstitutions : match.awaySubstitutions;
+    if (subCount >= 5) return; // limite de 5 substituições
+
+    const teamIdx = state.teams.findIndex(t => t.id === state.selectedTeam);
+    if (teamIdx === -1) return;
+    const team = state.teams[teamIdx];
+    if (!team.startingXI.includes(outId)) return;        // quem sai precisa estar em campo
+    if (team.startingXI.includes(inId)) return;          // quem entra precisa estar no banco
+    if (!team.squad.some(p => p.id === inId)) return;     // e existir no elenco
+    if ((match.liveMatchState.sentOff?.[userSide] ?? []).includes(inId)) return; // não pode ter sido expulso
+
+    const outName = team.squad.find(p => p.id === outId)?.name ?? 'jogador';
+    const inName = team.squad.find(p => p.id === inId)?.name ?? 'jogador';
+    const newXI = team.startingXI.map(id => (id === outId ? inId : id));
+
+    const updatedTeams = [...state.teams];
+    updatedTeams[teamIdx] = { ...team, startingXI: newXI };
+
+    const minute = match.liveMinute;
+    const subEvent: MatchEvent = {
+      minute: minute + 1,
+      type: 'substitution',
+      team: userSide,
+      player: inName,
+      description: `Substituição: sai ${outName}, entra ${inName}`,
+    };
+    const ballHolderId = match.liveMatchState.ballHolderId === outId ? inId : match.liveMatchState.ballHolderId;
+
+    const updatedMatches = [...state.matches];
+    updatedMatches[matchIndex] = {
+      ...match,
+      homeSubstitutions: isHome ? match.homeSubstitutions + 1 : match.homeSubstitutions,
+      awaySubstitutions: isHome ? match.awaySubstitutions : match.awaySubstitutions + 1,
+      liveEvents: [...match.liveEvents, subEvent],
+      liveMatchState: {
+        ...match.liveMatchState,
+        ballHolderId,
+        events: [...match.liveMatchState.events, subEvent],
+      },
+    };
+    set({ matches: updatedMatches, teams: updatedTeams });
+  },
+
+  // Grito com tipo: cada tipo dá um efeito de moral + boost de intervenção distinto.
+  applyShout: (matchIndex: number, shout: 'encourage' | 'demand' | 'praise' | 'calm') => {
+    const state = get();
+    const match = state.matches[matchIndex];
+    if (!match || !state.selectedTeam) return;
+
+    const isHome = match.homeTeam === state.selectedTeam;
+    const userSide: 'home' | 'away' = isHome ? 'home' : 'away';
+    const minute = match.liveMinute;
+    const cfg = ({
+      encourage: { morale: 4, dur: 12, label: 'Incentiva a equipa — mais intensidade!' },
+      demand: { morale: 1, dur: 15, label: 'Exige mais! Cobrança na marcação.' },
+      praise: { morale: 6, dur: 10, label: 'Elogia a equipa — confiança lá em cima.' },
+      calm: { morale: 3, dur: 8, label: 'Pede calma e controle de bola.' },
+    } as const)[shout];
+
+    const teamIdx = state.teams.findIndex(t => t.id === state.selectedTeam);
+    const updatedTeams = [...state.teams];
+    if (teamIdx !== -1) {
+      updatedTeams[teamIdx] = {
+        ...updatedTeams[teamIdx],
+        squad: updatedTeams[teamIdx].squad.map(p => ({ ...p, morale: Math.max(1, Math.min(100, p.morale + cfg.morale)) })),
+      };
+    }
+
+    if (match.isLive && match.liveMatchState) {
+      const ev: MatchEvent = { minute: minute + 1, type: 'shout', team: userSide, description: cfg.label };
+      const updatedMatches = [...state.matches];
+      updatedMatches[matchIndex] = {
+        ...match,
+        liveEvents: [...match.liveEvents, ev],
+        liveMatchState: {
+          ...match.liveMatchState,
+          events: [...match.liveMatchState.events, ev],
+          interventionBoost: { team: userSide, type: shout, untilMinute: minute + cfg.dur },
+        },
+      };
+      set({ matches: updatedMatches, teams: updatedTeams });
+    } else {
+      set({ teams: updatedTeams });
     }
   },
 

@@ -4,15 +4,8 @@ import { Shield } from 'lucide-react';
 import type { Team } from '../types/game';
 import { useGameStore } from '../store/gameStore';
 import { Button } from './ui/Button';
-
-type TeamTier = 'elite' | 'strong' | 'average' | 'developing';
-
-const getTeamTier = (reputation: number): TeamTier => {
-  if (reputation >= 80) return 'elite';
-  if (reputation >= 60) return 'strong';
-  if (reputation >= 40) return 'average';
-  return 'developing';
-};
+import { TeamCrest } from './ui/TeamCrest';
+import { getTeamTier, TIER_ACCENT, type TeamTier } from '../utils/teamColors';
 
 const getStrengthLabel = (rep: number): string => {
   if (rep >= 80) return 'Elite';
@@ -44,76 +37,11 @@ const getExpectationLabel = (expectation: string): string => {
   return map[expectation] || expectation;
 };
 
-const hashString = (value: string): number => {
-  let hash = 0;
-  for (let i = 0; i < value.length; i++) {
-    hash = (hash << 5) - hash + value.charCodeAt(i);
-    hash |= 0;
-  }
-  return Math.abs(hash);
-};
-
-const getCrestColors = (name: string, tier: TeamTier) => {
-  const hash = hashString(name);
-  const hues = [215, 145, 25, 340, 195, 265];
-  const hue = hues[hash % hues.length];
-  const primary = tier === 'elite' ? '#3d7bf5' : `hsl(${hue} 42% 38%)`;
-  const secondary = tier === 'elite' ? '#2a5fb0' : `hsl(${hue} 35% 28%)`;
-  return { primary, secondary };
-};
-
-const TeamCrest: React.FC<{ name: string; tier: TeamTier }> = ({ name, tier }) => {
-  const initials = name
-    .split(' ')
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase();
-  const { primary, secondary } = getCrestColors(name, tier);
-
-  return (
-    <div className="fm-team-crest" aria-hidden="true">
-      <svg className="fm-team-crest__svg" viewBox="0 0 56 64" fill="none" role="img">
-        <title>{name} escudo</title>
-        <path
-          d="M28 2 L52 14 L52 34 C52 48 41 58 28 62 C15 58 4 48 4 34 L4 14 Z"
-          fill={primary}
-          stroke={secondary}
-          strokeWidth="2"
-        />
-        <path
-          d="M28 10 L44 18 L44 33 C44 43 37 50 28 53 C19 50 12 43 12 33 L12 18 Z"
-          fill={secondary}
-          opacity="0.35"
-        />
-        <text
-          x="28"
-          y="36"
-          textAnchor="middle"
-          fill="#ffffff"
-          fontSize="14"
-          fontWeight="700"
-          fontFamily="var(--font-family)"
-        >
-          {initials}
-        </text>
-      </svg>
-    </div>
-  );
-};
-
-const tierAccent: Record<TeamTier, string> = {
-  elite: '#3d7bf5',
-  strong: '#3fbf6b',
-  average: '#e0b341',
-  developing: '#e25c52',
-};
-
 const ReputationRing: React.FC<{ reputation: number; tier: TeamTier }> = ({ reputation, tier }) => {
   const radius = 28;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (reputation / 100) * circumference;
-  const accent = tierAccent[tier];
+  const accent = TIER_ACCENT[tier];
 
   return (
     <div className="fm-team-card__ring" aria-hidden="true">
@@ -153,7 +81,7 @@ const TeamDossier: React.FC<{
   return (
     <article
       className={`fm-team-card fm-team-card--${tier}`}
-      style={{ '--card-index': index, '--accent': tierAccent[tier] } as React.CSSProperties}
+      style={{ '--card-index': index, '--accent': TIER_ACCENT[tier] } as React.CSSProperties}
       tabIndex={0}
       role="button"
       aria-label={`${team.name} — ${strengthLabel} — ${team.formation}`}
