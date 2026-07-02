@@ -13,6 +13,28 @@
 
 ---
 
+## 📊 Status (atualizado)
+
+| Fase | Descrição | Situação |
+|------|-----------|----------|
+| 0 | Fábrica de store + `playerId` | ✅ Concluída |
+| 1 | Salas e lobby (código) | ✅ Concluída |
+| 2 | Estado por sala + roteamento de ações | ✅ Concluída |
+| 3 | Iniciar jogo + draft de clubes | ✅ Concluída |
+| 4 | Contexto por request (foco + denylist + anti-trapaça) | ✅ Concluída |
+| 5 | Ready-check + `advanceWeek` multi-humano + estado por jogador (swap de escopo) | ✅ Concluída |
+| 6 | Projeção escopada (não vazar rivais) | ✅ Concluída |
+| 7 | Transferências entre humanos | ⬜ Pendente |
+| 8 | Partidas humano × humano (relatório para os dois) | ⬜ Pendente |
+| 9 | Robustez: reconexão/desconexão | 🟡 Parcial (heartbeat + auto-pronto de desconectado já existem; reentrar/encerrar sala pela UI pendentes) |
+| 10 | Evoluções futuras (PvP ao vivo, DB/contas, escala) | ⬜ Fora do MVP |
+
+**MVP jogável hoje:** criar sala por código → entrar → dono inicia → draft de clubes → todos jogam no mesmo universo, cada um com seu estado (inbox/scouting/finanças/treino), rivais mascarados, rodada fechada por ready-check com todas as partidas simuladas. Tudo verificado por API ponta a ponta; single-player intacto (typecheck limpo, 16 testes passando).
+
+**Limitações conhecidas do MVP:** (a) transferências entre humanos ainda usam a lógica de IA (Fase 7); (b) não há tela dedicada de resultado humano×humano além do relatório de partida existente (Fase 8); (c) o processamento **automático semanal** de parcelas/bônus/scout/torcida roda no escopo do host (acesso interativo é 100% por jogador); (d) sem persistência — reiniciar o servidor apaga as salas (Fase 10).
+
+---
+
 ## Legenda
 - `[ ]` = tarefa a fazer.
 - **Arquivo:** caminho relativo à raiz do projeto.
@@ -367,35 +389,37 @@ Comprar jogador de outro humano precisa de negociação **assíncrona entre pess
 
 ---
 
-## Resumo dos arquivos que serão criados/alterados
+## Resumo dos arquivos (o que foi realmente feito nas Fases 0–6)
 
 **Novos (backend):**
-- `backend/src/rooms/roomManager.ts` — salas, código, players, ready-check, advanceRoomWeek
-- `backend/src/rooms/projectState.ts` — projeção de estado por jogador
-- `backend/src/routes/rooms.ts` — endpoints de sala/lobby/draft/action/state
+- ✅ `backend/src/rooms/roomManager.ts` — salas, código, players, escopos por jogador, ready-check, `advanceRoomWeek`, `projectState` (a projeção ficou aqui, não num arquivo separado)
+- ✅ `backend/src/routes/rooms.ts` — endpoints de sala/lobby/draft/ready/action/state
+- ✅ `backend/src/store/storeHelpers.ts` — `extractState`/`runAction` compartilhados (single-player + salas)
 
 **Alterados (backend):**
-- `backend/src/store/gameStore.ts` — fábrica `createGameStore()`
-- `backend/src/store/slices/core.ts` — `advanceWeek` multi-time + processamento por humano
-- `backend/src/store/slices/transfer.ts` — negociação humano×humano
-- `backend/src/types/team.ts` — `ownerId`
-- `backend/src/types/game.ts` — campos "por jogador" (`inboxByTeam`, etc.)
-- `backend/src/validation/schemas.ts` — schemas das novas rotas
-- `backend/src/server.ts` — registrar rotas de sala + cleanup
+- ✅ `backend/src/store/gameStore.ts` — fábrica `createGameStore()` + alias `useGameStore`
+- ✅ `backend/src/store/slices/core.ts` — `advanceWeek(humanTeamIds?, trainingByTeam?)` multi-humano
+- ✅ `backend/src/types/team.ts` — `ownerId`
+- ✅ `backend/src/types/game.ts` — assinatura de `advanceWeek`
+- ✅ `backend/src/routes/game.ts` — usa `storeHelpers`
+- ✅ `backend/src/server.ts` — registra `/api/rooms`
+- ⬜ `backend/src/store/slices/transfer.ts` — negociação humano×humano (Fase 7, pendente)
+- ℹ️ Validação das rotas de sala ficou **inline** em `rooms.ts` (Zod), não em `schemas.ts`. Estado por jogador foi resolvido por **swap de escopo** (`Room.scopes`), então **não** foi preciso criar `inboxByTeam` no `GameState`.
 
 **Novos (frontend):**
-- `frontend/src/components/online/OnlineHome.tsx` — criar/entrar
-- `frontend/src/components/online/Lobby.tsx` — lobby com código
-- `frontend/src/components/online/DraftScreen.tsx` — escolher clube
-- `frontend/src/online/identity.ts` (ou dentro de `client.ts`) — `getPlayerId`
+- ✅ `frontend/src/components/online/OnlineHome.tsx` — criar/entrar
+- ✅ `frontend/src/components/online/Lobby.tsx` — lobby (apresentacional)
+- ✅ `frontend/src/components/online/DraftScreen.tsx` — escolher clube
+- ✅ `frontend/src/components/online/RoomView.tsx` — orquestra lobby→draft→jogo (polling)
 
 **Alterados (frontend):**
-- `frontend/src/App.tsx` — rota `/online`
-- `frontend/src/api/client.ts` — helpers de sala + header `x-player-id`
-- `frontend/src/store/gameStore.ts` — modo online (roomCode) nas mutations/sync
-- `frontend/src/types/game.ts` — espelhar `ownerId` e campos por jogador
+- ✅ `frontend/src/App.tsx` — rotas `/online` + ready-check no shell + resync por polling
+- ✅ `frontend/src/api/client.ts` — `getPlayerId`, helpers de sala, `apiAction` roteia p/ sala
+- ✅ `frontend/src/store/gameStore.ts` — `syncFromResponse` fixa `selectedTeam` no modo online
+- ✅ `frontend/src/types/game.ts` — espelha `ownerId`
+- ✅ `frontend/src/styles.css` — 1 regra p/ botões do fluxo online
 
 ---
 
-## Ordem recomendada de execução (uma por vez)
-0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9. As Fases 5 e 6 são as mais trabalhosas; faça-as com calma e teste bastante. Só ataque a Fase 10 depois do MVP jogável.
+## Próximos passos (pós-MVP)
+Fase 7 (transferências entre humanos) → Fase 8 (tela de resultado humano×humano) → Fase 9 (reentrar/encerrar sala pela UI) → Fase 10 (PvP ao vivo, banco de dados/contas, escala). As Fases 5 e 6 eram as mais pesadas e já estão feitas.
