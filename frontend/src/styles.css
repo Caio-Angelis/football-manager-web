@@ -5709,3 +5709,6 @@ input:focus-visible {
   color: #ef4444;
   margin-bottom: 16px;
 }
+
+/* Botões full-width no fluxo online (Lobby/OnlineHome) */
+.fm-online-block { flex: 1; width: 100%; justify-content: center; }

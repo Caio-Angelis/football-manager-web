@@ -156,7 +156,7 @@ export interface GameActions {
   deselectTeam: () => void;
   selectTeam: (teamId: string) => void;
   simulateMatch: (matchIndex: number) => void;
-  advanceWeek: () => void;
+  advanceWeek: (humanTeamIds?: string[], trainingByTeam?: Record<string, import('./training').WeeklyTrainingPlan | null>) => void;
   markAsRead: (messageId: string) => void;
   removeMessage: (messageId: string) => void;
   updatePlayerAttributes: (playerId: string, trainingType: string) => void;

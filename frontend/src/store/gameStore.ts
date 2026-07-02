@@ -10,7 +10,7 @@ import type {
   PreMatchAnalysis,
   PressConference, PressResponseTone,
 } from '../types/game';
-import { apiAction, apiPost } from '../api/client';
+import { apiAction, apiPost, getActiveRoom } from '../api/client';
 import { getFullName } from '../utils/player';
 import { calculateTicketRevenue, calculateSponsorshipRevenue, calculateBroadcastingRevenue, calculateFacilityCosts, calculateStaffCosts, weeklyWages } from '../utils/finance';
 
@@ -115,7 +115,14 @@ const INITIAL_STATE = {
 // ============================================================
 
 function syncFromResponse(data: { result?: any; state: any }) {
-  useGameStore.setState(data.state);
+  // No modo online, o time do jogador é fixo (o servidor pode ter focado outro
+  // time durante o processamento). Forçamos selectedTeam = meu time para a UI.
+  const room = getActiveRoom();
+  if (room?.teamId) {
+    useGameStore.setState({ ...data.state, selectedTeam: room.teamId });
+  } else {
+    useGameStore.setState(data.state);
+  }
 }
 
 function findInjuredInXI(state: GameStore): Player | null {

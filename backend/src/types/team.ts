@@ -110,6 +110,7 @@ export interface Team {
   name: string;
   division: string;
   league: string;
+  ownerId?: string | null;  // dono humano no modo online (null/ausente = controlado pela IA)
   reputation: number;       // 1-100 (reputação do clube)
   budget: number;           // orçamento em milhões de R$
   wageBill: number;         // folha salarial em milhões de R$ por semana (= Σ salary / 1000)

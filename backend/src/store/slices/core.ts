@@ -170,7 +170,9 @@ export const createCoreSlice = (set: Set, get: Get) => ({
     });
   },
 
-  advanceWeek: () => {
+  // No modo online (Fase 5), `humanTeamIds` traz TODOS os times humanos da sala;
+  // o avanço é coordenado por ready-check. Sem o argumento = single-player (1 humano).
+  advanceWeek: (humanTeamIds?: string[], trainingByTeam?: Record<string, import('../../types/game').WeeklyTrainingPlan | null>) => {
     const state = get();
     if (state.isAdvancing) return;
 
@@ -179,8 +181,16 @@ export const createCoreSlice = (set: Set, get: Get) => ({
     // colocação e a receita semanal a cada clique. startNextSeason limpa ambos.
     if (state.seasonSummary || state.gameOver) return;
 
-    // Bloqueia avanço de semana se o time do usuário tiver jogador lesionado no XI
-    if (state.selectedTeam) {
+    // Times controlados por humanos nesta semana. Online: a lista passada.
+    // Single-player: apenas o time selecionado.
+    const isOnline = !!(humanTeamIds && humanTeamIds.length > 0);
+    const humans: string[] = isOnline
+      ? humanTeamIds!
+      : (state.selectedTeam ? [state.selectedTeam] : []);
+
+    // Bloqueia avanço se houver jogador lesionado no XI — só no single-player.
+    // Online não trava a rodada inteira por um jogador (a partida é simulada).
+    if (!isOnline && state.selectedTeam) {
       const userTeam = state.teams.find(t => t.id === state.selectedTeam);
       if (userTeam) {
         const injuredInXI = (userTeam.startingXI ?? [])
@@ -227,9 +237,9 @@ export const createCoreSlice = (set: Set, get: Get) => ({
         }
       });
 
-      // Atualizar orçamento das equipes
-      if (state.selectedTeam) {
-        const teamIdx = updatedTeams.findIndex(t => t.id === state.selectedTeam);
+      // Atualizar orçamento das equipes humanas
+      for (const hid of humans) {
+        const teamIdx = updatedTeams.findIndex(t => t.id === hid);
         if (teamIdx !== -1) {
           const team = updatedTeams[teamIdx];
           const ticketRevenue = calculateTicketRevenue(team.reputation);
@@ -245,9 +255,9 @@ export const createCoreSlice = (set: Set, get: Get) => ({
         }
       }
 
-      // Processamento de fadiga (sem gerar novas partidas)
-      if (state.selectedTeam) {
-        const teamIdx = updatedTeams.findIndex(t => t.id === state.selectedTeam);
+      // Processamento de fadiga dos times humanos (sem gerar novas partidas)
+      for (const hid of humans) {
+        const teamIdx = updatedTeams.findIndex(t => t.id === hid);
         if (teamIdx !== -1) {
           const team = updatedTeams[teamIdx];
           team.squad = team.squad.map(player => applyFatigueDecayToPlayer(player));
@@ -348,8 +358,12 @@ export const createCoreSlice = (set: Set, get: Get) => ({
 
     // Auto-finaliza partida pendente do usuário da rodada anterior (mantém a
     // classificação justa caso ele avance a semana sem jogá-la ao vivo).
+    // Online: todas as partidas são simuladas frescas a cada rodada (nada fica
+    // pendente), então NÃO finalizamos — senão o host jogaria a partida duas vezes.
     const previousMatches = [...state.matches];
-    updatedTeams = finalizePendingUserMatch(previousMatches, updatedTeams, state.selectedTeam);
+    if (!isOnline) {
+      updatedTeams = finalizePendingUserMatch(previousMatches, updatedTeams, state.selectedTeam);
+    }
 
     // Acumular partidas completadas de semanas anteriores para que a
     // classificação reflita toda a temporada, não apenas a rodada atual.
@@ -359,8 +373,10 @@ export const createCoreSlice = (set: Set, get: Get) => ({
 
     const updatedMatches = [...previousCompleted, ...newMatches.map(m => {
       const match = { ...m };
-      const isUserMatch = m.homeTeam === state.selectedTeam || m.awayTeam === state.selectedTeam;
-      if (!isUserMatch) {
+      // Single-player: a partida do usuário fica pendente para jogar ao vivo.
+      // Online (MVP): TODAS as partidas são simuladas no fechamento da rodada.
+      const leaveForLive = !isOnline && (m.homeTeam === state.selectedTeam || m.awayTeam === state.selectedTeam);
+      if (!leaveForLive) {
         const homeTeam = updatedTeams.find(t => t.id === m.homeTeam);
         const awayTeam = updatedTeams.find(t => t.id === m.awayTeam);
         if (!homeTeam || !awayTeam) return match;
@@ -385,8 +401,9 @@ export const createCoreSlice = (set: Set, get: Get) => ({
 
     let youthIntakeCompleted = youthReset;
 
-    if (state.selectedTeam) {
-      const teamIdx = updatedTeams.findIndex(t => t.id === state.selectedTeam);
+    // Receitas/despesas semanais de cada time humano
+    for (const hid of humans) {
+      const teamIdx = updatedTeams.findIndex(t => t.id === hid);
       if (teamIdx !== -1) {
         const team = updatedTeams[teamIdx];
         const ticketRevenue = calculateTicketRevenue(team.reputation);
@@ -424,8 +441,9 @@ export const createCoreSlice = (set: Set, get: Get) => ({
     // ============================================================
     const newInboxMessages: InboxMessage[] = [];
 
-    if (state.selectedTeam) {
-      const teamIdx = updatedTeams.findIndex(t => t.id === state.selectedTeam);
+    // Processamento de fadiga/cura/lesões/contratos para CADA time humano.
+    for (const hid of humans) {
+      const teamIdx = updatedTeams.findIndex(t => t.id === hid);
       if (teamIdx !== -1) {
         const team = updatedTeams[teamIdx];
 
@@ -645,7 +663,7 @@ export const createCoreSlice = (set: Set, get: Get) => ({
     // decrementado acima). Sem isto, contractEnd fica estático e as renovações
     // automáticas da IA (processAIContracts) quase nunca disparam.
     updatedTeams = updatedTeams.map(team => {
-      if (team.id === state.selectedTeam) return team;
+      if (humans.includes(team.id)) return team; // humanos já decrementados acima
       return {
         ...team,
         squad: team.squad.map(p => (p.contractEnd > 0 ? { ...p, contractEnd: p.contractEnd - 1 } : p)),
@@ -670,9 +688,9 @@ export const createCoreSlice = (set: Set, get: Get) => ({
       return result.team;
     });
 
-    // Apply basic fatigue decay to AI teams (#44)
+    // Apply basic fatigue decay to AI teams (#44) — humanos já tratados no loop acima
     updatedTeams = updatedTeams.map(team => {
-      if (team.id === state.selectedTeam) return team;
+      if (humans.includes(team.id)) return team;
       return {
         ...team,
         squad: team.squad.map(player => applyFatigueDecayToPlayer(player)),
@@ -821,10 +839,11 @@ export const createCoreSlice = (set: Set, get: Get) => ({
     let updatedFanMood = state.fanMood;
     let updatedMediaPressure = state.mediaPressure;
 
-    if (state.selectedTeam) {
-      const teamIdx = updatedTeams.findIndex(t => t.id === state.selectedTeam);
+    // Promise countdown + treino + snapshot de atributos para CADA time humano.
+    for (const hid of humans) {
+      const teamIdx = updatedTeams.findIndex(t => t.id === hid);
       if (teamIdx !== -1) {
-        let team = { ...updatedTeams[teamIdx] };
+        const team = { ...updatedTeams[teamIdx] };
 
         // Promise countdown — decrement deadlines
         team.squad = team.squad.map(player => {
@@ -838,9 +857,10 @@ export const createCoreSlice = (set: Set, get: Get) => ({
           return { ...player, promises: updatedPromises };
         });
 
-        // Weekly training
-        if (state.trainingPlan) {
-          const focus = state.trainingPlan.teamFocus;
+        // Weekly training — cada humano usa o SEU plano (online); single-player usa o global
+        const trainingPlan = trainingByTeam?.[hid] ?? state.trainingPlan;
+        if (trainingPlan) {
+          const focus = trainingPlan.teamFocus;
           team.squad = team.squad.map(p => {
             if (p.injury?.active) return p;
             const updated = updatePlayerAttributes(p, focus, newWeek, team.facilitiesLevel, team.staffLevel);
@@ -878,8 +898,10 @@ export const createCoreSlice = (set: Set, get: Get) => ({
 
         updatedTeams[teamIdx] = team;
       }
+    }
 
-      // Press decay
+    // Press decay — single-track (torcida/mídia do time em foco). Fase 6 refina por jogador.
+    if (state.selectedTeam) {
       const teamForPress = updatedTeams.find(t => t.id === state.selectedTeam);
       if (teamForPress) {
         updatedFanMood = weeklyFanMoodDecay(state.fanMood, teamForPress.leagueForm ?? []);

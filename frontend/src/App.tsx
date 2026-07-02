@@ -2,6 +2,9 @@ import React, { useCallback } from 'react';
 import { Routes, Route, Navigate, NavLink, useNavigate } from 'react-router-dom';
 import { useGameStore } from './store/gameStore';
 import { TeamSelection } from './components/TeamSelection';
+import { OnlineHome } from './components/online/OnlineHome';
+import { RoomView } from './components/online/RoomView';
+import { getActiveRoom, clearActiveRoom, getRoom, apiRoomState, setRoomReady, type PublicRoom } from './api/client';
 import { SquadView } from './components/squad/SquadView';
 import { MatchCenter } from './components/match/MatchCenter';
 import { TacticsView } from './components/tactics/TacticsView';
@@ -216,6 +219,41 @@ export const App: React.FC = () => {
   const unreadCount = inbox.filter(m => !m.read).length;
   const team = teams.find(t => t.id === selectedTeam);
 
+  // ── Modo online: polling do estado da sala + ready-check (Fase 5) ──
+  const online = getActiveRoom();
+  const [roomPub, setRoomPub] = React.useState<PublicRoom | null>(null);
+  const lastWeekRef = React.useRef<number>(-1);
+
+  React.useEffect(() => {
+    if (!online) { setRoomPub(null); return; }
+    let alive = true;
+    const poll = async () => {
+      try {
+        const { room } = await getRoom(online.code);
+        if (!alive) return;
+        setRoomPub(room);
+        // A rodada avançou (ou entrou agora): re-sincroniza o estado do jogo.
+        if (room.currentWeek !== lastWeekRef.current) {
+          lastWeekRef.current = room.currentWeek;
+          const { state } = await apiRoomState(online.code);
+          if (!alive) return;
+          useGameStore.setState({ ...state, selectedTeam: online.teamId });
+        }
+      } catch { /* sala pode ter encerrado */ }
+    };
+    poll();
+    const id = setInterval(poll, 2000);
+    return () => { alive = false; clearInterval(id); };
+  }, [online?.code, online?.teamId]);
+
+  const myReady = roomPub?.players.find(p => p.isYou)?.ready ?? false;
+  const readyCount = roomPub?.players.filter(p => p.ready).length ?? 0;
+  const totalPlaying = roomPub?.players.filter(p => p.teamId).length ?? 0;
+  const toggleReady = () => {
+    if (!online) return;
+    setRoomReady(online.code, !myReady).then(r => setRoomPub(r.room)).catch(() => {});
+  };
+
   const addToast = useCallback((message: string, type: ToastData['type'] = 'info') => {
     const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     setToasts(prev => [...prev, { id, message, type, timestamp: Date.now() }]);
@@ -253,6 +291,9 @@ export const App: React.FC = () => {
             <div className="fm-landing__actions">
               <Button onClick={() => navigate('/selecionar-time')} className="fm-landing__new-game">
                 <Play size={18} /> Nova partida
+              </Button>
+              <Button variant="secondary" onClick={() => navigate('/online')}>
+                <Users size={18} /> Jogar online
               </Button>
               <button
                 type="button"
@@ -307,6 +348,8 @@ export const App: React.FC = () => {
       <Routes>
         <Route path="/" element={homePage} />
         <Route path="/selecionar-time" element={teamSelectionPage} />
+        <Route path="/online" element={<OnlineHome />} />
+        <Route path="/online/sala/:code" element={<RoomView />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
@@ -355,8 +398,15 @@ export const App: React.FC = () => {
           <Button
             className="fm-button--back"
             onClick={() => {
-              useGameStore.getState().deselectTeam();
-              navigate('/');
+              if (getActiveRoom()) {
+                // Modo online: sai da sala sem tocar no universo compartilhado.
+                clearActiveRoom();
+                useGameStore.setState({ selectedTeam: null });
+                navigate('/online');
+              } else {
+                useGameStore.getState().deselectTeam();
+                navigate('/');
+              }
             }}
           >
             <ArrowLeft size={15} /> Voltar
@@ -367,10 +417,16 @@ export const App: React.FC = () => {
           >
             <Home size={15} /> Início
           </Button>
-          <Button className="fm-button--continue" onClick={advanceWeek} disabled={isAdvancing || !!seasonSummary || gameOver}>
-            {isAdvancing ? 'Processando...' : <>Continuar <ArrowRight size={15} /></>}
-          </Button>
-          <Button className="fm-button--save" onClick={async () => {
+          {online ? (
+            <Button className="fm-button--continue" onClick={toggleReady} disabled={!!seasonSummary || gameOver}>
+              {myReady ? <>Pronto {readyCount}/{totalPlaying} ✓</> : <>Pronto? ({readyCount}/{totalPlaying}) <ArrowRight size={15} /></>}
+            </Button>
+          ) : (
+            <Button className="fm-button--continue" onClick={advanceWeek} disabled={isAdvancing || !!seasonSummary || gameOver}>
+              {isAdvancing ? 'Processando...' : <>Continuar <ArrowRight size={15} /></>}
+            </Button>
+          )}
+          {!online && <Button className="fm-button--save" onClick={async () => {
             try {
               await useGameStore.getState().saveGame(1);
               addToast('💾 Save 1 salvo!', 'success');
@@ -379,8 +435,8 @@ export const App: React.FC = () => {
             }
           }}>
             <Save size={15} /> Save 1
-          </Button>
-          <Button className="fm-button--save" onClick={async () => {
+          </Button>}
+          {!online && <Button className="fm-button--save" onClick={async () => {
             try {
               await useGameStore.getState().saveGame(2);
               addToast('💾 Save 2 salvo!', 'success');
@@ -389,7 +445,7 @@ export const App: React.FC = () => {
             }
           }}>
             <Save size={15} /> Save 2
-          </Button>
+          </Button>}
         </div>
         <div className="fm-main__content">
         <Routes>

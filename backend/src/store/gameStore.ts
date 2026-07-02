@@ -1,4 +1,5 @@
-import { create } from 'zustand';
+import { createStore } from 'zustand/vanilla';
+import type { StoreApi } from 'zustand';
 import type { GameStore } from '../types/game';
 
 import { createCoreSlice } from './slices/core';
@@ -18,11 +19,13 @@ import { createPressSlice } from './slices/press';
 
 // ============================================================
 // STORE — Composition Root
-// Combina todos os slices num único create<GameStore>()
+// Fábrica: cada chamada cria um universo de jogo isolado.
+// Usado pelo single-player (singleton `gameStore`/`useGameStore`) e,
+// no futuro, uma instância por sala online (ver PlanoOnline.md — Fase 2).
 // ============================================================
 
-export const useGameStore = create<GameStore>()(
-  (set, get) => ({
+export function createGameStore(): StoreApi<GameStore> {
+  return createStore<GameStore>()((set, get) => ({
     // --- Estado inicial ---
     selectedTeam: null,
     currentWeek: 0,
@@ -83,5 +86,12 @@ export const useGameStore = create<GameStore>()(
     ...createYouthSlice(set, get),
     ...createAttributesSlice(set, get),
     ...createPressSlice(set, get),
-  }),
-);
+  }));
+}
+
+export type GameStoreApi = StoreApi<GameStore>;
+
+// Singleton do modo single-player. Mantém a API atual (`useGameStore`) intacta
+// para não quebrar as rotas/testes existentes.
+export const gameStore = createGameStore();
+export const useGameStore = gameStore;

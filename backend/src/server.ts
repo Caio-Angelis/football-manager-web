@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { gameRouter } from './routes/game.js';
+import { roomsRouter } from './routes/rooms.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { rateLimiter } from './middleware/rateLimiter.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
@@ -16,6 +17,7 @@ app.use(requestLogger);
 app.use(rateLimiter);
 app.use(authMiddleware);
 
+app.use('/api/rooms', roomsRouter);
 app.use('/api', gameRouter);
 
 app.get('/health', (_req, res) => {
