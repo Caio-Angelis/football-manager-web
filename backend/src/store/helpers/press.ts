@@ -154,6 +154,7 @@ export function generatePressConference(
   nextOpponent?: Team,
   lastMatch?: Match,
   standings?: LeagueStandings[],
+  isHome?: boolean,
 ): PressConference {
   const questions: PressQuestion[] = [];
   const numQuestions = type === 'general' ? 3 : 4;
@@ -165,7 +166,7 @@ export function generatePressConference(
   if (type === 'pre_match' && nextOpponent) {
     availableCategories.add('match_preview');
     context.opponentName = nextOpponent.name;
-    context.isHome = true; // será ajustado pelo chamador
+    context.isHome = isHome ?? true; // venue real, usado no texto das perguntas ({venue})
     context.leaguePosition = standings?.find(s => s.teamId === team.id)?.position;
 
     // Adicionar categorias contextuais
@@ -294,6 +295,9 @@ export function calculatePressConferenceEffects(
   let fanMoodChange = 0;
   let mediaPressureChange = 0;
   const affectedPlayerIds: string[] = [];
+  // Deltas de moral específicos por jogador (elogiar/criticar um jogador na coletiva
+  // afeta SÓ ele, não o elenco inteiro).
+  const playerMoraleDeltas: Record<string, number> = {};
 
   for (const response of conference.responses) {
     const question = conference.questions.find(q => q.id === response.questionId);
@@ -338,11 +342,13 @@ export function calculatePressConferenceEffects(
 
     // Categoria-specific modifiers
     if (question.category === 'player_form' && question.relatedPlayerId) {
-      affectedPlayerIds.push(question.relatedPlayerId);
+      const pid = question.relatedPlayerId;
+      affectedPlayerIds.push(pid);
+      // Isolado ao jogador citado — não entra no moraleChange global do elenco
       if (response.tone === 'praise') {
-        effects.morale += 2; // elogiar jogador específico aumenta moral dele
+        playerMoraleDeltas[pid] = (playerMoraleDeltas[pid] ?? 0) + 2;
       } else if (response.tone === 'critical') {
-        effects.morale -= 3; // criticar jogador específico derruba moral
+        playerMoraleDeltas[pid] = (playerMoraleDeltas[pid] ?? 0) - 3;
       }
     }
 
@@ -391,6 +397,7 @@ export function calculatePressConferenceEffects(
     fanMoodChange,
     mediaPressureChange,
     affectedPlayerIds: [...new Set(affectedPlayerIds)],
+    playerMoraleDeltas,
     headline,
   };
 }

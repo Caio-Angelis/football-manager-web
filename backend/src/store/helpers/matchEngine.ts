@@ -1038,16 +1038,25 @@ export function applyMatchResultToTeams(
   applyPlayerStats(homeTeam, 'home');
   applyPlayerStats(awayTeam, 'away');
 
+  // Atualiza forma recente (últimos 5) para ambos os times — consumida por moral, IA e análise pré-jogo
+  const pushForm = (team: Team, r: 'W' | 'D' | 'L') => {
+    team.leagueForm = [...(team.leagueForm ?? []), r].slice(-5);
+  };
+
   if (result.homeGoals > result.awayGoals) {
     homeTeam.points += 3;
     homeTeam.won++;
     awayTeam.lost++;
+    pushForm(homeTeam, 'W');
+    pushForm(awayTeam, 'L');
     homeTeam.budget = parseFloat((homeTeam.budget + calculateMatchPrizeMoney('win', homeTeam.reputation)).toFixed(2));
     awayTeam.budget = parseFloat((awayTeam.budget + calculateMatchPrizeMoney('loss', awayTeam.reputation)).toFixed(2));
   } else if (result.homeGoals < result.awayGoals) {
     awayTeam.points += 3;
     awayTeam.won++;
     homeTeam.lost++;
+    pushForm(awayTeam, 'W');
+    pushForm(homeTeam, 'L');
     awayTeam.budget = parseFloat((awayTeam.budget + calculateMatchPrizeMoney('win', awayTeam.reputation)).toFixed(2));
     homeTeam.budget = parseFloat((homeTeam.budget + calculateMatchPrizeMoney('loss', homeTeam.reputation)).toFixed(2));
   } else {
@@ -1055,6 +1064,8 @@ export function applyMatchResultToTeams(
     awayTeam.points += 1;
     homeTeam.drawn++;
     awayTeam.drawn++;
+    pushForm(homeTeam, 'D');
+    pushForm(awayTeam, 'D');
     homeTeam.budget = parseFloat((homeTeam.budget + calculateMatchPrizeMoney('draw', homeTeam.reputation)).toFixed(2));
     awayTeam.budget = parseFloat((awayTeam.budget + calculateMatchPrizeMoney('draw', awayTeam.reputation)).toFixed(2));
   }
@@ -1168,7 +1179,8 @@ function shotSuccessProb(shooter: Player, goalkeeper: Player, distance: number, 
   if (!onTarget) return { onTarget: false, goal: false };
 
   // Se no alvo, probabilidade de gol (vencer o goleiro)
-  let goalProb = 0.45;
+  // Calibrado para ~2.7-2.9 gols/jogo no motor passo a passo (regra-partidas)
+  let goalProb = 0.33;
   goalProb += (finishing - 10) * 0.012;
   goalProb += (composure - 10) * 0.008;
   goalProb += (offBall - 10) * 0.005;
@@ -1178,7 +1190,7 @@ function shotSuccessProb(shooter: Player, goalkeeper: Player, distance: number, 
   goalProb -= (concentration - 10) * 0.004;
 
   // Chutes de perto são mais difíceis de defender
-  if (distance < 0.25) goalProb += 0.20;
+  if (distance < 0.25) goalProb += 0.12;
   if (distance > 0.6) goalProb -= 0.15;
 
   goalProb *= ((shooter.form ?? 70) / 100) * 0.5 + 0.5;
@@ -1188,37 +1200,40 @@ function shotSuccessProb(shooter: Player, goalkeeper: Player, distance: number, 
   return { onTarget: true, goal };
 }
 
-// Escolhe um jogador do time com posse, favorecendo os mais avançados quando atacando
-function pickPlayerWithBall(team: Team, ballPos: number, excludeId?: string): Player {
+// Escolhe um jogador do time com posse, favorecendo os mais avançados quando atacando.
+// attacksTowardOne: true se o time ataca rumo a ballPos=1 (home), false se rumo a 0 (away).
+function pickPlayerWithBall(team: Team, ballPos: number, attacksTowardOne: boolean, excludeId?: string): Player {
   const xi = startingXI(team).filter(p => p.id !== excludeId);
   if (xi.length === 0) return team.squad[0];
 
-  // ballPos: 0 = home goal, 1 = away goal. home attacks toward 1.
-  // Players closer to the ball are more likely to be involved
+  // prog relativo ao ataque do time: 0 = próprio gol, 1 = gol adversário
+  const prog = attacksTowardOne ? ballPos : 1 - ballPos;
   const weights = xi.map(p => {
     const pos = p.position;
     // Quando a bola está na defesa, zagueiros e goleiro têm mais chance
     // Quando está no ataque, atacantes e meias têm mais chance
     let w = 1;
     if (pos === 'GK') w = 0.05;
-    else if (pos === 'DEF') w = ballPos < 0.4 ? 3 : ballPos > 0.7 ? 0.5 : 1.5;
+    else if (pos === 'DEF') w = prog < 0.4 ? 3 : prog > 0.7 ? 0.5 : 1.5;
     else if (pos === 'MID') w = 2; // meias sempre envolvidos
-    else if (pos === 'FWD') w = ballPos > 0.5 ? 3 : ballPos < 0.3 ? 0.8 : 1.5;
+    else if (pos === 'FWD') w = prog > 0.5 ? 3 : prog < 0.3 ? 0.8 : 1.5;
     return w;
   });
 
   return weightedPick(xi, weights) ?? xi[0];
 }
 
-// Escolhe um defensor adversário para tentar desarme/interceptação
-function pickDefender(defendingTeam: Team, ballPos: number): Player {
+// Escolhe um defensor adversário para tentar desarme/interceptação.
+// attacksTowardOne: direção de ataque do time DEFENSOR (para localizar seu próprio gol).
+function pickDefender(defendingTeam: Team, ballPos: number, attacksTowardOne: boolean): Player {
   const xi = startingXI(defendingTeam);
-  // Quando a bola está perto do gol, zagueiros e goleiro são mais relevantes
+  // prog relativo ao defensor: 0 = próprio gol do defensor (onde zaga/GK são relevantes)
+  const prog = attacksTowardOne ? ballPos : 1 - ballPos;
   const weights = xi.map(p => {
     const pos = p.position;
     let w = 1;
-    if (pos === 'GK') w = ballPos < 0.15 ? 2 : 0.1;
-    else if (pos === 'DEF') w = ballPos < 0.5 ? 3 : 1.5;
+    if (pos === 'GK') w = prog < 0.15 ? 2 : 0.1;
+    else if (pos === 'DEF') w = prog < 0.5 ? 3 : 1.5;
     else if (pos === 'MID') w = 1.5;
     else if (pos === 'FWD') w = 0.3;
     return w;
@@ -1414,19 +1429,19 @@ function simulateCornerKick(
       }];
 
       const losingTeam = side === 'home' ? defendingTeam : attackingTeam;
-      const newHolder = pickPlayerWithBall(losingTeam, 0.5);
+      const newHolder = pickPlayerWithBall(losingTeam, 0.5, side !== 'home');
       newState.possession = side === 'home' ? 'away' : 'home';
       newState.ballPos = 0.5;
       newState.ballHolderId = newHolder.id;
       newState.passChain = 0;
     } else if (shotResult.onTarget) {
       events.push({ minute, type: 'save', team: side === 'home' ? 'away' : 'home', description: `Boa defesa de ${goalkeeper.name} no escanteio!` });
-      const newHolder = pickPlayerWithBall(defendingTeam, ballPos);
+      const newHolder = pickPlayerWithBall(defendingTeam, ballPos, side !== 'home');
       newState.possession = side === 'home' ? 'away' : 'home';
       newState.ballHolderId = newHolder.id;
       newState.passChain = 0;
     } else {
-      const newHolder = pickPlayerWithBall(defendingTeam, side === 'home' ? 0.1 : 0.9);
+      const newHolder = pickPlayerWithBall(defendingTeam, side === 'home' ? 0.1 : 0.9, side !== 'home');
       newState.possession = side === 'home' ? 'away' : 'home';
       newState.ballHolderId = newHolder.id;
       newState.passChain = 0;
@@ -1442,7 +1457,7 @@ function simulateCornerKick(
     });
 
     if (defConfig.defensiveCorners.counterAttack && Math.random() < 0.6) {
-      const counterPlayer = pickPlayerWithBall(defendingTeam, side === 'home' ? 0.3 : 0.7);
+      const counterPlayer = pickPlayerWithBall(defendingTeam, side === 'home' ? 0.3 : 0.7, side !== 'home');
       newState.possession = side === 'home' ? 'away' : 'home';
       newState.ballHolderId = counterPlayer.id;
       newState.passChain = 0;
@@ -1450,7 +1465,7 @@ function simulateCornerKick(
     } else {
       const homeWins = Math.random() < 0.5;
       const winningTeam = homeWins ? defendingTeam : attackingTeam;
-      const winner = pickPlayerWithBall(winningTeam, ballPos);
+      const winner = pickPlayerWithBall(winningTeam, ballPos, homeWins ? side !== 'home' : side === 'home');
       newState.possession = homeWins ? (side === 'home' ? 'away' : 'home') : side;
       newState.ballHolderId = winner.id;
       newState.passChain = 0;
@@ -1551,7 +1566,7 @@ function simulateFreeKick(
         team: side, minute, scorerId: taker.id, scorerName: taker.name,
       }];
       const losingTeam = side === 'home' ? defendingTeam : attackingTeam;
-      const newHolder = pickPlayerWithBall(losingTeam, 0.5);
+      const newHolder = pickPlayerWithBall(losingTeam, 0.5, side !== 'home');
       newState.possession = side === 'home' ? 'away' : 'home';
       newState.ballPos = 0.5;
       newState.ballHolderId = newHolder.id;
@@ -1561,7 +1576,7 @@ function simulateFreeKick(
       if (Math.random() < 0.5) {
         events.push({ minute, type: 'save', team: side === 'home' ? 'away' : 'home', description: `${goalkeeper.name} defende a falta!` });
       }
-      const newHolder = pickPlayerWithBall(defendingTeam, side === 'home' ? 0.15 : 0.85);
+      const newHolder = pickPlayerWithBall(defendingTeam, side === 'home' ? 0.15 : 0.85, side !== 'home');
       newState.possession = side === 'home' ? 'away' : 'home';
       newState.ballHolderId = newHolder.id;
       newState.passChain = 0;
@@ -1614,13 +1629,13 @@ function simulateFreeKick(
           team: side, minute, scorerId: target.id, scorerName: target.name, assistId: taker.id, assistName: taker.name,
         }];
         const losingTeam = side === 'home' ? defendingTeam : attackingTeam;
-        const newHolder = pickPlayerWithBall(losingTeam, 0.5);
+        const newHolder = pickPlayerWithBall(losingTeam, 0.5, side !== 'home');
         newState.possession = side === 'home' ? 'away' : 'home';
         newState.ballPos = 0.5;
         newState.ballHolderId = newHolder.id;
         newState.passChain = 0;
       } else {
-        const newHolder = pickPlayerWithBall(defendingTeam, ballPos);
+        const newHolder = pickPlayerWithBall(defendingTeam, ballPos, side !== 'home');
         newState.possession = side === 'home' ? 'away' : 'home';
         newState.ballHolderId = newHolder.id;
         newState.passChain = 0;
@@ -1639,7 +1654,7 @@ function simulateFreeKick(
     }
   } else {
     // Short — passe curto para criar chance
-    const receiver = pickPlayerWithBall(attackingTeam, ballPos, taker.id);
+    const receiver = pickPlayerWithBall(attackingTeam, ballPos, side === 'home', taker.id);
     const passSuccess = Math.random() < 0.75;
     actions.push({
       minute, type: 'pass', team: side, playerId: taker.id, playerName: taker.name,
@@ -1653,7 +1668,7 @@ function simulateFreeKick(
       newState.passChain = 1;
       newState.ballPos = clamp(ballPos + 0.05 * (side === 'home' ? 1 : -1), 0, 1);
     } else {
-      const defender = pickDefender(defendingTeam, ballPos);
+      const defender = pickDefender(defendingTeam, ballPos, side !== 'home');
       newState.possession = side === 'home' ? 'away' : 'home';
       newState.ballHolderId = defender.id;
       newState.passChain = 0;
@@ -1722,14 +1737,14 @@ function simulatePenalty(
       team: side, minute, scorerId: taker.id, scorerName: taker.name,
     }];
     const losingTeam = side === 'home' ? defendingTeam : attackingTeam;
-    const newHolder = pickPlayerWithBall(losingTeam, 0.5);
+    const newHolder = pickPlayerWithBall(losingTeam, 0.5, side !== 'home');
     newState.possession = side === 'home' ? 'away' : 'home';
     newState.ballPos = 0.5;
     newState.ballHolderId = newHolder.id;
     newState.passChain = 0;
   } else {
     events.push({ minute, type: 'save', team: side === 'home' ? 'away' : 'home', description: `${goalkeeper.name} defende o pênalti!` });
-    const newHolder = pickPlayerWithBall(defendingTeam, side === 'home' ? 0.15 : 0.85);
+    const newHolder = pickPlayerWithBall(defendingTeam, side === 'home' ? 0.15 : 0.85, side !== 'home');
     newState.possession = side === 'home' ? 'away' : 'home';
     newState.ballHolderId = newHolder.id;
     newState.passChain = 0;
@@ -1783,7 +1798,7 @@ export function initLiveMatchState(homeTeam: Team, awayTeam: Team): LiveMatchSta
 
   // Escolhe o primeiro portador da bola
   const startingTeam = homeStarts ? homeTeam : awayTeam;
-  const firstHolder = pickPlayerWithBall(startingTeam, 0.5);
+  const firstHolder = pickPlayerWithBall(startingTeam, 0.5, homeStarts);
 
   return {
     possession: homeStarts ? 'home' : 'away',
@@ -1918,7 +1933,7 @@ export function simulateMinute(
   if (roll < shotChance) {
     // === CHUTE ===
     const goalkeeper = defendingTeam.squad.find(p => p.position === 'GK') ?? defendingTeam.squad[0];
-    const distance = attackProgress; // 0 = longe, 1 = perto do gol
+    const distance = 1 - attackProgress; // 1 = longe do gol, 0 = perto do gol (shotSuccessProb: >0.6 = chute de longe)
     const result = shotSuccessProb(holder, goalkeeper, distance, attackingTeam);
 
     // xG acumulado
@@ -1976,7 +1991,7 @@ export function simulateMinute(
 
       // Reinicia do meio-campo (posse para o time que sofreu o gol)
       const losingTeam = side === 'home' ? awayTeam : homeTeam;
-      const newHolder = pickPlayerWithBall(losingTeam, 0.5);
+      const newHolder = pickPlayerWithBall(losingTeam, 0.5, side !== 'home');
       newState.possession = side === 'home' ? 'away' : 'home';
       newState.ballPos = 0.5;
       newState.ballHolderId = newHolder.id;
@@ -1996,7 +2011,7 @@ export function simulateMinute(
         newEvents.push(...cornerResult.events);
         Object.assign(newState, cornerResult.state);
       } else {
-        const newHolder = pickPlayerWithBall(defendingTeam, currentBallPos);
+        const newHolder = pickPlayerWithBall(defendingTeam, currentBallPos, side !== 'home');
         newState.possession = side === 'home' ? 'away' : 'home';
         newState.ballHolderId = newHolder.id;
         newState.passChain = 0;
@@ -2012,7 +2027,7 @@ export function simulateMinute(
         Object.assign(newState, cornerResult.state);
       } else {
         // Tiro de meta — posse para o time defensor
-        const newHolder = pickPlayerWithBall(defendingTeam, side === 'home' ? 0.1 : 0.9);
+        const newHolder = pickPlayerWithBall(defendingTeam, side === 'home' ? 0.1 : 0.9, side !== 'home');
         newState.possession = side === 'home' ? 'away' : 'home';
         newState.ballHolderId = newHolder.id;
         newState.passChain = 0;
@@ -2021,7 +2036,7 @@ export function simulateMinute(
     }
   } else if (roll < shotChance + dribbleChance) {
     // === DRIBLE ===
-    const defender = pickDefender(defendingTeam, currentBallPos);
+    const defender = pickDefender(defendingTeam, currentBallPos, side !== 'home');
     const success = Math.random() < dribbleSuccessProb(holder, defender, attackingTeam);
 
     newActions.push({
@@ -2088,7 +2103,7 @@ export function simulateMinute(
   } else {
     // === PASSE ===
     // Escolhe receptor (não pode ser o próprio passador, não pode ser GK a menos que seja recuo)
-    const receiver = pickPlayerWithBall(attackingTeam, currentBallPos, holder.id);
+    const receiver = pickPlayerWithBall(attackingTeam, currentBallPos, side === 'home', holder.id);
     const success = Math.random() < passSuccessProb(holder, receiver, pressure, attackingTeam);
 
     // Atualiza stats de passes
@@ -2143,7 +2158,7 @@ export function simulateMinute(
           newState.passChain = state.passChain + 2;
         } else {
           // Zaga afasta — interceptação
-          const defender = pickDefender(defendingTeam, newState.ballPos);
+          const defender = pickDefender(defendingTeam, newState.ballPos, side !== 'home');
           newState.possession = side === 'home' ? 'away' : 'home';
           newState.ballHolderId = defender.id;
           newState.passChain = 0;
@@ -2152,7 +2167,7 @@ export function simulateMinute(
       }
     } else {
       // Passe errado — interceptação ou bola perdida
-      const defender = pickDefender(defendingTeam, currentBallPos);
+      const defender = pickDefender(defendingTeam, currentBallPos, side !== 'home');
       const interception = Math.random() < 0.55;
 
       if (interception) {
@@ -2172,7 +2187,7 @@ export function simulateMinute(
         // Bola solta — disputa
         const homeWins = Math.random() < 0.5;
         const winningTeam = homeWins ? homeTeam : awayTeam;
-        const winner = pickPlayerWithBall(winningTeam, currentBallPos);
+        const winner = pickPlayerWithBall(winningTeam, currentBallPos, homeWins);
         newActions.push({
           minute,
           type: 'clearance',
@@ -2219,11 +2234,7 @@ export function simulateMinute(
     newState.stats.awayPassAccuracy = awayPasses > 0 ? Math.round((awaySuccessful / awayPasses) * 100) : 0;
   }
 
-  // Combina ações e eventos
-  newState.actions = [...state.actions, ...newActions];
-  newState.events = [...state.events, ...newEvents];
-
-  // Laterais ocasionais (throw-ins)
+  // Laterais ocasionais (throw-ins) — antes de combinar para que a ação seja persistida
   if (Math.random() < 0.05) {
     const throwSide = Math.random() < 0.5 ? 'home' : 'away';
     const throwTeam = throwSide === 'home' ? homeTeam : awayTeam;
@@ -2245,6 +2256,10 @@ export function simulateMinute(
     newState.ballHolderId = throwTaker.id;
     newState.passChain = 0;
   }
+
+  // Combina ações e eventos
+  newState.actions = [...state.actions, ...newActions];
+  newState.events = [...state.events, ...newEvents];
 
   return newState;
 }

@@ -36,7 +36,9 @@ function getFullName(p: Player): string {
 // MOTORES DE ATUALIZAÇÃO DE MORAL
 // ============================================================
 
-// 1. Promessas expiradas — penalidade severa (jogador perde confiança)
+// 1. Promessas expiradas — penalidade severa (jogador perde confiança).
+// A penalidade é aplicada UMA vez: as promessas expiradas são marcadas como
+// processadas (fulfilled) para não drenarem moral toda semana indefinidamente.
 function applyPromisePenalties(squad: Player[]): { squad: Player[]; events: MoraleEvent[] } {
   const events: MoraleEvent[] = [];
   const updated = squad.map(player => {
@@ -50,27 +52,31 @@ function applyPromisePenalties(squad: Player[]): { squad: Player[]; events: Mora
       change: -penalty,
       reason: `${expired.length} promessa(s) não cumprida(s)`,
     });
-    return { ...player, morale: clamp(player.morale - penalty, 0, 100) };
+    const promises = player.promises.map(p =>
+      !p.fulfilled && p.deadline <= 0 ? { ...p, fulfilled: true } : p,
+    );
+    return { ...player, promises, morale: clamp(player.morale - penalty, 0, 100) };
   });
   return { squad: updated, events };
 }
 
 // 2. Tempo de jogo vs status — Key Player no banco perde moral rápido
-function applyPlayingTimeMorale(squad: Player[]): { squad: Player[]; events: MoraleEvent[] } {
+function applyPlayingTimeMorale(squad: Player[], startingXI: string[]): { squad: Player[]; events: MoraleEvent[] } {
   const events: MoraleEvent[] = [];
-  const isInXI = (p: Player, idx: number) => idx < 11;
+  const xiSet = new Set(startingXI);
+  const isInXI = (p: Player) => xiSet.has(p.id);
 
-  const updated = squad.map((player, idx) => {
+  const updated = squad.map((player) => {
     let change = 0;
     let reason = '';
 
-    if (player.squadStatus === 'Key Player' && !isInXI(player, idx)) {
+    if (player.squadStatus === 'Key Player' && !isInXI(player)) {
       change = -8;
       reason = 'Titular chave no banco';
-    } else if (player.squadStatus === 'Regular Starter' && !isInXI(player, idx)) {
+    } else if (player.squadStatus === 'Regular Starter' && !isInXI(player)) {
       change = -5;
       reason = 'Titular regular no banco';
-    } else if (isInXI(player, idx) && player.squadStatus !== 'Excess' && player.squadStatus !== 'Young Talent') {
+    } else if (isInXI(player) && player.squadStatus !== 'Excess' && player.squadStatus !== 'Young Talent') {
       change = 2;
       reason = 'Jogando como titular';
     } else if (player.squadStatus === 'Excess') {
@@ -231,7 +237,7 @@ export function applyWeeklyMoraleDynamics(team: Team): MoraleDynamicsResult {
   allEvents.push(...promiseResult.events);
 
   // 2. Tempo de jogo vs status
-  const playingResult = applyPlayingTimeMorale(squad);
+  const playingResult = applyPlayingTimeMorale(squad, team.startingXI ?? []);
   squad = playingResult.squad;
   allEvents.push(...playingResult.events);
 

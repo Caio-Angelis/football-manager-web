@@ -462,7 +462,8 @@ export const createTransferSlice = (set: Set, get: Get) => ({
     // Expected salary: current salary + premium based on willingness
     // High willingness = less demanding (lower expected)
     // Low willingness = more demanding (higher expected)
-    const premiumFactor = 1.5 - (willingness - 50) * 0.006; // 0.8-1.5 range
+    // 0.80 (muita vontade de sair, aceita menos) a 1.50 (pouca vontade, pede mais); 1.15 no meio
+    const premiumFactor = 1.15 - (willingness - 50) * 0.00778;
     const expectedSalary = Math.round(player.salary * premiumFactor);
 
     const ratio = offeredSalary / expectedSalary;
@@ -885,8 +886,11 @@ export const createTransferSlice = (set: Set, get: Get) => ({
     const payment = installment.payments[paymentIdx];
     if (payment.paid) return false;
 
+    // 'receivable' = usuário RECEBE (vendeu a prazo); 'payable' = usuário PAGA
+    const isReceivable = installment.direction === 'receivable';
     const buyerTeam = state.teams.find(t => t.id === state.selectedTeam);
-    if (!buyerTeam || buyerTeam.budget < payment.amount) return false;
+    if (!buyerTeam) return false;
+    if (!isReceivable && buyerTeam.budget < payment.amount) return false;
 
     const updatedPayments = installment.payments.map(p =>
       p.installmentNumber === payment.installmentNumber
@@ -905,7 +909,9 @@ export const createTransferSlice = (set: Set, get: Get) => ({
 
     set({
       teams: state.teams.map(t =>
-        t.id === state.selectedTeam ? { ...t, budget: t.budget - payment.amount } : t,
+        t.id === state.selectedTeam
+          ? { ...t, budget: isReceivable ? t.budget + payment.amount : t.budget - payment.amount }
+          : t,
       ),
       pendingInstallments: updatedPendingInstallments,
     });

@@ -64,7 +64,7 @@ export const useGameStore = create<GameStore>()(
     gameOver: false,
     pressConferences: [],
     fanMood: { value: 50, trend: 'stable', sentiment: 'neutral' },
-    mediaPressure: { value: 50, level: 'low' },
+    mediaPressure: { value: 20, level: 'low' },
     isAdvancing: false,
     matchBlockMessage: null,
 

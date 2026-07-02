@@ -142,7 +142,7 @@ function processAITransfers(
 
     const seller = updatedTeams[target.teamIdx];
     const player = target.player;
-    const fee = player.marketValue;
+    let fee = player.marketValue;
 
     // Verificar orçamento do comprador
     if (buyer.budget < fee) continue;
@@ -153,8 +153,10 @@ function processAITransfers(
     let sellerAccepts: boolean;
 
     if (sellerKeyPlayer && sellerDepth <= 3) {
-      // Não vende craque se não tem reposição — a menos que a oferta seja 150%+ do valor
-      sellerAccepts = fee * 1.5 <= buyer.budget && Math.random() < 0.2;
+      // Não vende craque se não tem reposição — e só sai por 150%+ do valor
+      const premiumFee = fee * 1.5;
+      sellerAccepts = premiumFee <= buyer.budget && Math.random() < 0.2;
+      if (sellerAccepts) fee = premiumFee; // craque é pago a 150% do valor de mercado
     } else if (sellerDepth > 4) {
       // Tem profundidade — vende mais facilmente
       sellerAccepts = Math.random() < 0.7;
@@ -261,7 +263,7 @@ function processAITactics(
     // ============================================================
     // ZONA DE REBAIXAMENTO — Mentalidade ofensiva, pressão alta
     // ============================================================
-    if (position >= totalTeams - 3 && standing.played >= 5) {
+    if (position >= totalTeams - 2 && standing.played >= 5) {
       if (team.teamMentality !== 'offensive' && team.teamMentality !== 'very offensive' && team.tactic !== 'defensive') {
         // Times em luta contra rebaixamento: 50% attacking, 30% balanced, 20% defensive
         const roll = Math.random();
@@ -290,25 +292,6 @@ function processAITactics(
           team.pressIntensity = 'low';
           team.tempo = 'slow';
           changeDescription = `${team.name} adota postura defensiva para segurar resultado na luta contra o rebaixamento`;
-        }
-        changed = true;
-      }
-
-      // Demissão do técnico virtual: 5 derrotas nos últimos 5 jogos
-      if (recentLosses >= 5 && Math.random() < 0.4) {
-        const newFormation = formations[Math.floor(Math.random() * formations.length)];
-        team.formation = newFormation;
-        const tacticRoll = Math.random();
-        if (tacticRoll < 0.4) {
-          team.teamMentality = 'positive';
-          team.tactic = 'attacking';
-          team.pressIntensity = 'high';
-          team.tempo = 'fast';
-          changeDescription = `${team.name} DEMITE o técnico e contrata novo treinador — muda para ${newFormation}`;
-        } else {
-          team.teamMentality = 'balanced';
-          team.tactic = 'balanced';
-          changeDescription = `${team.name} DEMITE o técnico e contrata novo treinador — muda para ${newFormation} com postura equilibrada`;
         }
         changed = true;
       }
@@ -355,6 +338,28 @@ function processAITactics(
         changed = true;
         changeDescription = `${team.name} volta ao equilíbrio tático após boa sequência`;
       }
+    }
+
+    // ============================================================
+    // DEMISSÃO DO TÉCNICO — qualquer time com 5 derrotas nos últimos 5 jogos
+    // (independente da posição na tabela; sobrepõe o ajuste de zona)
+    // ============================================================
+    if (recentLosses >= 5 && Math.random() < 0.4) {
+      const newFormation = formations[Math.floor(Math.random() * formations.length)];
+      team.formation = newFormation;
+      const tacticRoll = Math.random();
+      if (tacticRoll < 0.4) {
+        team.teamMentality = 'positive';
+        team.tactic = 'attacking';
+        team.pressIntensity = 'high';
+        team.tempo = 'fast';
+        changeDescription = `${team.name} DEMITE o técnico e contrata novo treinador — muda para ${newFormation}`;
+      } else {
+        team.teamMentality = 'balanced';
+        team.tactic = 'balanced';
+        changeDescription = `${team.name} DEMITE o técnico e contrata novo treinador — muda para ${newFormation} com postura equilibrada`;
+      }
+      changed = true;
     }
 
     // ============================================================

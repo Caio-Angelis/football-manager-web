@@ -1,5 +1,5 @@
 import type { GameStore, Player, PreventionSession, FatigueLogEntry, Recommendation, InjuryReport } from '../../types/game';
-import { calculatePlayerInjuryRisk, getRiskLevel, applyFatigueDecayToPlayer, updateDegradedConditionForPlayer, INJURY_TYPE_LABELS } from '../helpers/injury';
+import { calculatePlayerInjuryRisk, getRiskLevel, applyFatigueDecayToPlayer, updateDegradedConditionForPlayer, reduceInjuryFromRecoveryTraining, INJURY_TYPE_LABELS } from '../helpers/injury';
 import { getFullName } from '../../utils/playerName';
 
 type Set = (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void;
@@ -71,10 +71,11 @@ export const createInjurySlice = (set: Set, get: Get) => ({
       if (latestSession.targetPlayerIds.includes(player.id)) {
         const updated = { ...player };
         
-        // Medical sessions reduce injury duration
+        // Medical sessions reduce injury duration (-3 dias). Usa o helper compartilhado
+        // para, ao curar, marcar o injuryHistory como recuperado e restaurar fitness —
+        // sem isto o jogador carregaria +10 de risco de lesão permanente.
         if (latestSession.type === 'medical' && updated.injury?.active) {
-          updated.injury = { ...updated.injury, daysRemaining: Math.max(0, updated.injury.daysRemaining - 3) };
-          if (updated.injury.daysRemaining <= 0) updated.injury = null;
+          Object.assign(updated, reduceInjuryFromRecoveryTraining(updated, 3));
         }
         
         // Recovery sessions restore fitness
@@ -126,9 +127,15 @@ export const createInjurySlice = (set: Set, get: Get) => ({
     }
     updatedPlayer.lastTrainingDay = day;
     
-    // Update cumulative load
-    const loadAddition = isPhysical ? 8 : trainingType === 'technical' ? 3 : 1;
-    updatedPlayer.cumulativeLoad = (updatedPlayer.cumulativeLoad || 0) + loadAddition;
+    // Update cumulative load — só o treino físico aumenta a carga; os demais reduzem
+    // (físico +8, técnico -4, coesão -2, médico -10, leve -5) conforme regra-treino.
+    const loadDelta = isPhysical ? 8
+      : trainingType === 'technical' ? -4
+      : trainingType === 'cohesion' ? -2
+      : trainingType === 'medical' ? -10
+      : trainingType === 'light' ? -5
+      : 0;
+    updatedPlayer.cumulativeLoad = Math.max(0, (updatedPlayer.cumulativeLoad || 0) + loadDelta);
     
     // Update recovery flag
     updatedPlayer.recoveryNeeded = updatedPlayer.fitness < 30 || updatedPlayer.cumulativeLoad > 20;

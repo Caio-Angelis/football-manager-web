@@ -1,0 +1,399 @@
+# Plano Online — Multiplayer por Sala (checklist passo a passo)
+
+> Objetivo: criar salas com **código de entrada**, vários humanos no **mesmo universo**
+> (mesma liga), onde é possível **comprar jogador um do outro** e **se enfrentar**.
+>
+> Modo alvo do MVP (decisões travadas):
+> - **Partida humano × humano:** SIMULADA no servidor (reaproveita `simulateFullMatch`); o relatório pós-jogo aparece para os dois. (Ao vivo PvP fica como evolução futura — Fase 10.)
+> - **Avanço de rodada:** READY-CHECK (a rodada só fecha quando todos os humanos marcam "pronto").
+> - **Persistência/identidade:** salas em MEMÓRIA no servidor; jogador identificado por **token + apelido** (sem contas/login). (Banco de dados = Fase 10.)
+>
+> Regra de ouro: **o modo single-player atual não pode quebrar.** Todo o online é aditivo.
+> Faça os itens **na ordem**. Ao fim de cada Fase há um "✅ Como testar".
+
+---
+
+## Legenda
+- `[ ]` = tarefa a fazer.
+- **Arquivo:** caminho relativo à raiz do projeto.
+- Blocos de código são **esboços ilustrativos** (adapte nomes/tipos ao seu código real).
+
+---
+
+## FASE 0 — Preparação: transformar o store global em fábrica + identidade do jogador
+
+Hoje o backend tem **um** store global (`create<GameStore>()`) e o `selectedTeam` é singular.
+Antes de qualquer sala, precisamos poder criar **um store por sala**.
+
+- [ ] **Confirmar como o store é criado hoje.**
+  - **Arquivo:** `backend/src/store/gameStore.ts`
+  - Veja se ele exporta algo como `export const gameStore = create<GameStore>(...)` (singleton).
+
+- [ ] **Extrair uma fábrica `createGameStore()`.**
+  - **Arquivo:** `backend/src/store/gameStore.ts`
+  - Use `createStore` do `zustand/vanilla` (já é dependência) em vez do singleton.
+  - Esboço:
+    ```ts
+    import { createStore } from 'zustand/vanilla';
+    export function createGameStore() {
+      return createStore<GameStore>()((set, get) => ({
+        ...initialState,            // o mesmo estado inicial de hoje
+        ...createCoreSlice(set, get),
+        ...createMatchSlice(set, get),
+        // ... os 14 slices, igual hoje
+      }));
+    }
+    // Mantém o singleton p/ o modo single-player não quebrar:
+    export const gameStore = createGameStore();
+    export type GameStoreApi = ReturnType<typeof createGameStore>;
+    ```
+  - **Onde isso é usado hoje:** `backend/src/routes/game.ts` importa o store. Deixe o single-player usando `gameStore` (o singleton) por enquanto.
+
+- [ ] **Gerar um `playerId` estável no cliente.**
+  - **Arquivo:** `frontend/src/api/client.ts` (ou um novo `frontend/src/online/identity.ts`)
+  - Ao carregar, se não existir, cria e salva em `localStorage`:
+    ```ts
+    export function getPlayerId(): string {
+      let id = localStorage.getItem('fm-player-id');
+      if (!id) { id = crypto.randomUUID(); localStorage.setItem('fm-player-id', id); }
+      return id;
+    }
+    ```
+
+✅ **Como testar a Fase 0:** rode `npm run dev` na raiz; o jogo single-player deve funcionar **exatamente** como antes. `getPlayerId()` retorna sempre o mesmo id no mesmo navegador.
+
+---
+
+## FASE 1 — Salas e Lobby (sem gameplay ainda)
+
+Criar/entrar em sala por código e ver quem está dentro. Nada de clubes ainda.
+
+- [ ] **Criar o módulo de salas (backend).**
+  - **Arquivo novo:** `backend/src/rooms/roomManager.ts`
+  - Estruturas:
+    ```ts
+    import { createGameStore, type GameStoreApi } from '../store/gameStore';
+
+    export interface RoomPlayer {
+      playerId: string;
+      nickname: string;
+      teamId: string | null;   // definido no draft (Fase 3)
+      ready: boolean;          // ready-check (Fase 5)
+      connected: boolean;
+      lastSeen: number;
+    }
+    export interface Room {
+      code: string;
+      ownerId: string;
+      status: 'lobby' | 'drafting' | 'playing' | 'finished';
+      players: RoomPlayer[];
+      store: GameStoreApi;     // universo isolado da sala
+      createdAt: number;
+    }
+
+    const rooms = new Map<string, Room>();
+
+    function genCode(): string {
+      // 6 chars, sem 0/O/1/I p/ evitar confusão
+      const alpha = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let c = '';
+      do { c = Array.from({length:6}, () => alpha[Math.floor(Math.random()*alpha.length)]).join(''); }
+      while (rooms.has(c));
+      return c;
+    }
+
+    export function createRoom(ownerId: string, nickname: string): Room {
+      const room: Room = {
+        code: genCode(), ownerId, status: 'lobby',
+        players: [{ playerId: ownerId, nickname, teamId: null, ready: false, connected: true, lastSeen: Date.now() }],
+        store: createGameStore(), createdAt: Date.now(),
+      };
+      rooms.set(room.code, room);
+      return room;
+    }
+    export function getRoom(code: string): Room | undefined { return rooms.get(code?.toUpperCase()); }
+    export function joinRoom(code: string, playerId: string, nickname: string): Room | null {
+      const room = getRoom(code); if (!room || room.status !== 'lobby') return null;
+      if (!room.players.find(p => p.playerId === playerId))
+        room.players.push({ playerId, nickname, teamId: null, ready: false, connected: true, lastSeen: Date.now() });
+      return room;
+    }
+    ```
+  - **ponytail:** `Map` em memória é suficiente pro MVP. Banco = Fase 10.
+
+- [ ] **Limpeza de salas abandonadas (evita vazar memória).**
+  - **Arquivo:** `backend/src/rooms/roomManager.ts`
+  - `setInterval` a cada ~5 min removendo salas com `createdAt` muito antigo e sem jogadores conectados. Espelhe o padrão que já existe em `backend/src/middleware/rateLimiter.ts` (que já faz cleanup periódico).
+
+- [ ] **Criar as rotas de sala (backend).**
+  - **Arquivo novo:** `backend/src/routes/rooms.ts` (registre no `backend/src/server.ts` junto das outras rotas)
+  - Identidade via header `x-player-id` (leia num pequeno middleware ou inline).
+  - Endpoints:
+    - `POST /api/rooms` → body `{ nickname }`, header `x-player-id` → cria sala → `{ code }`
+    - `POST /api/rooms/:code/join` → body `{ nickname }` → entra → `{ ok, room: publicRoom }`
+    - `GET  /api/rooms/:code` → estado público da sala (para polling do lobby)
+  - **`publicRoom`**: só metadados (código, status, lista de `{nickname, teamId, ready, connected}` e quem é o dono). **Nunca** mande o `store` inteiro aqui.
+  - Valide `code`/`nickname` com Zod em `backend/src/validation/schemas.ts` (siga o padrão dos schemas existentes: `zString`, etc.).
+
+- [ ] **Aba "Online" no frontend + telas de lobby.**
+  - **Arquivo:** `frontend/src/App.tsx` — adicione rota `/online` e um item/entrada para ela (fora do fluxo que exige `selectedTeam`).
+  - **Arquivos novos:**
+    - `frontend/src/components/online/OnlineHome.tsx` — dois botões: **Criar sala** / **Entrar com código** + campo de apelido.
+    - `frontend/src/components/online/Lobby.tsx` — mostra o código da sala (para compartilhar), lista de jogadores, botão **Iniciar** (só habilitado para o dono).
+  - **Arquivo:** `frontend/src/api/client.ts` — helpers novos: `createRoom(nickname)`, `joinRoom(code, nickname)`, `getRoom(code)`. Todos mandam header `x-player-id: getPlayerId()`.
+
+- [ ] **Polling do lobby (sem WebSocket no MVP).**
+  - **Arquivo:** `Lobby.tsx` — `setInterval` de ~2s chamando `getRoom(code)` para atualizar a lista de jogadores e o `status`. (Padrão já usado no `MatchCenter` com `setInterval`.)
+  - **ponytail:** polling de 2s no lobby é suficiente; WebSocket só se a latência incomodar.
+
+✅ **Como testar a Fase 1:** abra dois navegadores (ou um anônimo). Num, "Criar sala" → aparece o código. No outro, "Entrar com código" → os dois veem a lista de jogadores atualizando. Single-player continua funcionando.
+
+---
+
+## FASE 2 — Estado por sala + roteamento de ações
+
+Fazer as ações do jogo rodarem no store **da sala**, não no global.
+
+- [ ] **Rota de ação escopada por sala.**
+  - **Arquivo:** `backend/src/routes/rooms.ts`
+  - `POST /api/rooms/:code/action` → body `{ action, args }`, header `x-player-id`.
+  - Reutilize a MESMA lógica do `POST /api/action` de hoje (`backend/src/routes/game.ts`), mas:
+    1. `const room = getRoom(code)` (404 se não existir).
+    2. `const store = room.store` (em vez do singleton).
+    3. Auto-discover das actions, validação Zod, `fn.apply(store, args)` — **igual hoje**, só mudando de qual store.
+  - **Dica de refatoração:** extraia a função "executar ação num store" de `game.ts` para um helper compartilhado e use tanto no single-player quanto no online.
+
+- [ ] **Rota de estado escopada por sala.**
+  - **Arquivo:** `backend/src/routes/rooms.ts`
+  - `GET /api/rooms/:code/state` header `x-player-id` → por enquanto retorne o estado completo do `room.store` (a **projeção escopada** vem na Fase 6).
+
+- [ ] **Cliente online no frontend.**
+  - **Arquivo:** `frontend/src/api/client.ts`
+  - `apiRoomAction(code, action, args)` e `apiRoomState(code)` — iguais aos `apiAction`/`apiGet`, mas na URL da sala e com header `x-player-id`.
+  - **Arquivo:** `frontend/src/store/gameStore.ts` (thin client)
+  - Adicione um "modo": se houver `roomCode` ativo, as mutations chamam `apiRoomAction(roomCode, ...)` e o sync usa `apiRoomState(roomCode)`. Se não, mantém o comportamento single-player atual.
+
+✅ **Como testar a Fase 2:** dentro de uma sala, dispare uma ação simples (ex.: `initGame` via botão do dono na Fase 3) e confirme que o estado muda **só** naquela sala (crie 2 salas e verifique isolamento).
+
+---
+
+## FASE 3 — Iniciar o jogo + Draft de clubes
+
+O dono inicia → gera os clubes → cada humano escolhe um.
+
+- [ ] **Adicionar dono ao time.**
+  - **Arquivo:** `backend/src/types/team.ts`
+  - Novo campo: `ownerId?: string | null;` (`null`/ausente = controlado pela IA).
+  - **Arquivo:** `frontend/src/types/game.ts` — espelhe o campo.
+
+- [ ] **Dono inicia a sala.**
+  - **Arquivo:** `backend/src/routes/rooms.ts`
+  - `POST /api/rooms/:code/start` (só o `ownerId`): chama `room.store.getState().initGame()` (gera os 20 clubes reais) e muda `room.status = 'drafting'`.
+  - Garanta que TODOS os times comecem com `ownerId = null`.
+
+- [ ] **Escolher clube (draft).**
+  - **Arquivo:** `backend/src/routes/rooms.ts`
+  - `POST /api/rooms/:code/pick` → body `{ teamId }`, header `x-player-id`.
+    - Rejeita se o time já tem dono (corrida entre dois cliques simultâneos — trate aqui, é o primeiro ponto de concorrência real).
+    - Seta `team.ownerId = playerId` (via `room.store`) e `roomPlayer.teamId = teamId`.
+  - Quando todos os `players` tiverem `teamId`, o dono pode chamar `POST /api/rooms/:code/begin` → `room.status = 'playing'`.
+
+- [ ] **Tela de draft (frontend).**
+  - **Arquivo novo:** `frontend/src/components/online/DraftScreen.tsx`
+  - Reaproveite o visual de `frontend/src/components/TeamSelection.tsx`, mas:
+    - Lista os clubes da sala; marca os já escolhidos (com o apelido do dono) e desabilita.
+    - Polling ~2s para ver escolhas dos outros.
+  - Ao entrar em `status: 'playing'`, redirecione para as telas normais do jogo (Elenco, Táticas, etc.), agora apontando para o estado da sala.
+
+✅ **Como testar a Fase 3:** dono inicia → clubes aparecem → cada navegador escolhe um clube diferente; tentar pegar o mesmo clube ao mesmo tempo → só um consegue.
+
+---
+
+## FASE 4 — Contexto do jogador por request (o truque que faz os slices funcionarem)
+
+O código single-player inteiro filtra por `state.selectedTeam` (lesões, treino, finanças, imprensa, promessas…). Em vez de reescrever os 14 slices, **defina o `selectedTeam` do store da sala para o time do jogador que fez a request, antes de executar a ação.**
+
+- [ ] **Resolver o time do jogador e "focar" o store antes da ação.**
+  - **Arquivo:** `backend/src/routes/rooms.ts` (na rota `/action`)
+  - Antes de `fn.apply(store, args)`:
+    ```ts
+    const rp = room.players.find(p => p.playerId === playerId);
+    if (!rp?.teamId) return res.status(403).json({ error: 'Jogador sem time' });
+    store.getState().selectTeam(rp.teamId); // seta state.selectedTeam = time do jogador
+    ```
+  - Assim, ações "por jogador" (ajustar tática, treino, comprar jogador, escalar) já operam no time certo, sem tocar nos slices.
+
+- [ ] **Bloquear ações que não são "por jogador" nessa rota.**
+  - **Arquivo:** `backend/src/routes/rooms.ts`
+  - `advanceWeek`, `startNextSeason`, `initGame` **não** podem ser chamadas por um jogador individual online. Crie uma allowlist/denylist de actions permitidas via `/action` (as globais têm fluxo próprio na Fase 5).
+
+- [ ] **Validar que a ação afeta só o próprio time.**
+  - **Atenção ao `updateTeam`:** hoje ele recebe o **objeto time inteiro do cliente** (vetor de trapaça). Na rota online, rejeite `updateTeam` cujo `teamId` ≠ time do jogador. (Idealmente, no futuro, substituir `updateTeam` por ações granulares — anote como dívida.)
+
+✅ **Como testar a Fase 4:** dois jogadores na mesma sala ajustam táticas/treino ao mesmo tempo; cada um só altera o próprio time. Tente (via devtools) mandar `updateTeam` de outro time → deve ser rejeitado.
+
+---
+
+## FASE 5 — Rodada coordenada (ready-check) + `advanceWeek` multi-time
+
+Este é o coração do multiplayer e a maior mudança de gameplay.
+
+- [ ] **Ready-check por jogador.**
+  - **Arquivo:** `backend/src/routes/rooms.ts`
+  - `POST /api/rooms/:code/ready` → alterna `roomPlayer.ready`.
+  - `GET /api/rooms/:code` deve expor quantos estão prontos (para a UI).
+
+- [ ] **Fechar a rodada quando todos prontos.**
+  - **Arquivo:** `backend/src/rooms/roomManager.ts` (função `advanceRoomWeek(room)`)
+  - Quando todos os `players` com `teamId` estiverem `ready`:
+    1. Chame `room.store.getState().advanceWeek()` (ver adaptação abaixo).
+    2. Zere `ready` de todos.
+  - Dispare isso ao receber o último "ready", ou via `POST /api/rooms/:code/advance` do dono.
+
+- [ ] **Adaptar `advanceWeek` para vários humanos (a parte pesada).**
+  - **Arquivo:** `backend/src/store/slices/core.ts`
+  - Hoje `advanceWeek` faz o processamento semanal **apenas para `state.selectedTeam`** (finanças, treino, fadiga, cura, lesões, moral, parcelas, bônus, inbox).
+  - Mude para processar **todos os times com `ownerId != null`** (os humanos), além da IA para os demais:
+    - Extraia o "processamento semanal de um time do usuário" para uma função pura `processHumanTeamWeek(team, state)` e rode num loop sobre todos os times humanos.
+    - Os helpers já são por-time (`applyFatigueDecayToPlayer`, `healInjuryForPlayer`, `updatePlayerAttributes`, `applyWeeklyMoraleDynamics`) — reutilize.
+    - **Bloqueio por lesão no XI:** hoje bloqueia o avanço se o time do usuário tem lesionado no XI. Online: **não** bloquear a rodada inteira por causa de um jogador; em vez disso, auto-substituir/auto-simular o time daquele jogador (senão um jogador trava todos). Decida a regra e documente.
+    - **Parcelas/bônus/inbox:** hoje só do `selectedTeam`. Faça por-humano (cada um tem seu inbox/parcelas — ver Fase 6 sobre onde guardar isso por jogador).
+  - **Partidas do usuário:** hoje a do usuário fica pendente para jogar ao vivo. Online (MVP simulado): ver Fase 8 — todas as partidas (inclusive humano×humano) são simuladas no fechamento da rodada.
+
+- [ ] **Estado "por jogador" que hoje é global.**
+  - **Problema:** `inbox`, `pendingInstallments`, `incomingBonuses`, `incomingTransfers`, `scoutMissions`, `scoutKnowledge`, `shortlist`, etc. são campos **globais** do `GameState`, assumindo 1 humano.
+  - **Decisão de MVP (mais simples):** transforme-os em mapas por jogador, ex.: `inboxByTeam: Record<teamId, InboxMessage[]>`. Comece pelos que a UI online realmente usa (inbox, parcelas, transferências recebidas) e migre incrementalmente.
+  - **Onde:** `backend/src/types/game.ts` (GameState) + os slices que leem/escrevem esses campos. Grande, mas incremental (um campo por vez).
+
+✅ **Como testar a Fase 5:** 2 jogadores, ambos marcam "pronto" → a semana avança para os dois; a tabela reflete as partidas de todos; finanças/treino de cada humano são processados. Um jogador sozinho não avança a rodada.
+
+---
+
+## FASE 6 — Projeção de estado escopada (não vazar info dos rivais)
+
+Hoje `/state` devolve o estado inteiro. Online, cada jogador só pode ver o público + o seu.
+
+- [ ] **Função de projeção por jogador.**
+  - **Arquivo novo:** `backend/src/rooms/projectState.ts`
+  - `projectStateForPlayer(room, playerId)` retorna:
+    - **Público:** `teams` (mas sem dados internos sensíveis dos rivais — ex.: esconder scouting/knowledge, moral individual, planos de treino), `matches`, `leagueTable`, `currentWeek`, `seasonSummary`.
+    - **Privado (só do time do jogador):** `inboxByTeam[meuTime]`, `pendingInstallments` do meu time, `scoutKnowledge` meu, finanças detalhadas, `trainingPlan` meu.
+  - **Regra:** jogadores contratáveis de outros times **devem** aparecer (para poder comprar), mas atributos ocultos/knowledge seguem o sistema de scouting já existente (`maskPlayerAttributes`).
+
+- [ ] **Usar a projeção nas respostas.**
+  - **Arquivo:** `backend/src/routes/rooms.ts`
+  - `GET /api/rooms/:code/state` e o `{ result, state }` do `/action` devem retornar `projectStateForPlayer(...)`, não o estado bruto.
+
+- [ ] **Frontend lida com estado parcial.**
+  - **Arquivo:** `frontend/src/store/gameStore.ts`
+  - Garanta que os getters/telas não quebrem quando campos de rivais vierem mascarados/ausentes.
+
+✅ **Como testar a Fase 6:** jogador A não consegue ver finanças/scouting de B (verifique no payload da rede), mas vê a tabela, os resultados e os jogadores de B disponíveis no mercado.
+
+---
+
+## FASE 7 — Transferências entre humanos
+
+Comprar jogador de outro humano precisa de negociação **assíncrona entre pessoas** (não a IA).
+
+- [ ] **Detectar alvo humano vs IA na oferta.**
+  - **Arquivo:** `backend/src/store/slices/transfer.ts`
+  - Ao fazer oferta por um jogador cujo time tem `ownerId != null` (humano), **não** use a lógica de aceitação automática da IA. Em vez disso, crie uma **oferta pendente** endereçada ao dono daquele time.
+
+- [ ] **Fila de ofertas recebidas por humano.**
+  - **Arquivo:** `backend/src/types/transfer.ts` + `game.ts` (GameState)
+  - Reaproveite/estenda `IncomingTransfer`, mas com `fromTeam` sendo outro humano e destino = inbox do humano-alvo (`inboxByTeam`, da Fase 5/6).
+  - O humano-alvo **aceita/recusa/contra-propõe** com o fluxo que já existe (`acceptIncomingTransfer`, `negotiateCounterOffer`) — mas o "outro lado" agora é uma pessoa, então a resposta volta como nova oferta pendente para o comprador.
+
+- [ ] **Concorrência.**
+  - Bloqueie duas ofertas simultâneas fechando no mesmo jogador (trave o jogador enquanto uma negociação humano×humano está aberta, ou resolva na ordem de chegada). Este é o segundo ponto de corrida (o primeiro foi o draft).
+
+- [ ] **Parcelas entre humanos.**
+  - As parcelas já têm `direction: 'payable' | 'receivable'`. Ao fechar entre humanos: comprador recebe cláusula `payable`, vendedor `receivable`. O processamento semanal (Fase 5) credita/debita cada lado. (Isso já está correto no motor atual — só precisa rodar por-humano.)
+
+✅ **Como testar a Fase 7:** A faz oferta por jogador de B → aparece no inbox de B → B aceita → jogador troca de time, dinheiro sai de A e entra em B (à vista ou em parcelas ao longo das semanas).
+
+---
+
+## FASE 8 — Partidas humano × humano (SIMULADAS no MVP)
+
+- [ ] **Gerar o calendário com confrontos entre humanos.**
+  - **Arquivo:** `backend/src/store/helpers/matchEngine.ts` (`generateWeekMatches`) — já pareia os 20 times; nada especial a fazer além de garantir que times humanos se enfrentem normalmente.
+
+- [ ] **Simular todas as partidas no fechamento da rodada.**
+  - **Arquivo:** `backend/src/store/slices/core.ts` (dentro do `advanceWeek` multi-time da Fase 5)
+  - No MVP, **não há partida ao vivo** para ninguém online: toda partida (IA×IA, humano×IA, humano×humano) é resolvida com `simulateFullMatch` no fechamento da rodada.
+  - Guarde o `postMatchReport` e `playerRatings` para AMBOS os humanos verem.
+
+- [ ] **Tela de resultado pós-rodada para os dois.**
+  - **Arquivo:** `frontend/src/components/match/MatchCenter.tsx` / `PostMatchReportView.tsx`
+  - Após a rodada fechar, cada humano vê o relatório da sua partida (já existe o componente; só alimentar com o resultado da sala).
+
+- [ ] **(Opcional MVP+) Táticas valem para a simulação.**
+  - Como a partida é simulada, as escolhas de tática/escalação/bolas paradas de cada humano **já entram** no motor (`tacticsConfig`, `startingXI`). Garanta que estão salvas antes do "ready".
+
+✅ **Como testar a Fase 8:** A e B se enfrentam na rodada; ambos marcam pronto; a rodada fecha; os dois veem o mesmo placar e cada um vê seu relatório. Mudar a tática antes de "pronto" muda o resultado.
+
+---
+
+## FASE 9 — Robustez: reconexão, desconexão e limpeza
+
+- [ ] **Heartbeat / connected.**
+  - **Arquivo:** `backend/src/routes/rooms.ts`
+  - Atualize `roomPlayer.lastSeen` a cada request; marque `connected=false` se ficar muito tempo sem aparecer (o polling já serve de heartbeat).
+
+- [ ] **Jogador que caiu não trava a rodada.**
+  - No ready-check (Fase 5), considere jogador `connected=false` como "auto-pronto" (o time dele é simulado). Documente essa regra.
+
+- [ ] **Reentrar na sala.**
+  - Como o `playerId` está no `localStorage`, ao reabrir a aba Online, ofereça "voltar para a sala X" se ele ainda estiver na lista de players.
+
+- [ ] **Encerrar sala.**
+  - Botão do dono para encerrar; remover do `Map`. Cleanup automático (Fase 1) cobre abandono.
+
+✅ **Como testar a Fase 9:** feche a aba de B no meio da rodada; A marca pronto; a rodada fecha simulando o time de B. Reabrir a aba de B volta para a sala.
+
+---
+
+## FASE 10 — Evoluções futuras (fora do MVP)
+
+- [ ] **Partida ao vivo PvP** (os dois assistindo minuto a minuto):
+  - Mover a simulação ao vivo do frontend (`setInterval` em `MatchCenter`) para o **servidor autoritativo**; transmitir por **WebSocket** (ex.: `ws` ou `socket.io` — nova dependência); sincronizar substituições/gritos dos dois lados; tratar intervalo e desconexão. Reescrita significativa.
+- [ ] **Banco de dados + contas reais:** persistir salas/saves (Postgres/SQLite); login; reconexão robusta; rodar múltiplas instâncias do servidor.
+- [ ] **Substituir `updateTeam` (objeto inteiro do cliente) por ações granulares** validadas no servidor (anti-cheat definitivo).
+- [ ] **Escala horizontal:** hoje o estado em memória impede rodar 2 instâncias; exige mover salas para um store compartilhado (Redis/DB).
+
+---
+
+## Resumo dos arquivos que serão criados/alterados
+
+**Novos (backend):**
+- `backend/src/rooms/roomManager.ts` — salas, código, players, ready-check, advanceRoomWeek
+- `backend/src/rooms/projectState.ts` — projeção de estado por jogador
+- `backend/src/routes/rooms.ts` — endpoints de sala/lobby/draft/action/state
+
+**Alterados (backend):**
+- `backend/src/store/gameStore.ts` — fábrica `createGameStore()`
+- `backend/src/store/slices/core.ts` — `advanceWeek` multi-time + processamento por humano
+- `backend/src/store/slices/transfer.ts` — negociação humano×humano
+- `backend/src/types/team.ts` — `ownerId`
+- `backend/src/types/game.ts` — campos "por jogador" (`inboxByTeam`, etc.)
+- `backend/src/validation/schemas.ts` — schemas das novas rotas
+- `backend/src/server.ts` — registrar rotas de sala + cleanup
+
+**Novos (frontend):**
+- `frontend/src/components/online/OnlineHome.tsx` — criar/entrar
+- `frontend/src/components/online/Lobby.tsx` — lobby com código
+- `frontend/src/components/online/DraftScreen.tsx` — escolher clube
+- `frontend/src/online/identity.ts` (ou dentro de `client.ts`) — `getPlayerId`
+
+**Alterados (frontend):**
+- `frontend/src/App.tsx` — rota `/online`
+- `frontend/src/api/client.ts` — helpers de sala + header `x-player-id`
+- `frontend/src/store/gameStore.ts` — modo online (roomCode) nas mutations/sync
+- `frontend/src/types/game.ts` — espelhar `ownerId` e campos por jogador
+
+---
+
+## Ordem recomendada de execução (uma por vez)
+0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9. As Fases 5 e 6 são as mais trabalhosas; faça-as com calma e teste bastante. Só ataque a Fase 10 depois do MVP jogável.

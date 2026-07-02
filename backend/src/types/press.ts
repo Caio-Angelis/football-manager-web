@@ -92,6 +92,7 @@ export interface PressConferenceEffects {
   fanMoodChange: number;      // mudança no humor da torcida (-10 a +10)
   mediaPressureChange: number; // mudança na pressão midiática (-10 a +10)
   affectedPlayerIds: string[]; // jogadores diretamente afetados
+  playerMoraleDeltas?: Record<string, number>; // delta de moral específico por jogador citado
   headline: string;           // manchete gerada pela coletiva
 }
 

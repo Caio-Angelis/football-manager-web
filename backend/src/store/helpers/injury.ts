@@ -281,20 +281,32 @@ export function applyFatigueDecayToPlayer(player: Player): Player {
 
 export function updateDegradedConditionForPlayer(player: Player, currentWeek: number): Player {
   const updated = { ...player };
-  if (updated.degradedCondition && updated.lastInjuryWeek) {
-    const weeksRecovering = currentWeek - updated.lastInjuryWeek;
-    // Progression: minimal → low → moderate → good → cleared
-    // 'minimal' = minimal fitness (worst), 'good' = nearly full
-    if (weeksRecovering > 8) {
-      updated.degradedCondition = undefined;
-    } else if (weeksRecovering > 4 && updated.degradedCondition === 'minimal') {
-      updated.degradedCondition = 'low';
-    } else if (weeksRecovering > 2 && updated.degradedCondition === 'low') {
-      updated.degradedCondition = 'moderate';
-    } else if (weeksRecovering >= 1 && updated.degradedCondition === 'moderate') {
-      updated.degradedCondition = 'good';
-    }
+  if (!updated.degradedCondition || updated.lastInjuryWeek === undefined) return updated;
+
+  const weeksRecovering = currentWeek - updated.lastInjuryWeek;
+
+  // Progressão minimal → low → moderate → good → cleared, com DURAÇÃO POR NÍVEL
+  // (não cumulativa desde a lesão). O nível inicial depende da severidade da última
+  // lesão: severe começa em 'minimal', moderate em 'low', minor em 'moderate'.
+  const order = ['minimal', 'low', 'moderate', 'good'] as const;
+  const levelDuration: Record<(typeof order)[number], number> = {
+    minimal: 4, low: 2, moderate: 1, good: 8,
+  };
+  const lastInjury = updated.injuryHistory?.[updated.injuryHistory.length - 1];
+  const startLevel =
+    lastInjury?.severity === 'severe' ? 'minimal'
+    : lastInjury?.severity === 'moderate' ? 'low'
+    : lastInjury?.severity === 'minor' ? 'moderate'
+    : updated.degradedCondition; // fallback: nível atual
+
+  let acc = 0;
+  let level: (typeof order)[number] | undefined = undefined; // cleared por padrão
+  for (let idx = order.indexOf(startLevel as (typeof order)[number]); idx >= 0 && idx < order.length; idx++) {
+    acc += levelDuration[order[idx]];
+    if (weeksRecovering < acc) { level = order[idx]; break; }
   }
+  updated.degradedCondition = level;
+
   return updated;
 }
 

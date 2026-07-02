@@ -6,7 +6,7 @@ import {
   simulateFullMatch, simulateMinute, calculatePlayerMatchRatings,
   generateWeekMatches, applyMatchResultToTeams, generatePostMatchReport,
 } from '../helpers/matchEngine';
-import type { MatchStats, MatchEvent } from '../../types/game';
+import type { MatchStats, MatchEvent, Match } from '../../types/game';
 import { calculateLeagueStandings } from '../helpers/league';
 import { generateInboxMessage } from '../helpers/inbox';
 import { calculatePlayerInjuryRisk, getRiskLevel, applyFatigueDecayToPlayer, updateDegradedConditionForPlayer, generateInjuryForPlayer, healInjuryForPlayer } from '../helpers/injury';
@@ -21,6 +21,64 @@ import { getFullName } from '../../utils/playerName';
 
 type Set = (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void;
 type Get = () => GameStore;
+
+// Auto-finaliza a partida pendente do usuário (caso ele avance sem jogá-la ao vivo).
+// Muta `matches` no lugar (marca a partida como completed) e retorna o novo array de teams
+// com o resultado aplicado. Usado tanto no avanço normal quanto no fim da temporada.
+function finalizePendingUserMatch(matches: Match[], teams: Team[], selectedTeam: string | null): Team[] {
+  if (!selectedTeam) return teams;
+  const idx = matches.findIndex(
+    pm => !pm.completed && (pm.homeTeam === selectedTeam || pm.awayTeam === selectedTeam),
+  );
+  if (idx === -1) return teams;
+
+  const pending = matches[idx];
+  const ph = teams.find(t => t.id === pending.homeTeam);
+  const pa = teams.find(t => t.id === pending.awayTeam);
+  if (!ph || !pa) return teams;
+
+  let result;
+  if (pending.isLive && pending.liveMatchState) {
+    let liveState = pending.liveMatchState;
+    for (let m = pending.liveMinute + 1; m <= 90; m++) {
+      liveState = simulateMinute(ph, pa, liveState, m);
+    }
+    const events: MatchEvent[] = liveState.events.sort((a, b) => a.minute - b.minute);
+    const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+    const stats: MatchStats = {
+      ...liveState.stats,
+      homePossession: clamp(liveState.stats.homePossession, 25, 75),
+      awayPossession: 100 - clamp(liveState.stats.homePossession, 25, 75),
+    };
+    const baseResult = {
+      homeGoals: liveState.homeGoals,
+      awayGoals: liveState.awayGoals,
+      events,
+      stats,
+      goalDetails: liveState.goalDetails,
+    };
+    const withRatings = calculatePlayerMatchRatings(ph, pa, baseResult);
+    const postMatchReport = generatePostMatchReport(ph, pa, baseResult, liveState.actions);
+    result = { ...withRatings, postMatchReport };
+  } else {
+    result = simulateFullMatch(ph, pa);
+  }
+
+  const newTeams = applyMatchResultToTeams(teams, pending.homeTeam, pending.awayTeam, result);
+  matches[idx] = {
+    ...pending,
+    completed: true,
+    isLive: false,
+    homeGoals: result.homeGoals,
+    awayGoals: result.awayGoals,
+    events: result.events,
+    stats: result.stats,
+    playerRatings: result.playerRatings,
+    bestPlayer: result.bestPlayer,
+    postMatchReport: result.postMatchReport,
+  };
+  return newTeams;
+}
 
 export const createCoreSlice = (set: Set, get: Get) => ({
   deselectTeam: () => {
@@ -100,7 +158,7 @@ export const createCoreSlice = (set: Set, get: Get) => ({
       gameOver: false,
       pressConferences: [],
       fanMood: { value: 50, trend: 'stable', sentiment: 'neutral' },
-      mediaPressure: { value: 50, level: 'low' },
+      mediaPressure: { value: 20, level: 'low' },
       isAdvancing: false,
     });
   },
@@ -148,10 +206,12 @@ export const createCoreSlice = (set: Set, get: Get) => ({
         selectedTeamId: state.selectedTeam,
         hasIncomingTransfer: false,
       });
-      const updatedTeams = [...state.teams];
+      let updatedTeams = [...state.teams];
 
-      // Manter partidas existentes sem gerar novas
+      // Manter partidas existentes sem gerar novas, mas auto-finalizar a partida
+      // pendente da rodada 38 do usuário para que a classificação final seja justa.
       const updatedMatches = [...state.matches];
+      updatedTeams = finalizePendingUserMatch(updatedMatches, updatedTeams, state.selectedTeam);
       const leagueStandings = calculateLeagueStandings(updatedTeams, updatedMatches, 38);
 
       // Prêmio por colocação final da temporada (Fase 6.2)
@@ -289,60 +349,7 @@ export const createCoreSlice = (set: Set, get: Get) => ({
     // Auto-finaliza partida pendente do usuário da rodada anterior (mantém a
     // classificação justa caso ele avance a semana sem jogá-la ao vivo).
     const previousMatches = [...state.matches];
-    if (state.selectedTeam) {
-      const pendingIdx = previousMatches.findIndex(
-        pm => !pm.completed && (pm.homeTeam === state.selectedTeam || pm.awayTeam === state.selectedTeam),
-      );
-      if (pendingIdx !== -1) {
-        const pending = previousMatches[pendingIdx];
-        const ph = updatedTeams.find(t => t.id === pending.homeTeam);
-        const pa = updatedTeams.find(t => t.id === pending.awayTeam);
-        if (ph && pa) {
-          let result;
-          if (pending.isLive && pending.liveMatchState) {
-            // Continua simulação do estado atual até o minuto 90
-            let liveState = pending.liveMatchState;
-            for (let m = pending.liveMinute + 1; m <= 90; m++) {
-              liveState = simulateMinute(ph, pa, liveState, m);
-            }
-            const events: MatchEvent[] = liveState.events.sort((a, b) => a.minute - b.minute);
-            const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
-            const stats: MatchStats = {
-              ...liveState.stats,
-              homePossession: clamp(liveState.stats.homePossession, 25, 75),
-              awayPossession: 100 - clamp(liveState.stats.homePossession, 25, 75),
-            };
-            const baseResult = {
-              homeGoals: liveState.homeGoals,
-              awayGoals: liveState.awayGoals,
-              events,
-              stats,
-              goalDetails: liveState.goalDetails,
-            };
-            const withRatings = calculatePlayerMatchRatings(ph, pa, baseResult);
-            const postMatchReport = generatePostMatchReport(ph, pa, baseResult, liveState.actions);
-            result = { ...withRatings, postMatchReport };
-          } else {
-            // Partida não iniciada — simula do zero
-            result = simulateFullMatch(ph, pa);
-          }
-          updatedTeams = applyMatchResultToTeams(updatedTeams, pending.homeTeam, pending.awayTeam, result);
-          // Marcar a partida como finalizada para que entre na classificação
-          previousMatches[pendingIdx] = {
-            ...pending,
-            completed: true,
-            isLive: false,
-            homeGoals: result.homeGoals,
-            awayGoals: result.awayGoals,
-            events: result.events,
-            stats: result.stats,
-            playerRatings: result.playerRatings,
-            bestPlayer: result.bestPlayer,
-            postMatchReport: result.postMatchReport,
-          };
-        }
-      }
-    }
+    updatedTeams = finalizePendingUserMatch(previousMatches, updatedTeams, state.selectedTeam);
 
     // Acumular partidas completadas de semanas anteriores para que a
     // classificação reflita toda a temporada, não apenas a rodada atual.
@@ -562,12 +569,15 @@ export const createCoreSlice = (set: Set, get: Get) => ({
           });
 
           const allPaid = updatedPayments.every(p => p.paid);
-          const anyUnpaidOverdue = updatedPayments.some(p => !p.paid && p.dueWeek <= newWeek);
 
+          // Uma parcela sem saldo fica apenas VENCIDA (não paga) e será
+          // retentada nas próximas semanas quando o orçamento se recuperar.
+          // Não marcamos a cláusula inteira como 'defaulted' — isso a congelaria
+          // (o filtro no topo pula tudo que não está 'active') e daria o jogador de graça.
           return {
             ...inst,
             payments: updatedPayments,
-            status: allPaid ? 'completed' as const : anyUnpaidOverdue ? 'defaulted' as const : inst.status,
+            status: allPaid ? 'completed' as const : inst.status,
           };
         });
 
@@ -630,6 +640,17 @@ export const createCoreSlice = (set: Set, get: Get) => ({
 
       set({ incomingBonuses: updatedBonuses });
     }
+
+    // Decrementa o contrato dos jogadores dos times AI (o time do usuário já foi
+    // decrementado acima). Sem isto, contractEnd fica estático e as renovações
+    // automáticas da IA (processAIContracts) quase nunca disparam.
+    updatedTeams = updatedTeams.map(team => {
+      if (team.id === state.selectedTeam) return team;
+      return {
+        ...team,
+        squad: team.squad.map(p => (p.contractEnd > 0 ? { ...p, contractEnd: p.contractEnd - 1 } : p)),
+      };
+    });
 
     // ============================================================
     // ROTINA SEMANAL DA IA — Clubes AI tomam decisões ativas
@@ -786,7 +807,7 @@ export const createCoreSlice = (set: Set, get: Get) => ({
       const teamIdx = updatedTeams.findIndex(t => t.id === state.selectedTeam);
       if (teamIdx !== -1) {
         const team = updatedTeams[teamIdx];
-        const youthPlayers = generateYouthIntake(team.youthFacilitiesLevel, 8);
+        const youthPlayers = generateYouthIntake(team.youthFacilitiesLevel, 6);
         updatedTeams[teamIdx] = {
           ...team,
           squad: [...team.squad, ...youthPlayers],
@@ -822,7 +843,7 @@ export const createCoreSlice = (set: Set, get: Get) => ({
           const focus = state.trainingPlan.teamFocus;
           team.squad = team.squad.map(p => {
             if (p.injury?.active) return p;
-            const updated = updatePlayerAttributes(p, focus, newWeek);
+            const updated = updatePlayerAttributes(p, focus, newWeek, team.facilitiesLevel, team.staffLevel);
             const fatigueLevel = Math.max(0, (updated.cumulativeLoad || 0) * 2 + (100 - updated.fitness));
             updated.fatigueLog = [
               ...(updated.fatigueLog || []),
@@ -939,7 +960,7 @@ export const createCoreSlice = (set: Set, get: Get) => ({
       activeLoans: [],
       biddingWars: [],
       fanMood: { value: 50, trend: 'stable', sentiment: 'neutral' },
-      mediaPressure: { value: 50, level: 'low' },
+      mediaPressure: { value: 20, level: 'low' },
     });
   },
 });

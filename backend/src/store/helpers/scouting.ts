@@ -341,14 +341,16 @@ export function calculateScoutGrade(
   estimatedPA: number,
   userTeam: Team,
 ): ScoutReport['grade'] {
-  // Média de CA do elenco
-  const squadAvgCA = userTeam.squad.length > 0
-    ? userTeam.squad.reduce((sum, p) => sum + p.currentAbility, 0) / userTeam.squad.length
+  // Score ponderado: 60% CA atual + 40% PA (potencial futuro).
+  // A média do elenco usa o MESMO peso para uma comparação justa (like-for-like);
+  // comparar o blend do jogador contra só o CA médio inflaria a nota (PA > CA).
+  const scoreOf = (ca: number, pa: number) => ca * 0.6 + pa * 0.4;
+  const squadAvgScore = userTeam.squad.length > 0
+    ? userTeam.squad.reduce((sum, p) => sum + scoreOf(p.currentAbility, p.potentialAbility), 0) / userTeam.squad.length
     : 100;
 
-  // Score ponderado: 60% CA atual + 40% PA (potencial futuro)
-  const playerScore = estimatedCA * 0.6 + estimatedPA * 0.4;
-  const ratio = playerScore / squadAvgCA;
+  const playerScore = scoreOf(estimatedCA, estimatedPA);
+  const ratio = playerScore / squadAvgScore;
 
   if (ratio >= 1.3) return 'A';
   if (ratio >= 1.15) return 'B';
@@ -443,10 +445,11 @@ export function generateScoutRecommendations(
   const targetPositions = positionNeeds.slice(0, 2).map(pn => pn.position);
   const weakestAvgCA = positionNeeds[0].avgCA;
 
-  // Melhor olheiro disponível
-  const bestScout = userTeam.scouts.reduce((best, s) =>
-    !s.assigned && s.judgingAbility > best.judgingAbility ? s : best,
-  );
+  // Melhor olheiro disponível (prioriza não-designados; cai para o melhor geral se todos ocupados)
+  if (!userTeam.scouts || userTeam.scouts.length === 0) return recommendations;
+  const availableScouts = userTeam.scouts.filter(s => !s.assigned);
+  const scoutPool = availableScouts.length > 0 ? availableScouts : userTeam.scouts;
+  const bestScout = scoutPool.reduce((best, s) => (s.judgingAbility > best.judgingAbility ? s : best));
 
   // Buscar candidatos em outros times
   const candidates: { player: Player; team: Team }[] = [];

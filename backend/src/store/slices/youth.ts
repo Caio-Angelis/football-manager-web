@@ -8,7 +8,7 @@ export const createYouthSlice = (set: Set, get: Get) => ({
   generateYouthPlayers: () => {
     const state = get();
     const academy = state.youthAcademy;
-    const newPlayers: YouthPlayer[] = generateYouthIntake(academy.level, 5).map((p, i) => ({
+    const newPlayers: YouthPlayer[] = generateYouthIntake(academy.level, 6).map((p, i) => ({
       id: `youth-${Date.now()}-${i}`,
       name: p.name,
       surname: p.surname,

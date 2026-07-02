@@ -148,7 +148,7 @@ function buildIncomingTransfer(
       installmentClause.payments.push({
         installmentNumber: i + 1,
         amount,
-        dueWeek: 1 + i * 4,
+        dueWeek: currentWeek + 1 + i * 4,
         paid: false,
       });
     }

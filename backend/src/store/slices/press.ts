@@ -38,10 +38,8 @@ export const createPressSlice = (set: Set, get: Get) => ({
       opponent,
       undefined,
       state.leagueTable,
+      match.homeTeam === state.selectedTeam,
     );
-
-    // Ajustar venue
-    conference.context.isHome = match.homeTeam === state.selectedTeam;
 
     set({
       pressConferences: [...state.pressConferences, conference],
@@ -158,16 +156,17 @@ export const createPressSlice = (set: Set, get: Get) => ({
       state.mediaPressure,
     );
 
-    // Aplicar mudanças de moral nos jogadores afetados
+    // Aplicar mudanças de moral: efeito global do elenco + delta específico do jogador citado
+    const playerDeltas = effects.playerMoraleDeltas ?? {};
     let updatedTeams = state.teams;
-    if (effects.affectedPlayerIds.length > 0 || effects.moraleChange !== 0) {
+    if (effects.moraleChange !== 0 || Object.keys(playerDeltas).length > 0) {
       updatedTeams = state.teams.map(t => {
         if (t.id !== state.selectedTeam) return t;
         return {
           ...t,
           squad: t.squad.map(p => {
-            const isAffected = effects.affectedPlayerIds.includes(p.id);
-            const moraleDelta = isAffected ? effects.moraleChange * 2 : effects.moraleChange;
+            const moraleDelta = effects.moraleChange + (playerDeltas[p.id] ?? 0);
+            if (moraleDelta === 0) return p;
             return {
               ...p,
               morale: Math.max(0, Math.min(100, (p.morale ?? 50) + moraleDelta)),
