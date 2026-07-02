@@ -20,30 +20,30 @@ export const Lobby: React.FC<LobbyProps> = ({ code, room, busy, onStart }) => {
     <>
       <h1 className="fm-landing__title">Sala</h1>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '8px 0 24px' }}>
-        <span style={{ fontSize: 34, fontWeight: 800, letterSpacing: 6 }}>{code}</span>
+      <div className="fmo-codebar">
+        <span className="fmo-code" aria-label={`Código da sala ${code.split('').join(' ')}`}>{code}</span>
         <Button variant="secondary" onClick={copyCode}>{copied ? 'Copiado!' : 'Copiar código'}</Button>
       </div>
 
-      <h3 style={{ color: 'var(--t-text-2)', marginBottom: 10 }}>Jogadores ({room.players.length})</h3>
-      <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <h2 className="fmo-section-title">Jogadores ({room.players.length})</h2>
+      <ul className="fmo-players">
         {room.players.map((p, i) => (
-          <li key={i} className="fms-card" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px' }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.connected ? 'var(--t-success, #46a758)' : 'var(--t-text-3, #888)' }} />
-            <span style={{ fontWeight: 600 }}>{p.nickname}</span>
-            {p.isYou && <span className="fms-badge">você</span>}
-            {p.isOwner && <span className="fms-badge">dono</span>}
+          <li key={i} className="fmo-player">
+            <span className={`fmo-dot ${p.connected ? 'fmo-dot--on' : ''}`} title={p.connected ? 'Conectado' : 'Ausente'} />
+            <span className="fmo-player__name">{p.nickname}</span>
+            {p.isYou && <span className="fmo-badge fmo-badge--you">você</span>}
+            {p.isOwner && <span className="fmo-badge fmo-badge--owner">dono</span>}
           </li>
         ))}
       </ul>
 
-      <div style={{ marginTop: 28, display: 'flex' }}>
+      <div className="fmo-actions">
         {room.isOwner ? (
-          <Button className="fm-online-block" disabled={busy} onClick={onStart}>
+          <Button className="fmo-block" disabled={busy} onClick={onStart}>
             {busy ? 'Aguarde…' : 'Iniciar jogo'}
           </Button>
         ) : (
-          <p style={{ color: 'var(--t-text-2)' }}>Aguardando o dono iniciar o jogo…</p>
+          <p className="fmo-hint">Aguardando o dono iniciar o jogo…</p>
         )}
       </div>
     </>

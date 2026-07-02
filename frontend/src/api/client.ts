@@ -53,6 +53,19 @@ export interface PublicRoomPlayer {
   isOwner: boolean;
   isYou: boolean;
 }
+export interface OfferView {
+  id: string;
+  playerName: string;
+  price: number;
+  status: 'pending' | 'accepted' | 'rejected' | 'withdrawn';
+  round: number;
+  iAmBuyer: boolean;
+  iAmSeller: boolean;
+  myTurn: boolean;
+  fromNickname: string;
+  toNickname: string;
+  history: { by: 'buyer' | 'seller'; price: number }[];
+}
 export interface PublicRoom {
   code: string;
   status: 'lobby' | 'drafting' | 'playing' | 'finished';
@@ -60,6 +73,7 @@ export interface PublicRoom {
   currentWeek: number;
   isOwner: boolean;
   players: PublicRoomPlayer[];
+  offers: OfferView[];
 }
 
 async function roomFetch<T = any>(path: string, options?: RequestInit): Promise<T> {
@@ -103,4 +117,12 @@ export function apiRoomState(code: string): Promise<{ state: any }> {
 }
 export function setRoomReady(code: string, ready?: boolean): Promise<{ room: PublicRoom }> {
   return roomFetch(`/${encodeURIComponent(code)}/ready`, { method: 'POST', body: JSON.stringify({ ready }) });
+}
+export function sendOffer(code: string, playerId: string, price: number): Promise<{ room: PublicRoom }> {
+  return roomFetch(`/${encodeURIComponent(code)}/offer`, { method: 'POST', body: JSON.stringify({ playerId, price }) });
+}
+export function respondOffer(
+  code: string, offerId: string, action: 'accept' | 'reject' | 'counter' | 'withdraw', counterPrice?: number,
+): Promise<{ room: PublicRoom }> {
+  return roomFetch(`/${encodeURIComponent(code)}/offer/respond`, { method: 'POST', body: JSON.stringify({ offerId, action, counterPrice }) });
 }

@@ -243,6 +243,8 @@
   --l-text-3: #6b7080;
   --l-accent: #3d7bf5;
   --l-green: #3fbf6b;
+  --l-amber: #e0b341;
+  --l-red: #e25c52;
 
   min-height: 100vh;
   min-height: 100dvh;

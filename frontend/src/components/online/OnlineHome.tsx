@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { createRoom, joinRoom } from '../../api/client';
 import { Button } from '../ui/Button';
 import { ThemeToggle } from '../ui/ThemeToggle';
+import './online.css';
 
 const NICK_KEY = 'fm-nickname';
 
@@ -54,48 +55,50 @@ export const OnlineHome: React.FC = () => {
         </Button>
       </div>
       <div className="fm-landing__layout fm-landing__layout--full">
-        <main className="fm-landing__main" style={{ maxWidth: 460, margin: '0 auto' }}>
-          <h1 className="fm-landing__title">Jogar Online</h1>
-          <p className="fm-landing__lede">
+        <main className="fm-landing__main fmo">
+          <h1 className="fm-landing__title">Jogar online</h1>
+          <p className="fmo__lede">
             Crie uma sala e compartilhe o código, ou entre na sala de um amigo.
           </p>
 
-          <label style={{ display: 'block', marginBottom: 6, color: 'var(--t-text-2)' }}>Seu apelido</label>
-          <input
-            className="fms-input"
-            value={nickname}
-            maxLength={20}
-            placeholder="Ex.: Caio"
-            onChange={e => setNickname(e.target.value)}
-            style={{ width: '100%', marginBottom: 18 }}
-          />
+          <div className="fmo-field">
+            <label htmlFor="fmo-nick" className="fmo-label">Seu apelido</label>
+            <input
+              id="fmo-nick"
+              className="fmo-input"
+              value={nickname}
+              maxLength={20}
+              placeholder="Ex.: Caio"
+              onChange={e => setNickname(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleCreate(); }}
+            />
+          </div>
 
-          <div style={{ marginBottom: 24, display: 'flex' }}>
-            <Button onClick={handleCreate} disabled={busy} className="fm-online-block">
+          <div className="fmo-fullrow">
+            <Button onClick={handleCreate} disabled={busy} className="fmo-block">
               {busy ? 'Aguarde…' : 'Criar sala'}
             </Button>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '18px 0' }}>
-            <span style={{ flex: 1, height: 1, background: 'var(--t-border, #333)' }} />
-            <span style={{ color: 'var(--t-text-2)' }}>ou</span>
-            <span style={{ flex: 1, height: 1, background: 'var(--t-border, #333)' }} />
+          <div className="fmo-divider">ou</div>
+
+          <div className="fmo-field">
+            <label htmlFor="fmo-code" className="fmo-label">Código da sala</label>
+            <div className="fmo-row">
+              <input
+                id="fmo-code"
+                className="fmo-input fmo-input--code"
+                value={code}
+                maxLength={6}
+                placeholder="ABC234"
+                onChange={e => setCode(e.target.value.toUpperCase())}
+                onKeyDown={e => { if (e.key === 'Enter') handleJoin(); }}
+              />
+              <Button variant="secondary" onClick={handleJoin} disabled={busy}>Entrar</Button>
+            </div>
           </div>
 
-          <label style={{ display: 'block', marginBottom: 6, color: 'var(--t-text-2)' }}>Código da sala</label>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              className="fms-input"
-              value={code}
-              maxLength={6}
-              placeholder="Ex.: ABC234"
-              onChange={e => setCode(e.target.value.toUpperCase())}
-              style={{ flex: 1, textTransform: 'uppercase', letterSpacing: 2 }}
-            />
-            <Button variant="secondary" onClick={handleJoin} disabled={busy}>Entrar</Button>
-          </div>
-
-          {error && <p style={{ color: 'var(--t-danger, #e5484d)', marginTop: 16 }}>{error}</p>}
+          {error && <p className="fmo-error" role="alert">{error}</p>}
         </main>
       </div>
     </div>

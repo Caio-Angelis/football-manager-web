@@ -7,7 +7,9 @@
 
 import { createGameStore, type GameStoreApi } from '../store/gameStore.js';
 import { extractState } from '../store/storeHelpers.js';
-import type { GameState, WeeklyTrainingPlan, Team } from '../types/game.js';
+import { recalcWageBill } from '../store/helpers/transfer.js';
+import { getFullName } from '../utils/playerName.js';
+import type { GameState, WeeklyTrainingPlan, Team, InboxMessage } from '../types/game.js';
 
 export type RoomStatus = 'lobby' | 'drafting' | 'playing' | 'finished';
 
@@ -20,6 +22,21 @@ export interface RoomPlayer {
   lastSeen: number;
 }
 
+// Negociação de transferência entre dois HUMANOS (Fase 7).
+export type OfferStatus = 'pending' | 'accepted' | 'rejected' | 'withdrawn';
+export interface HumanOffer {
+  id: string;
+  playerId: string;
+  playerName: string;
+  sellerTeamId: string;
+  buyerTeamId: string;
+  price: number;              // em milhões de R$
+  status: OfferStatus;
+  turn: 'seller' | 'buyer';  // de quem é a vez de responder
+  round: number;
+  history: { by: 'buyer' | 'seller'; price: number }[];
+}
+
 export interface Room {
   code: string;
   ownerId: string;
@@ -27,6 +44,7 @@ export interface Room {
   players: RoomPlayer[];
   store: GameStoreApi;   // universo isolado da sala
   scopes: Record<string, Partial<GameState>>; // estado por-jogador (chave = teamId)
+  offers: HumanOffer[];  // negociações humano×humano ativas/recentes
   createdAt: number;
 }
 
@@ -76,6 +94,22 @@ export interface PublicRoom {
     isOwner: boolean;
     isYou: boolean;
   }[];
+  offers: OfferView[];   // negociações relevantes para quem pediu
+}
+
+// Oferta na perspectiva de quem pediu.
+export interface OfferView {
+  id: string;
+  playerName: string;
+  price: number;
+  status: OfferStatus;
+  round: number;
+  iAmBuyer: boolean;
+  iAmSeller: boolean;
+  myTurn: boolean;       // é a minha vez de responder?
+  fromNickname: string;  // comprador
+  toNickname: string;    // vendedor
+  history: { by: 'buyer' | 'seller'; price: number }[];
 }
 
 const rooms = new Map<string, Room>();
@@ -102,6 +136,7 @@ export function createRoom(ownerId: string, nickname: string): Room {
     players: [{ playerId: ownerId, nickname, teamId: null, ready: false, connected: true, lastSeen: Date.now() }],
     store: createGameStore(),
     scopes: {},
+    offers: [],
     createdAt: Date.now(),
   };
   rooms.set(room.code, room);
@@ -198,6 +233,146 @@ export function beginGame(room: Room, playerId: string): RoomOpResult {
 }
 
 // ============================================================
+// NEGOCIAÇÃO DE TRANSFERÊNCIA HUMANO × HUMANO (Fase 7)
+// ============================================================
+
+/** Um time é controlado por humano se algum jogador da sala o escolheu. */
+export function isHumanTeam(room: Room, teamId: string | undefined | null): boolean {
+  if (!teamId) return false;
+  return room.players.some(p => p.teamId === teamId);
+}
+
+function pushInbox(room: Room, teamId: string, msg: InboxMessage): void {
+  const scope = room.scopes[teamId];
+  if (!scope) return;
+  scope.inbox = [msg, ...((scope.inbox as InboxMessage[] | undefined) ?? [])].slice(0, 100);
+}
+
+function offerInbox(playerName: string, subject: string, body: string): InboxMessage {
+  return {
+    id: `hoffer_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    type: 'transfer',
+    subject,
+    body,
+    timestamp: Date.now(),
+    read: false,
+    priority: 'high',
+  } as InboxMessage;
+}
+
+/** Comprador humano faz uma oferta por um jogador de outro time humano. */
+export function makeHumanOffer(room: Room, buyerPlayerId: string, playerId: string, price: number): RoomOpResult {
+  if (room.status !== 'playing') return { ok: false, status: 409, message: 'O jogo não está em andamento' };
+  const buyerTeamId = getPlayer(room, buyerPlayerId)?.teamId;
+  if (!buyerTeamId) return { ok: false, status: 403, message: 'Você não está jogando' };
+  if (!(price > 0)) return { ok: false, status: 400, message: 'Valor inválido' };
+
+  const teams = room.store.getState().teams;
+  const seller = teams.find(t => t.squad.some(p => p.id === playerId));
+  if (!seller) return { ok: false, status: 404, message: 'Jogador não encontrado' };
+  if (seller.id === buyerTeamId) return { ok: false, status: 400, message: 'Esse jogador já é seu' };
+  if (!isHumanTeam(room, seller.id)) return { ok: false, status: 400, message: 'Esse time não é de um jogador humano' };
+  if (room.offers.some(o => o.status === 'pending' && o.playerId === playerId && o.buyerTeamId === buyerTeamId)) {
+    return { ok: false, status: 409, message: 'Você já tem uma oferta ativa por esse jogador' };
+  }
+
+  const player = seller.squad.find(p => p.id === playerId)!;
+  const playerName = getFullName(player);
+  const offer: HumanOffer = {
+    id: `ho_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    playerId, playerName, sellerTeamId: seller.id, buyerTeamId,
+    price: Math.round(price * 10) / 10, status: 'pending', turn: 'seller', round: 1,
+    history: [{ by: 'buyer', price: Math.round(price * 10) / 10 }],
+  };
+  room.offers.push(offer);
+  pushInbox(room, seller.id, offerInbox(
+    playerName,
+    `💰 Proposta por ${playerName}`,
+    `${nickForTeam(room, buyerTeamId)} ofereceu R$ ${offer.price}M por ${playerName}. Responda em Negociações Online.`,
+  ));
+  return { ok: true };
+}
+
+/** Move o jogador e o dinheiro entre os dois times (ambos humanos, preço cheio). */
+function executeHumanTransfer(room: Room, offer: HumanOffer): RoomOpResult {
+  const teams = room.store.getState().teams;
+  const bi = teams.findIndex(t => t.id === offer.buyerTeamId);
+  const si = teams.findIndex(t => t.id === offer.sellerTeamId);
+  if (bi === -1 || si === -1) return { ok: false, status: 404, message: 'Time não encontrado' };
+
+  const buyer = { ...teams[bi] };
+  const seller = { ...teams[si] };
+  const player = seller.squad.find(p => p.id === offer.playerId);
+  if (!player) return { ok: false, status: 409, message: 'Jogador não está mais disponível' };
+  if (buyer.budget < offer.price) return { ok: false, status: 409, message: 'Comprador sem orçamento suficiente' };
+
+  seller.squad = seller.squad.filter(p => p.id !== offer.playerId);
+  buyer.squad = [...buyer.squad, { ...player, squadStatus: 'Rotation' }];
+  buyer.budget = Math.round((buyer.budget - offer.price) * 100) / 100;
+  seller.budget = Math.round((seller.budget + offer.price) * 100) / 100;
+  buyer.wageBill = recalcWageBill(buyer);
+  seller.wageBill = recalcWageBill(seller);
+
+  const newTeams = [...teams];
+  newTeams[bi] = buyer;
+  newTeams[si] = seller;
+  room.store.setState({ teams: newTeams });
+  return { ok: true };
+}
+
+/** Vendedor/comprador responde a uma oferta: aceitar, recusar ou contrapropor. */
+export function respondHumanOffer(
+  room: Room, responderPlayerId: string, offerId: string,
+  action: 'accept' | 'reject' | 'counter' | 'withdraw', counterPrice?: number,
+): RoomOpResult {
+  const offer = room.offers.find(o => o.id === offerId);
+  if (!offer || offer.status !== 'pending') return { ok: false, status: 404, message: 'Oferta indisponível' };
+  const myTeamId = getPlayer(room, responderPlayerId)?.teamId;
+  if (!myTeamId) return { ok: false, status: 403, message: 'Você não está jogando' };
+
+  const iAmSeller = myTeamId === offer.sellerTeamId;
+  const iAmBuyer = myTeamId === offer.buyerTeamId;
+  if (!iAmSeller && !iAmBuyer) return { ok: false, status: 403, message: 'Oferta não é sua' };
+
+  if (action === 'withdraw') {
+    if (!iAmBuyer) return { ok: false, status: 403, message: 'Só o comprador pode retirar a oferta' };
+    offer.status = 'withdrawn';
+    pushInbox(room, offer.sellerTeamId, offerInbox(offer.playerName, `Proposta retirada`, `${nickForTeam(room, offer.buyerTeamId)} retirou a proposta por ${offer.playerName}.`));
+    return { ok: true };
+  }
+
+  // Precisa ser a vez de quem respondeu.
+  const isMyTurn = (offer.turn === 'seller' && iAmSeller) || (offer.turn === 'buyer' && iAmBuyer);
+  if (!isMyTurn) return { ok: false, status: 409, message: 'Não é a sua vez nesta negociação' };
+
+  if (action === 'accept') {
+    const done = executeHumanTransfer(room, offer);
+    if (!done.ok) return done;
+    offer.status = 'accepted';
+    pushInbox(room, offer.buyerTeamId, offerInbox(offer.playerName, `✅ ${offer.playerName} é seu!`, `Transferência de ${offer.playerName} concluída por R$ ${offer.price}M.`));
+    pushInbox(room, offer.sellerTeamId, offerInbox(offer.playerName, `✅ ${offer.playerName} vendido`, `Você vendeu ${offer.playerName} por R$ ${offer.price}M.`));
+    return { ok: true };
+  }
+
+  if (action === 'reject') {
+    offer.status = 'rejected';
+    const notify = iAmSeller ? offer.buyerTeamId : offer.sellerTeamId;
+    pushInbox(room, notify, offerInbox(offer.playerName, `❌ Proposta recusada`, `A negociação por ${offer.playerName} foi recusada.`));
+    return { ok: true };
+  }
+
+  // counter
+  if (!(counterPrice && counterPrice > 0)) return { ok: false, status: 400, message: 'Valor da contraproposta inválido' };
+  offer.price = Math.round(counterPrice * 10) / 10;
+  offer.turn = iAmSeller ? 'buyer' : 'seller';
+  offer.round += 1;
+  offer.history.push({ by: iAmSeller ? 'seller' : 'buyer', price: offer.price });
+  const other = iAmSeller ? offer.buyerTeamId : offer.sellerTeamId;
+  pushInbox(room, other, offerInbox(offer.playerName, `🔁 Contraproposta por ${offer.playerName}`, `Novo valor: R$ ${offer.price}M. Responda em Negociações Online.`));
+  return { ok: true };
+}
+
+// ============================================================
 // PROJEÇÃO DE ESTADO ESCOPADA (Fase 6) — não vazar dados dos rivais
 // ============================================================
 
@@ -287,6 +462,7 @@ export function advanceRoomWeek(room: Room): void {
 
 /** Projeção pública relativa ao solicitante — nunca vaza o token de outros jogadores. */
 export function toPublicRoom(room: Room, requesterId: string): PublicRoom {
+  const myTeamId = getPlayer(room, requesterId)?.teamId ?? null;
   return {
     code: room.code,
     status: room.status,
@@ -301,7 +477,37 @@ export function toPublicRoom(room: Room, requesterId: string): PublicRoom {
       isOwner: p.playerId === room.ownerId,
       isYou: p.playerId === requesterId,
     })),
+    offers: offersView(room, myTeamId),
   };
+}
+
+// Apelido do dono de um time humano (para exibir nas ofertas).
+function nickForTeam(room: Room, teamId: string): string {
+  return room.players.find(p => p.teamId === teamId)?.nickname ?? '—';
+}
+
+function offersView(room: Room, myTeamId: string | null): OfferView[] {
+  if (!myTeamId) return [];
+  return room.offers
+    .filter(o => o.buyerTeamId === myTeamId || o.sellerTeamId === myTeamId)
+    .filter(o => o.status !== 'withdrawn')
+    .map(o => {
+      const iAmBuyer = o.buyerTeamId === myTeamId;
+      const iAmSeller = o.sellerTeamId === myTeamId;
+      return {
+        id: o.id,
+        playerName: o.playerName,
+        price: o.price,
+        status: o.status,
+        round: o.round,
+        iAmBuyer,
+        iAmSeller,
+        myTurn: o.status === 'pending' && ((o.turn === 'seller' && iAmSeller) || (o.turn === 'buyer' && iAmBuyer)),
+        fromNickname: nickForTeam(room, o.buyerTeamId),
+        toNickname: nickForTeam(room, o.sellerTeamId),
+        history: o.history,
+      };
+    });
 }
 
 // ============================================================

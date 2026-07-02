@@ -5,6 +5,8 @@ import { TeamSelection } from './components/TeamSelection';
 import { OnlineHome } from './components/online/OnlineHome';
 import { RoomView } from './components/online/RoomView';
 import { getActiveRoom, clearActiveRoom, getRoom, apiRoomState, setRoomReady, type PublicRoom } from './api/client';
+import { OnlineTransfers } from './components/online/OnlineTransfers';
+import './components/online/online.css';
 import { SquadView } from './components/squad/SquadView';
 import { MatchCenter } from './components/match/MatchCenter';
 import { TacticsView } from './components/tactics/TacticsView';
@@ -254,6 +256,13 @@ export const App: React.FC = () => {
     setRoomReady(online.code, !myReady).then(r => setRoomPub(r.room)).catch(() => {});
   };
 
+  const [negoOpen, setNegoOpen] = React.useState(false);
+  const offers = roomPub?.offers ?? [];
+  const offersNeedingMe = offers.filter(o => o.myTurn).length;
+  const humanTeams = (roomPub?.players ?? [])
+    .filter(p => p.teamId && !p.isYou)
+    .map(p => ({ teamId: p.teamId as string, nickname: p.nickname }));
+
   const addToast = useCallback((message: string, type: ToastData['type'] = 'info') => {
     const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     setToasts(prev => [...prev, { id, message, type, timestamp: Date.now() }]);
@@ -417,9 +426,15 @@ export const App: React.FC = () => {
           >
             <Home size={15} /> Início
           </Button>
+          {online && (
+            <Button className="fmo-negobtn fmo-shell" onClick={() => setNegoOpen(true)}>
+              <ArrowLeftRight size={15} /> Negociações
+              {offersNeedingMe > 0 && <span className="fmo-negobtn__badge">{offersNeedingMe}</span>}
+            </Button>
+          )}
           {online ? (
             <Button className="fm-button--continue" onClick={toggleReady} disabled={!!seasonSummary || gameOver}>
-              {myReady ? <>Pronto {readyCount}/{totalPlaying} ✓</> : <>Pronto? ({readyCount}/{totalPlaying}) <ArrowRight size={15} /></>}
+              {myReady ? <>Pronto ✓ ({readyCount}/{totalPlaying})</> : <>Estou pronto <ArrowRight size={15} /></>}
             </Button>
           ) : (
             <Button className="fm-button--continue" onClick={advanceWeek} disabled={isAdvancing || !!seasonSummary || gameOver}>
@@ -447,6 +462,27 @@ export const App: React.FC = () => {
             <Save size={15} /> Save 2
           </Button>}
         </div>
+        {online && roomPub && (
+          <div className="fmo-readybar fmo-shell">
+            <span className="fmo-readybar__label">Semana {roomPub.currentWeek}</span>
+            <div className="fmo-readybar__players">
+              {roomPub.players.filter(p => p.teamId).map((p, i) => (
+                <span key={i} className={`fmo-rp ${p.ready ? 'fmo-rp--ready' : ''}`}>
+                  {p.ready && <span className="fmo-rp__tick">✓</span>}
+                  {p.nickname}{p.isYou ? ' (você)' : ''}
+                </span>
+              ))}
+            </div>
+            <span className="fmo-readybar__spacer" />
+            <span className="fmo-readybar__note">
+              {readyCount === totalPlaying
+                ? 'Fechando a rodada…'
+                : myReady
+                  ? `Aguardando os outros (${readyCount}/${totalPlaying})`
+                  : `Marque "Estou pronto" para avançar (${readyCount}/${totalPlaying})`}
+            </span>
+          </div>
+        )}
         <div className="fm-main__content">
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -466,6 +502,15 @@ export const App: React.FC = () => {
         </Routes>
         </div>
       </main>
+      {online && negoOpen && roomPub && (
+        <OnlineTransfers
+          code={online.code}
+          offers={offers}
+          humanTeams={humanTeams}
+          onClose={() => setNegoOpen(false)}
+          onRoom={setRoomPub}
+        />
+      )}
       <SeasonSummaryModal />
       {matchBlockMessage && (
         <div className="fm-match-block-overlay" onClick={() => useGameStore.setState({ matchBlockMessage: null })}>

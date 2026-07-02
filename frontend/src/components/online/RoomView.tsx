@@ -10,6 +10,7 @@ import { Button } from '../ui/Button';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { Lobby } from './Lobby';
 import { DraftScreen } from './DraftScreen';
+import './online.css';
 
 const NICK_KEY = 'fm-nickname';
 const POLL_MS = 2000;
@@ -86,9 +87,9 @@ export const RoomView: React.FC = () => {
         </Button>
       </div>
       <div className="fm-landing__layout fm-landing__layout--full">
-        <main className="fm-landing__main" style={{ maxWidth: 640, margin: '0 auto' }}>
-          {error && <p style={{ color: 'var(--t-danger, #e5484d)' }}>{error}</p>}
-          {!room && !error && <p style={{ color: 'var(--t-text-2)' }}>Carregando sala…</p>}
+        <main className="fm-landing__main fmo fmo--wide">
+          {error && <p className="fmo-error" role="alert">{error}</p>}
+          {!room && !error && <p className="fmo-hint">Carregando sala…</p>}
 
           {room?.status === 'lobby' && (
             <Lobby code={code} room={room} busy={busy} onStart={() => run(() => startRoom(code))} />
@@ -103,7 +104,7 @@ export const RoomView: React.FC = () => {
             />
           )}
           {room?.status === 'playing' && (
-            <p style={{ color: 'var(--t-text-2)' }}>Entrando no jogo…</p>
+            <p className="fmo-hint">Entrando no jogo…</p>
           )}
         </main>
       </div>

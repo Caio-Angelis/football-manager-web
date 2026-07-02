@@ -4,7 +4,8 @@ import { z } from 'zod';
 import {
   createRoom, getRoom, joinRoom, touch, toPublicRoom, getPlayer,
   startGame, pickTeam, beginGame, focusTeam, loadScope, saveScope, projectState,
-  setReady, allPlayersReady, advanceRoomWeek, type Room, type RoomOpResult,
+  setReady, allPlayersReady, advanceRoomWeek, isHumanTeam,
+  makeHumanOffer, respondHumanOffer, type Room, type RoomOpResult,
 } from '../rooms/roomManager.js';
 import { runAction } from '../store/storeHelpers.js';
 import { AppError, ValidationError } from '../utils/errors.js';
@@ -107,6 +108,33 @@ roomsRouter.post('/:code/ready', (req, res) => {
   res.json({ room: toPublicRoom(room, playerId) });
 });
 
+// POST /api/rooms/:code/offer — comprador humano oferta por jogador de outro humano (Fase 7)
+roomsRouter.post('/:code/offer', (req, res) => {
+  const { room, playerId } = requireRoom(req);
+  const body = req.body as { playerId?: unknown; price?: unknown };
+  const pid = z.string().min(1).safeParse(body?.playerId);
+  const price = z.number().positive().safeParse(body?.price);
+  if (!pid.success) throw new ValidationError('playerId inválido');
+  if (!price.success) throw new ValidationError('Valor da oferta inválido');
+  const r = makeHumanOffer(room, playerId, pid.data, price.data);
+  if (!r.ok) throw new AppError('ACTION_EXECUTION_ERROR', r.message, r.status);
+  res.json({ room: toPublicRoom(room, playerId) });
+});
+
+// POST /api/rooms/:code/offer/respond — vendedor/comprador responde (accept/reject/counter/withdraw)
+roomsRouter.post('/:code/offer/respond', (req, res) => {
+  const { room, playerId } = requireRoom(req);
+  const body = req.body as { offerId?: unknown; action?: unknown; counterPrice?: unknown };
+  const offerId = z.string().min(1).safeParse(body?.offerId);
+  const action = z.enum(['accept', 'reject', 'counter', 'withdraw']).safeParse(body?.action);
+  if (!offerId.success) throw new ValidationError('offerId inválido');
+  if (!action.success) throw new ValidationError('Ação inválida');
+  const counterPrice = typeof body?.counterPrice === 'number' ? body.counterPrice : undefined;
+  const r = respondHumanOffer(room, playerId, offerId.data, action.data, counterPrice);
+  if (!r.ok) throw new AppError('ACTION_EXECUTION_ERROR', r.message, r.status);
+  res.json({ room: toPublicRoom(room, playerId) });
+});
+
 // GET /api/rooms/:code/state — estado do jogo projetado para o jogador (Fase 6):
 // carrega o escopo dele, foca seu time, e projeta (mascara rivais).
 roomsRouter.get('/:code/state', (req, res) => {
@@ -123,6 +151,12 @@ const ROOM_FORBIDDEN_ACTIONS = new Set([
   'advanceWeek', 'startNextSeason', 'initGame',
   'selectTeam', 'deselectTeam', 'updateTeam',   // updateTeam tem caminho próprio abaixo
   'saveGame', 'loadGame', 'deleteSave',
+]);
+
+// Ações que adquirem um jogador (sellerTeamId em args[1]) — bloqueadas contra times humanos.
+const ACQUISITION_ACTIONS = new Set([
+  'buyPlayer', 'makeOffer', 'acceptOffer', 'activateReleaseClause',
+  'loanPlayer', 'negotiatePlayerContract',
 ]);
 
 // POST /api/rooms/:code/action — executa uma ação no universo da sala, com o
@@ -142,6 +176,12 @@ roomsRouter.post('/:code/action', (req, res) => {
     }
   } else if (ROOM_FORBIDDEN_ACTIONS.has(action)) {
     throw new AppError('ACTION_EXECUTION_ERROR', `Ação "${action}" não é permitida nesta sala`, 403);
+  } else if (ACQUISITION_ACTIONS.has(action)) {
+    // Não dá pra tomar o jogador de outro humano direto — só via negociação (POST /offer).
+    const sellerTeamId = Array.isArray(argList) ? (argList[1] as string) : undefined;
+    if (isHumanTeam(room, sellerTeamId)) {
+      throw new AppError('ACTION_EXECUTION_ERROR', 'Para contratar de outro jogador, faça uma oferta em Negociações Online', 403);
+    }
   }
 
   if (myTeamId) loadScope(room, myTeamId);
