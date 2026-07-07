@@ -3,7 +3,7 @@
 
 import type { Team, Player, LeagueStandings, InboxMessage, CompletedTransfer, FormResult } from '../../types/game';
 import { getFullName } from '../../utils/playerName';
-import { recalcWageBill } from './transfer';
+import { recalcWageBill, reputationGapImpact } from './transfer';
 
 // ============================================================
 // TIPOS AUXILIARES
@@ -13,6 +13,8 @@ export interface AIWeeklyResult {
   teams: Team[];
   inboxMessages: InboxMessage[];
   completedTransfers: CompletedTransfer[];
+  newLoans: import('../../types/game').LoanDeal[];
+  freeAgents: Player[];
 }
 
 interface SquadNeed {
@@ -129,10 +131,11 @@ function processAITransfers(
     if (candidates.length === 0) continue;
 
     // Escolher o melhor alvo considerando custo-benefício
+    // E-30: Dividir pelo orçamento do comprador para que o preço influencie o ranking.
+    const buyerBudget = Math.max(buyer.budget, 1);
     candidates.sort((a, b) => {
-      // Preferir jogadores com melhor CA mas que não sejam absurdamente caros
-      const aScore = a.player.currentAbility - (a.player.marketValue / Math.max(a.player.marketValue, 1)) * 20;
-      const bScore = b.player.currentAbility - (b.player.marketValue / Math.max(b.player.marketValue, 1)) * 20;
+      const aScore = a.player.currentAbility - (a.player.marketValue / buyerBudget) * 20;
+      const bScore = b.player.currentAbility - (b.player.marketValue / buyerBudget) * 20;
       return bScore - aScore;
     });
 
@@ -167,7 +170,12 @@ function processAITransfers(
 
     // Diferença de reputação influencia: jogadores querem ir para clubes maiores
     const repDiff = buyer.reputation - seller.reputation;
-    const playerWilling = Math.random() < (0.5 + repDiff / 200);
+    // Reputação do jogador vs clube comprador — jogador de rep alta reluta em ir para clube pequeno
+    const repImpact = reputationGapImpact(player.reputation, buyer.reputation);
+    // Recusa categórica para gaps extremos
+    if (repImpact.refuseChance > 0 && Math.random() < repImpact.refuseChance) continue;
+    // Base 0.5 + repDiff/200 (clube vs clube) + ajuste de reputação jogador vs clube
+    const playerWilling = Math.random() < (0.5 + repDiff / 200 + repImpact.willingnessAdjust / 100);
 
     if (!sellerAccepts || !playerWilling) continue;
 
@@ -198,7 +206,7 @@ function processAITransfers(
       transferFee: fee,
       paymentMethod: 'cash',
       contractWeeks: 52 + Math.floor(Math.random() * 104),
-      weeklySalary: Math.round(player.salary * (1.0 + Math.random() * 0.3)),
+      weeklySalary: Math.round(player.salary * (1.0 + Math.random() * 0.3) * repImpact.salaryMultiplier),
       transferDate: Date.now(),
       transferWeek: currentWeek,
     };
@@ -525,7 +533,10 @@ function processAIReleaseClauses(
 
     // Vontade do jogador
     const repDiff = buyer.reputation - seller.reputation;
-    const playerWilling = Math.random() < (0.5 + repDiff / 200);
+    // Reputação do jogador vs clube comprador
+    const repImpact = reputationGapImpact(player.reputation, buyer.reputation);
+    if (repImpact.refuseChance > 0 && Math.random() < repImpact.refuseChance) continue;
+    const playerWilling = Math.random() < (0.5 + repDiff / 200 + repImpact.willingnessAdjust / 100);
     if (!playerWilling) continue;
 
     // Executar transferência via cláusula
@@ -555,7 +566,7 @@ function processAIReleaseClauses(
       transferFee: fee,
       paymentMethod: 'cash',
       contractWeeks: 52 + Math.floor(Math.random() * 104),
-      weeklySalary: Math.round(player.salary * (1.0 + Math.random() * 0.3)),
+      weeklySalary: Math.round(player.salary * (1.0 + Math.random() * 0.3) * repImpact.salaryMultiplier),
       transferDate: Date.now(),
       transferWeek: currentWeek,
     };
@@ -707,6 +718,111 @@ function processAILoans(
 }
 
 // ============================================================
+// ASSINATURA DE AGENTES LIVRES PELA IA
+// ============================================================
+
+function processAIFreeAgentSignings(
+  teams: Team[],
+  freeAgents: Player[],
+  currentWeek: number,
+  selectedTeamId: string | null,
+): { teams: Team[]; freeAgents: Player[]; completedTransfers: CompletedTransfer[]; inboxMessages: InboxMessage[] } {
+  if (!isTransferWindow(currentWeek) || freeAgents.length === 0) {
+    return { teams, freeAgents, completedTransfers: [], inboxMessages: [] };
+  }
+
+  const updatedTeams = [...teams];
+  let remainingFreeAgents = [...freeAgents];
+  const newTransfers: CompletedTransfer[] = [];
+  const inboxMessages: InboxMessage[] = [];
+
+  for (let i = 0; i < updatedTeams.length; i++) {
+    const team = updatedTeams[i];
+    if (team.id === selectedTeamId) continue;
+
+    // Probabilidade de tentar assinar um agente livre
+    if (Math.random() > 0.2) continue;
+
+    // Verificar se tem espaço no elenco (máximo 30 jogadores)
+    if (team.squad.length >= 30) continue;
+
+    // Identificar posição mais fraca
+    const need = getWeakestPosition(team);
+    if (!need) continue;
+
+    // Procurar agentes livres que preencham a necessidade
+    const candidates = remainingFreeAgents
+      .filter(p => p.position === need.position && !p.injury?.active)
+      .filter(p => p.currentAbility > need.avgCA - 5);
+
+    if (candidates.length === 0) continue;
+
+    // Escolher o melhor candidato
+    candidates.sort((a, b) => b.currentAbility - a.currentAbility);
+    const target = candidates[0];
+
+    // Verificar reputação: jogador de rep alta pode recusar clube de rep baixa
+    const repImpact = reputationGapImpact(target.reputation, team.reputation);
+    if (repImpact.refuseChance > 0 && Math.random() < repImpact.refuseChance) continue;
+
+    // Verificar se o time pode pagar o salário (com prêmio de reputação)
+    const newSalary = Math.round(target.salary * (1.0 + Math.random() * 0.3) * repImpact.salaryMultiplier);
+    const newWageBill = recalcWageBill({ ...team, squad: [...team.squad, target] });
+    if (newWageBill > team.budget * 0.5) continue; // Folha salarial não pode exceder 50% do orçamento
+
+    // Executar assinatura
+    const contractWeeks = 52 + Math.floor(Math.random() * 104);
+    const buyerTeam = { ...updatedTeams[i] };
+    buyerTeam.squad = [...buyerTeam.squad, {
+      ...target,
+      freeAgent: false,
+      squadStatus: 'Rotation',
+      contractEnd: contractWeeks,
+      salary: newSalary,
+    }];
+    buyerTeam.wageBill = recalcWageBill(buyerTeam);
+    updatedTeams[i] = buyerTeam;
+
+    // Remover dos agentes livres
+    remainingFreeAgents = remainingFreeAgents.filter(p => p.id !== target.id);
+
+    const transfer: CompletedTransfer = {
+      id: `ai_fa_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      playerId: target.id,
+      playerName: getFullName(target),
+      position: target.position,
+      age: target.age,
+      nationality: target.nationality,
+      fromTeamId: 'free_agent',
+      fromTeamName: 'Agente Livre',
+      transferFee: 0,
+      paymentMethod: 'cash',
+      contractWeeks,
+      weeklySalary: newSalary,
+      transferDate: Date.now(),
+      transferWeek: currentWeek,
+    };
+    newTransfers.push(transfer);
+
+    // Notificar se for jogador notável
+    if (target.currentAbility > 120) {
+      inboxMessages.push({
+        id: `ai_fa_msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        type: 'news',
+        subject: `📰 ${buyerTeam.name} contrata agente livre ${getFullName(target)}`,
+        body: `${buyerTeam.name} contratou ${getFullName(target)} (${target.position}, ${target.age} anos) como agente livre, sem taxa de transferência. CA: ${target.currentAbility}.`,
+        timestamp: Date.now(),
+        read: false,
+        priority: 'low',
+        relatedTeamId: buyerTeam.id,
+      });
+    }
+  }
+
+  return { teams: updatedTeams, freeAgents: remainingFreeAgents, completedTransfers: newTransfers, inboxMessages };
+}
+
+// ============================================================
 // PONTO DE ENTRADA — Rotina semanal completa da IA
 // ============================================================
 
@@ -715,6 +831,7 @@ export function processAIWeeklyDecisions(
   standings: LeagueStandings[],
   currentWeek: number,
   selectedTeamId: string | null,
+  freeAgents: Player[] = [],
 ): AIWeeklyResult {
   let workingTeams = [...teams];
   const allInboxMessages: InboxMessage[] = [];
@@ -736,6 +853,7 @@ export function processAIWeeklyDecisions(
   const loanResult = processAILoans(workingTeams, currentWeek, selectedTeamId);
   workingTeams = loanResult.teams;
   allInboxMessages.push(...loanResult.inboxMessages);
+  const allNewLoans = loanResult.newLoans;
 
   // 4. Ajustes táticos baseados na tabela
   const tacticsResult = processAITactics(workingTeams, standings, currentWeek, selectedTeamId);
@@ -747,9 +865,17 @@ export function processAIWeeklyDecisions(
   workingTeams = contractResult.teams;
   allInboxMessages.push(...contractResult.inboxMessages);
 
+  // 6. Assinatura de agentes livres
+  const faResult = processAIFreeAgentSignings(workingTeams, freeAgents, currentWeek, selectedTeamId);
+  workingTeams = faResult.teams;
+  allInboxMessages.push(...faResult.inboxMessages);
+  allCompletedTransfers.push(...faResult.completedTransfers);
+
   return {
     teams: workingTeams,
     inboxMessages: allInboxMessages,
     completedTransfers: allCompletedTransfers,
+    newLoans: allNewLoans,
+    freeAgents: faResult.freeAgents,
   };
 }

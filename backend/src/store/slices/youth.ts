@@ -1,5 +1,6 @@
 import type { GameStore, YouthPlayer, ReserveTeamPlayer } from '../../types/game';
 import { generateYouthIntake, generatePlayer } from '../../utils/playerGenerator';
+import { recalcWageBill } from '../helpers/transfer';
 
 type Set = (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void;
 type Get = () => GameStore;
@@ -57,7 +58,7 @@ export const createYouthSlice = (set: Set, get: Get) => ({
     newPlayer.physical = { ...newPlayer.physical, ...youth.physical };
     set({
       teams: state.teams.map(t =>
-        t.id === team.id ? { ...t, squad: [...t.squad, newPlayer] } : t
+        t.id === team.id ? { ...t, squad: [...t.squad, newPlayer], wageBill: recalcWageBill({ ...t, squad: [...t.squad, newPlayer] }) } : t
       ),
       youthAcademy: {
         ...state.youthAcademy,
@@ -95,7 +96,7 @@ export const createYouthSlice = (set: Set, get: Get) => ({
     set({
       reserveTeam: [...state.reserveTeam, reserveEntry],
       teams: state.teams.map(t =>
-        t.id === team.id ? { ...t, squad: t.squad.filter(p => p.id !== playerId) } : t
+        t.id === team.id ? { ...t, squad: t.squad.filter(p => p.id !== playerId), wageBill: recalcWageBill({ ...t, squad: t.squad.filter(p => p.id !== playerId) }) } : t
       ),
     });
   },
@@ -109,7 +110,7 @@ export const createYouthSlice = (set: Set, get: Get) => ({
     if (!reserve) return;
     set({
       teams: state.teams.map(t =>
-        t.id === team.id ? { ...t, squad: [...t.squad, reserve.player] } : t
+        t.id === team.id ? { ...t, squad: [...t.squad, reserve.player], wageBill: recalcWageBill({ ...t, squad: [...t.squad, reserve.player] }) } : t
       ),
       reserveTeam: state.reserveTeam.filter(r => r.playerId !== playerId),
     });

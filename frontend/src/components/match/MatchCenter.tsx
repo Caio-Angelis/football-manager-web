@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../../store/gameStore';
+import { getActiveRoom } from '../../api/client';
 import { Button } from '../ui/Button';
 import { MatchPitch2D } from './MatchPitch2D';
 import { PostMatchReportView } from './PostMatchReportView';
 import { PreMatchBriefing } from './PreMatchBriefing';
 import { MomentumChart } from './MomentumChart';
 import { teamStrength, buildMomentum, goalsFromMatch } from '../../utils/winProbability';
+import { fmtMinute } from '../../utils/matchTime';
 import type { MatchEvent, MatchStats, PlayerMatchRating, MatchAction, Team, Match, Player } from '../../types/game';
 import { Globe, Trophy, ArrowRight, Zap, Footprints, Shield, Hand, Wind, Route, OctagonAlert, PlayCircle, CornerUpRight, XCircle, Circle, Radio, ClipboardList, type LucideIcon } from 'lucide-react';
 import { PageHeader } from '../ui/PageHeader';
@@ -29,7 +31,7 @@ const ActionIcon: React.FC<{ type: string; success: boolean; size?: number }> = 
 const MatchActionDisplay: React.FC<{ action: MatchAction }> = ({ action }) => (
   <div className={`fm-match-action ${action.success ? '' : 'fm-match-action--fail'}`}>
     <span className="fm-match-action__icon"><ActionIcon type={action.type} success={action.success} /></span>
-    <span className="fm-match-action__time">{action.minute}'</span>
+    <span className="fm-match-action__time">{fmtMinute(action.minute)}'</span>
     <span className="fm-match-action__content">
       <span className="fm-match-action__team-label">{action.team === 'home' ? 'Casa' : 'Fora'}</span>
       {' '}{action.description}
@@ -210,7 +212,7 @@ const FixtureCard: React.FC<{ home: Team; away: Team; match: Match; onClick?: ()
       disabled={!onClick}
     >
       <span className={`fm-fixture__status ${live ? 'fm-fixture__status--live' : ''}`}>
-        {live ? `${match.liveMinute}'` : done ? 'Fim' : 'Agendado'}
+        {live ? `${fmtMinute(match.liveMinute)}'` : done ? 'Fim' : 'Agendado'}
       </span>
       <div className={`fm-fixture__row ${homeWin ? 'fm-fixture__row--win' : ''}`}>
         <TeamCrest name={home.name} reputation={home.reputation} size={20} />
@@ -255,7 +257,7 @@ const CommentaryFeed: React.FC<{ events: MatchEvent[]; homeName: string; awayNam
       ) : (
         [...events].reverse().map((e, i) => (
           <div key={i} className={`fm-commentary__line fm-commentary__line--${e.team} ${e.type === 'goal' ? 'fm-commentary__line--goal' : ''} ${e.type === 'red' ? 'fm-commentary__line--red' : ''}`}>
-            <span className="fm-commentary__min">{e.minute}'</span>
+            <span className="fm-commentary__min">{fmtMinute(e.minute)}'</span>
             <span className="fm-commentary__icon"><MatchEventIcon type={e.type} /></span>
             <span className="fm-commentary__text">{commentaryLine(e, homeName, awayName)}</span>
           </div>
@@ -292,10 +294,16 @@ const LiveControls: React.FC<{
 }> = ({ team, subs, sentOff, onSub, onShout }) => {
   const [outId, setOutId] = useState('');
   const [inId, setInId] = useState('');
+  // onPitch = current startingXI (already updated after prior subs) minus sent-off
   const onPitch = team.startingXI
     .map(id => team.squad.find(p => p.id === id))
     .filter((p): p is Player => !!p && !sentOff.includes(p.id));
-  const bench = team.squad.filter(p => !team.startingXI.includes(p.id) && !sentOff.includes(p.id));
+  // bench = not in startingXI, not sent off, not injured
+  const bench = team.squad.filter(p =>
+    !team.startingXI.includes(p.id) &&
+    !sentOff.includes(p.id) &&
+    !p.injury?.active,
+  );
   const canSub = subs < 5 && !!outId && !!inId;
   return (
     <div className="fm-livectl">
@@ -345,21 +353,35 @@ export const MatchCenter: React.FC = () => {
     setLiveMatchWatching(null);
     setMatchSpeed(1);
     setHalfTime(false);
+    // E-34: Resetar briefingMatchIndex para nao apontar para jogo errado apos virar rodada.
+    setBriefingMatchIndex(null);
   }, [currentWeek]);
 
-  // Live match auto-advance effect — a single interval that holds at half-time.
+  // Live match auto-advance effect — stable interval via ref (C7).
+  const liveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [isMatchLive, setIsMatchLive] = useState(false);
+
   useEffect(() => {
-    if (liveMatchWatching !== null && matches[liveMatchWatching]?.isLive) {
-      const timer = setInterval(() => {
-        const cur = useGameStore.getState().matches[liveMatchWatching];
-        if (!cur || !cur.isLive) return;
-        // Pausa no intervalo (45') até o técnico iniciar o 2º tempo
-        if (cur.liveMinute >= 45 && cur.liveMinute < 90 && !halfTimeResumedRef.current) return;
-        generateLiveMatchMinute(liveMatchWatching);
-      }, 2000 / matchSpeed);
-      return () => clearInterval(timer);
+    const watching = liveMatchWatching !== null;
+    const live = watching && matches[liveMatchWatching]?.isLive;
+    setIsMatchLive(!!live);
+  }, [liveMatchWatching, matches]);
+
+  useEffect(() => {
+    if (liveMatchWatching === null || !isMatchLive) {
+      if (liveTimerRef.current) { clearInterval(liveTimerRef.current); liveTimerRef.current = null; }
+      return;
     }
-  }, [liveMatchWatching, liveMatchWatching !== null ? matches[liveMatchWatching]?.isLive : false, matchSpeed, generateLiveMatchMinute]);
+    const timer = setInterval(() => {
+      const cur = useGameStore.getState().matches[liveMatchWatching];
+      if (!cur || !cur.isLive) return;
+      // Pausa no intervalo (45') até o técnico iniciar o 2º tempo
+      if (cur.liveMinute >= 45 && cur.liveMinute < 90 && !halfTimeResumedRef.current) return;
+      generateLiveMatchMinute(liveMatchWatching);
+    }, 2000 / matchSpeed);
+    liveTimerRef.current = timer;
+    return () => { clearInterval(timer); liveTimerRef.current = null; };
+  }, [liveMatchWatching, isMatchLive, matchSpeed, generateLiveMatchMinute]);
 
   const getTeamName = (teamId: string) => teams.find(t => t.id === teamId)?.name ?? teamId;
   const isUserMatch = (match: typeof matches[0]) =>
@@ -404,7 +426,7 @@ export const MatchCenter: React.FC = () => {
                 <section className={`fm-matchday ${live ? 'fm-matchday--live' : ''} ${done ? 'fm-matchday--done' : ''}`}>
                   <div className="fm-matchday__top">
                     <span className="fm-matchday__tag">
-                      {live ? <><span className="fm-match__live-dot" /> Ao vivo · {m.liveMinute}'</> : done ? 'Sua partida · encerrada' : 'Sua próxima partida'}
+                      {live ? <><span className="fm-match__live-dot" /> Ao vivo · {fmtMinute(m.liveMinute)}'</> : done ? 'Sua partida · encerrada' : 'Sua próxima partida'}
                     </span>
                     <span className="fm-matchday__venue">{userIsHome ? 'Em casa' : 'Fora de casa'}</span>
                   </div>
@@ -510,7 +532,7 @@ export const MatchCenter: React.FC = () => {
                   >4x</button>
                 </div>
                 <div className="fm-match-live-view__minute">
-                  <span>{matches[liveMatchWatching].liveMinute}' / 90'</span>
+                  <span>{fmtMinute(matches[liveMatchWatching].liveMinute)}' / {fmtMinute(90 + (matches[liveMatchWatching].liveMatchState?.addedTime ?? 0))}'</span>
                 </div>
               </div>
             </div>
@@ -527,9 +549,9 @@ export const MatchCenter: React.FC = () => {
             </div>
             <div className="fm-match-live-view__progress">
               <div className="fm-match-live-view__progress-track">
-                <div className="fm-match-live-view__progress-fill" style={{ width: `${(matches[liveMatchWatching].liveMinute / 90) * 100}%` }} />
+                <div className="fm-match-live-view__progress-fill" style={{ width: `${Math.min(100, (matches[liveMatchWatching].liveMinute / 90) * 100)}%` }} />
               </div>
-              <span className="fm-match-live-view__progress-label">{matches[liveMatchWatching].liveMinute}' / 90'</span>
+              <span className="fm-match-live-view__progress-label">{fmtMinute(matches[liveMatchWatching].liveMinute)}' / {fmtMinute(90 + (matches[liveMatchWatching].liveMatchState?.addedTime ?? 0))}'</span>
             </div>
             {(() => {
               const m = matches[liveMatchWatching];
@@ -575,6 +597,8 @@ export const MatchCenter: React.FC = () => {
                   events={lm.liveEvents ?? []}
                   isLive={true}
                   ballPos={lm.liveMatchState?.ballPos}
+                  ballPosY={lm.liveMatchState?.ballPosY}
+                  ballHolderId={lm.liveMatchState?.ballHolderId}
                   possessionSide={lm.liveMatchState?.possession}
                   speed={matchSpeed}
                 />
@@ -711,11 +735,14 @@ export const MatchCenter: React.FC = () => {
         </div>
       )}
 
-      <div className="fm-match-center__controls">
-        <Button onClick={advanceWeek} disabled={matches.some(m => m.isLive)}>
-          Avançar Semana
-        </Button>
-      </div>
+      {/* E-16: Esconder botão Avançar Semana no modo online */}
+      {!getActiveRoom() && (
+        <div className="fm-match-center__controls">
+          <Button onClick={advanceWeek} disabled={matches.some(m => m.isLive)}>
+            Avançar Semana
+          </Button>
+        </div>
+      )}
 
       <div className="fm-match-center__standings">
         <div className="fm-mini-standings__head">

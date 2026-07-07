@@ -130,6 +130,8 @@ const PressConferenceCard: React.FC<{
   const { answerPressQuestion, skipPressConference } = useGameStore();
   const [selectedTone, setSelectedTone] = useState<Record<string, PressResponseTone>>({});
   const [selectedText, setSelectedText] = useState<Record<string, string>>({});
+  // E-35: Track de questão sendo respondida para evitar double-click.
+  const [answeringId, setAnsweringId] = useState<string | null>(null);
 
   const answeredIds = new Set(conference.responses.map(r => r.questionId));
   const allAnswered = conference.questions.every(q => answeredIds.has(q.id));
@@ -137,11 +139,17 @@ const PressConferenceCard: React.FC<{
   const isCompleted = conference.status === 'completed';
   const isSkipped = conference.status === 'skipped';
 
-  const handleAnswer = (question: PressQuestion) => {
+  const handleAnswer = async (question: PressQuestion) => {
     const tone = selectedTone[question.id];
     const text = selectedText[question.id];
-    if (!tone || !text) return;
-    answerPressQuestion(conference.id, question.id, tone, text);
+    if (!tone || !text || answeringId) return;
+    // E-35: Desabilitar botao enquanto a resposta esta pendente.
+    setAnsweringId(question.id);
+    try {
+      await answerPressQuestion(conference.id, question.id, tone, text);
+    } finally {
+      setAnsweringId(null);
+    }
   };
 
   const typeLabel = conference.type === 'pre_match' ? 'Pré-Jogo' : conference.type === 'post_match' ? 'Pós-Jogo' : 'Geral';
@@ -229,8 +237,9 @@ const PressConferenceCard: React.FC<{
                           <Button
                             className="fm-press__submit-btn"
                             onClick={() => handleAnswer(question)}
+                            disabled={answeringId === question.id}
                           >
-                            Responder
+                            {answeringId === question.id ? 'Enviando...' : 'Responder'}
                           </Button>
                         </div>
                       )}

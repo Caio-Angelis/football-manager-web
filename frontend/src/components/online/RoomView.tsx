@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   getRoom, joinRoom, startRoom, pickTeam, beginRoom, apiRoomState, setActiveRoom,
+  closeRoom, rememberRoom, forgetRoom,
   type PublicRoom,
 } from '../../api/client';
 import { useGameStore } from '../../store/gameStore';
@@ -10,10 +11,10 @@ import { Button } from '../ui/Button';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { Lobby } from './Lobby';
 import { DraftScreen } from './DraftScreen';
+import { useRoomPolling } from '../../hooks/useRoomPolling';
 import './online.css';
 
 const NICK_KEY = 'fm-nickname';
-const POLL_MS = 2000;
 
 export const RoomView: React.FC = () => {
   const navigate = useNavigate();
@@ -30,46 +31,48 @@ export const RoomView: React.FC = () => {
     return r;
   }, [code]);
 
-  React.useEffect(() => {
-    let alive = true;
+  const handleRoomUpdate = React.useCallback(async (r: PublicRoom) => {
+    // Reentrada: se não sou membro (abri a URL direto), tenta entrar com o apelido salvo.
+    if (!r.players.some(p => p.isYou)) {
+      const nick = localStorage.getItem(NICK_KEY);
+      if (nick) { try { await joinRoom(code, nick); } catch { /* pode já ter iniciado */ } }
+    }
+    rememberRoom(code);
+    setRoom(r);
+    setError(null);
 
-    const poll = async () => {
-      try {
-        const { room: r } = await getRoom(code);
-        if (!alive) return;
+    if (r.status === 'drafting') {
+      try { const { state } = await apiRoomState(code); setTeams(state.teams ?? []); } catch { /* ignore */ }
+    }
 
-        // Reentrada: se não sou membro (abri a URL direto), tenta entrar com o apelido salvo.
-        if (!r.players.some(p => p.isYou)) {
-          const nick = localStorage.getItem(NICK_KEY);
-          if (nick) { try { await joinRoom(code, nick); } catch { /* pode já ter iniciado */ } }
-        }
-        setRoom(r);
-        setError(null);
-
-        if (r.status === 'drafting') {
-          try { const { state } = await apiRoomState(code); if (alive) setTeams(state.teams ?? []); } catch { /* ignore */ }
-        }
-
-        // Jogo começou: entra uma única vez e vai para o dashboard.
-        if (r.status === 'playing' && !enteredRef.current) {
-          const me = r.players.find(p => p.isYou);
-          if (me?.teamId) {
-            enteredRef.current = true;
-            setActiveRoom(code, me.teamId);
-            const { state } = await apiRoomState(code);
-            useGameStore.setState({ ...state, selectedTeam: me.teamId });
-            navigate('/dashboard');
-          }
-        }
-      } catch (e) {
-        if (alive) setError(e instanceof Error ? e.message : 'Sala indisponível.');
+    // Jogo começou: entra uma única vez e vai para o dashboard.
+    if (r.status === 'playing' && !enteredRef.current) {
+      const me = r.players.find(p => p.isYou);
+      if (me?.teamId) {
+        enteredRef.current = true;
+        setActiveRoom(code, me.teamId);
+        const { state } = await apiRoomState(code);
+        useGameStore.setState({ ...state, selectedTeam: me.teamId });
+        navigate('/dashboard');
       }
-    };
-
-    poll();
-    const id = setInterval(poll, POLL_MS);
-    return () => { alive = false; clearInterval(id); };
+    }
   }, [code, navigate]);
+
+  const handleRoomClosed = React.useCallback(() => {
+    forgetRoom();
+    navigate('/online');
+  }, [navigate]);
+
+  const { isReconnecting } = useRoomPolling({
+    code,
+    onRoomUpdate: handleRoomUpdate,
+    onRoomClosed: handleRoomClosed,
+  });
+
+  // Exibe erro de reconexão se o hook reportar problema
+  React.useEffect(() => {
+    if (isReconnecting) setError('Reconectando…');
+  }, [isReconnecting]);
 
   const run = async (fn: () => Promise<unknown>) => {
     setBusy(true); setError(null);
@@ -92,7 +95,13 @@ export const RoomView: React.FC = () => {
           {!room && !error && <p className="fmo-hint">Carregando sala…</p>}
 
           {room?.status === 'lobby' && (
-            <Lobby code={code} room={room} busy={busy} onStart={() => run(() => startRoom(code))} />
+            <Lobby
+              code={code}
+              room={room}
+              busy={busy}
+              onStart={() => run(() => startRoom(code))}
+              onClose={() => run(async () => { await closeRoom(code); forgetRoom(); navigate('/online'); })}
+            />
           )}
           {room?.status === 'drafting' && (
             <DraftScreen

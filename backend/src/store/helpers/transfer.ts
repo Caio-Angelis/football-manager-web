@@ -344,3 +344,36 @@ export function processBiddingWars(
 export function recalcWageBill(team: Team): number {
   return team.squad.reduce((sum, p) => sum + p.salary, 0) / 1000;
 }
+
+/**
+ * Impacto da diferença de reputação entre jogador e clube comprador.
+ * Um jogador de reputação alta exige muito mais para ir a um clube de reputação baixa.
+ *
+ * @param playerReputation  Reputação do jogador (1-100)
+ * @param clubReputation    Reputação do clube comprador (1-100)
+ * @returns willingnessAdjust  Ajuste na vontade do jogador (negativo se clube for menor)
+ *          salaryMultiplier    Multiplicador de salário esperado (>1 se clube for menor)
+ *          refuseChance        Chance de recusa categórica independente de salário
+ */
+export function reputationGapImpact(
+  playerReputation: number,
+  clubReputation: number,
+): { willingnessAdjust: number; salaryMultiplier: number; refuseChance: number } {
+  const gap = playerReputation - clubReputation; // positivo = jogador maior que o clube
+
+  if (gap <= 0) {
+    return { willingnessAdjust: 0, salaryMultiplier: 1, refuseChance: 0 };
+  }
+
+  // Vontade: -0.4 por ponto de gap → gap 60 = -24 (muito relutante)
+  const willingnessAdjust = -gap * 0.4;
+
+  // Salário: +1.5% por ponto de gap → gap 60 = +90% salário
+  const salaryMultiplier = 1 + gap * 0.015;
+
+  // Recusa categórica: só acima de gap 40
+  // gap 40 → 0%, gap 60 → 24%, gap 80 → 48%
+  const refuseChance = gap > 40 ? (gap - 40) * 0.012 : 0;
+
+  return { willingnessAdjust, salaryMultiplier, refuseChance };
+}

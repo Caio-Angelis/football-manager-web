@@ -1,5 +1,21 @@
 import type { GameStore, WeeklyTrainingPlan } from '../../types/game';
+import type { TrainingTargetGroup } from '../../types/training';
 import { updatePlayerAttributes } from '../helpers/training';
+
+const POSITION_MAP: Record<string, string> = {
+  FWD: 'attackers',
+  MID: 'midfielders',
+  DEF: 'defenders',
+};
+
+function filterSquadByGroup(squad: import('../../types/game').Player[], targetGroup: TrainingTargetGroup, customPlayerIds?: string[]) {
+  if (targetGroup === 'all') return squad;
+  if (targetGroup === 'custom') {
+    const idSet = new Set(customPlayerIds ?? []);
+    return squad.filter(p => idSet.has(p.id));
+  }
+  return squad.filter(p => POSITION_MAP[p.position] === targetGroup);
+}
 
 type Set = (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void;
 type Get = () => GameStore;
@@ -23,7 +39,7 @@ export const createTrainingSlice = (set: Set, get: Get) => ({
 
   setTrainingPlan: (plan: WeeklyTrainingPlan) => set({ trainingPlan: plan }),
 
-  applyWeeklyTraining: () => {
+  applyWeeklyTraining: (targetGroup: TrainingTargetGroup = 'all', customPlayerIds?: string[]) => {
     const state = get();
     if (!state.selectedTeam || !state.trainingPlan) return;
 
@@ -32,8 +48,10 @@ export const createTrainingSlice = (set: Set, get: Get) => ({
 
     const team = { ...state.teams[teamIdx] };
     const focus = state.trainingPlan.teamFocus;
+    const targetIds = new Set(filterSquadByGroup(team.squad, targetGroup, customPlayerIds).map(p => p.id));
 
     team.squad = team.squad.map(p => {
+      if (!targetIds.has(p.id)) return p;
       if (p.injury?.active) return p;
       
       const updated = updatePlayerAttributes(p, focus, state.currentWeek);

@@ -7,12 +7,41 @@ const zMatchIndex = z.number().int().nonnegative();
 const zEmpty = z.array(z.unknown()).length(0);
 const zSlot = z.union([z.literal(1), z.literal(2)]);
 
+// Whitelist de campos que o frontend legitimamente edita via updateTeam.
+// Campos não listados (budget, reputation, squad, scouts, etc.) são stripped pelo Zod.
+const teamUpdateFields = z.object({
+  tacticsConfig: z.any().optional(),
+  startingXI: z.array(z.string()).optional(),
+  squadStatus: z.record(z.string(), z.string()).optional(),
+  captain: z.union([z.string(), z.null()]).optional(),
+  penaltyTaker: z.union([z.string(), z.null()]).optional(),
+  freeKickTaker: z.union([z.string(), z.null()]).optional(),
+  cornerTaker: z.union([z.string(), z.null()]).optional(),
+  formation: z.string().optional(),
+  teamMentality: z.string().optional(),
+  tactic: z.string().optional(),
+  passingStyle: z.string().optional(),
+  pressIntensity: z.enum(['low', 'medium', 'high']).optional(),
+  defensiveLine: z.enum(['high', 'medium', 'low']).optional(),
+  engagementLine: z.enum(['high', 'medium', 'low']).optional(),
+  afterLosingPossession: z.enum(['counterPress', 'regroup']).optional(),
+  afterGainingPossession: z.enum(['counterAttack', 'retainStructure']).optional(),
+  tacklingStyle: z.enum(['aggressive', 'contain']).optional(),
+  tempo: z.string().optional(),
+  workBallIntoBox: z.boolean().optional(),
+  trapOffside: z.boolean().optional(),
+  counterPress: z.boolean().optional(),
+  highPress: z.boolean().optional(),
+  highLine: z.boolean().optional(),
+  aggressiveTackling: z.boolean().optional(),
+});
+
 export const actionSchemas: Record<string, z.ZodTypeAny> = {
   // Core
   initGame: zEmpty,
   deselectTeam: zEmpty,
   selectTeam: z.tuple([zString]),
-  updateTeam: z.tuple([zString, z.any()]),
+  updateTeam: z.tuple([zString, teamUpdateFields]),
   advanceWeek: zEmpty,
 
   // Match
@@ -28,16 +57,21 @@ export const actionSchemas: Record<string, z.ZodTypeAny> = {
   markAsRead: z.tuple([zString]),
   removeMessage: z.tuple([zString]),
   handleInboxAction: z.tuple([zString, zString]),
-  handleBoardReply: z.tuple([zString, zString, z.enum(['performance', 'budget', 'expectation', 'general'])]),
+  handleBoardReply: z.tuple([zString, zString]),
 
   // Training
   updatePlayerAttributes: z.tuple([zString, zString]),
   setTrainingPlan: z.tuple([z.any()]),
-  applyWeeklyTraining: zEmpty,
+  applyWeeklyTraining: z.union([
+    zEmpty,
+    z.tuple([z.enum(['all', 'attackers', 'midfielders', 'defenders', 'custom'])]),
+    z.tuple([z.enum(['all', 'attackers', 'midfielders', 'defenders', 'custom']), z.array(zString)]),
+  ]),
   applyTrainingCooldown: z.tuple([zString, zString, zNumber.int().nonnegative()]),
 
   // Transfer
   buyPlayer: z.union([z.tuple([zString, zString]), z.tuple([zString, zString, z.boolean()])]),
+  signFreeAgent: z.tuple([zString]),
   makeOffer: z.union([z.tuple([zString, zString, zNumberNonNeg]), z.tuple([zString, zString, zNumberNonNeg, zNumber.int().positive()])]),
   acceptOffer: z.tuple([zString, zString, zNumberNonNeg, zNumberNonNeg]),
   negotiatePlayerContract: z.tuple([zString, zString, zNumberNonNeg, zNumber.int().positive()]),

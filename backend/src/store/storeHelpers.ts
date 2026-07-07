@@ -67,12 +67,41 @@ export function runAction(store: GameStoreApi, action: string, args: unknown[]):
     throw new AppError('UNKNOWN_ACTION', `Unknown action: ${action}`, 400);
   }
 
-  // updateTeam é especial: o frontend envia o objeto Team pré-computado.
+  // updateTeam é especial: o frontend envia um objeto Team pré-computado,
+  // mas só permitimos os campos whitelisted pelo schema (o resto é stripped).
+  // Fazemos merge seletivo para preservar budget, reputation, squad, etc.
   if (action === 'updateTeam') {
-    const [teamId, newTeam] = args as [string, Team];
-    const state = store.getState();
-    store.setState({ teams: state.teams.map(t => (t.id === teamId ? newTeam : t)) });
-    return undefined;
+    const schema = actionSchemas[action];
+    if (schema) {
+      const parsed = schema.safeParse(args ?? []);
+      if (!parsed.success) {
+        throw new ValidationError(
+          `Invalid args for action "updateTeam": ${parsed.error.message}`,
+          parsed.error.issues,
+        );
+      }
+      const [teamId, updates] = parsed.data as [string, Record<string, unknown>];
+      const state = store.getState();
+      const currentTeam = state.teams.find(t => t.id === teamId);
+      if (!currentTeam) {
+        throw new AppError('NOT_FOUND', `Team not found: ${teamId}`, 404);
+      }
+
+      // Aplicar squadStatus ao elenco existente (não substituir o array squad)
+      let squad = currentTeam.squad;
+      if (updates.squadStatus && typeof updates.squadStatus === 'object') {
+        const squadStatusMap = updates.squadStatus as Record<string, string>;
+        squad = currentTeam.squad.map(p =>
+          squadStatusMap[p.id] ? { ...p, squadStatus: squadStatusMap[p.id] } : p,
+        );
+        delete updates.squadStatus;
+      }
+
+      // Merge seletivo: apenas campos whitelisted do objeto enviado
+      const mergedTeam: Team = { ...currentTeam, ...updates, squad };
+      store.setState({ teams: state.teams.map(t => (t.id === teamId ? mergedTeam : t)) });
+      return undefined;
+    }
   }
 
   const fn = (store.getState() as unknown as Record<string, unknown>)[action];

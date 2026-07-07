@@ -4,7 +4,7 @@ import { useGameStore } from '../../store/gameStore';
 import type { Player, Team, SetPiecesConfig } from '../../types/game';
 import {
   ChevronUp, ChevronDown, Plus, Download, Pencil, ListFilter,
-  ThumbsUp, Star, Globe, Trophy, Info,
+  ThumbsUp, Star, Globe, Trophy, Info, Heart,
 } from 'lucide-react';
 import { PageHeader } from '../ui/PageHeader';
 import { getRatingColor } from '../../utils/statusColors';
@@ -273,26 +273,89 @@ export const TacticsView: React.FC = () => {
     setFormation(next);
   };
 
+  const injuredInXI = useMemo(() => {
+    return starters.filter(p => p?.injury?.active).length;
+  }, [starters]);
+
+  const replaceInjured = () => {
+    const lineToPos: Record<string, string> = { gk: 'GK', def: 'DEF', mid: 'MID', fwd: 'FWD' };
+    const currentRoles = [...(team.tacticsConfig?.playerRoles ?? [])];
+    const usedIds = new Set(starters.filter(Boolean).map(p => p!.id));
+    let changed = false;
+
+    const scoreAt = (p: Player, pos: string) => {
+      const prof = p.positionProficiency?.[pos] ?? 0;
+      return p.currentAbility * (0.4 + 0.6 * (prof / 20));
+    };
+
+    for (let i = 0; i < slots.length; i++) {
+      const p = starters[i];
+      if (!p || !p.injury?.active) continue;
+
+      const pos = lineToPos[slots[i].line];
+      const candidates = team.squad
+        .filter(c => !usedIds.has(c.id) && !c.injury?.active && (c.fitness ?? 100) >= 60)
+        .sort((a, b) => scoreAt(b, pos) - scoreAt(a, pos));
+
+      const replacement =
+        candidates.find(c => c.position === pos) ??
+        candidates.find(c => (c.secondaryPositions ?? []).includes(pos)) ??
+        candidates[0];
+
+      if (replacement) {
+        usedIds.delete(p.id);
+        usedIds.add(replacement.id);
+        const idx = currentRoles.findIndex(r => r.slotIndex === i);
+        if (idx >= 0) {
+          currentRoles[idx] = { ...currentRoles[idx], playerId: replacement.id };
+        } else {
+          currentRoles.push({ slotIndex: i, playerId: replacement.id, role: '', duty: '' });
+        }
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      const xi = slots.map((_, idx) => {
+        const r = currentRoles.find(rr => rr.slotIndex === idx);
+        return r?.playerId ?? starters[idx]?.id ?? '';
+      }).filter(Boolean);
+      updateTeam(team.id, t => ({
+        ...t,
+        startingXI: xi,
+        tacticsConfig: { ...t.tacticsConfig, playerRoles: currentRoles },
+      }));
+    }
+  };
+
   const autoFillBestXI = () => {
     const lineToPos: Record<string, string> = { gk: 'GK', def: 'DEF', mid: 'MID', fwd: 'FWD' };
     const used = new Set<string>();
-    const roles = slots.map((slot, i) => {
-      const pos = lineToPos[slot.line];
-      const candidates = team.squad
-        .filter(p => !used.has(p.id) && (p.position === pos || (p.secondaryPositions ?? []).includes(pos)))
-        .sort((a, b) => b.currentAbility - a.currentAbility);
-      const best = candidates[0];
-      if (best) {
-        used.add(best.id);
-        return { playerId: best.id, slotIndex: i, role: '', duty: '' };
+    const roles = slots.map((_, i) => ({ playerId: '', slotIndex: i, role: '', duty: '' }));
+
+    const scoreAt = (p: Player, pos: string) => {
+      const prof = p.positionProficiency?.[pos] ?? 0;
+      return p.currentAbility * (0.4 + 0.6 * (prof / 20));
+    };
+
+    const fillPass = (filterFn: (p: Player, pos: string) => boolean) => {
+      for (let i = 0; i < slots.length; i++) {
+        if (roles[i].playerId) continue;
+        const pos = lineToPos[slots[i].line];
+        const best = team.squad
+          .filter(p => !used.has(p.id) && !p.injury?.active && (p.fitness ?? 100) >= 70 && filterFn(p, pos))
+          .sort((a, b) => scoreAt(b, pos) - scoreAt(a, pos))[0];
+        if (best) {
+          roles[i].playerId = best.id;
+          used.add(best.id);
+        }
       }
-      const fallback = team.squad.filter(p => !used.has(p.id)).sort((a, b) => b.currentAbility - a.currentAbility)[0];
-      if (fallback) {
-        used.add(fallback.id);
-        return { playerId: fallback.id, slotIndex: i, role: '', duty: '' };
-      }
-      return { playerId: '', slotIndex: i, role: '', duty: '' };
-    });
+    };
+
+    fillPass((p, pos) => p.position === pos);
+    fillPass((p, pos) => (p.secondaryPositions ?? []).includes(pos));
+    fillPass(() => true);
+
     const xi = roles.map(r => r.playerId).filter(Boolean);
     updateTeam(team.id, t => ({
       ...t,
@@ -331,10 +394,11 @@ export const TacticsView: React.FC = () => {
       };
       upsert(a, pb ? pb.id : null);
       upsert(b, pa ? pa.id : null);
-      // keep startingXI in sync
-      const xi = FORMATIONS[formation].map((_, i) => {
-        const rr = roles.find(r => r.slotIndex === i);
-        return rr?.playerId ?? '';
+      // E-08: Reconstruct xi from starters (has fallback) with swap applied, not from roles alone
+      const xi = starters.map((p, i) => {
+        if (i === a) return pb?.id ?? '';
+        if (i === b) return pa?.id ?? '';
+        return p?.id ?? '';
       }).filter(Boolean);
       return { ...t, startingXI: xi, tacticsConfig: { ...t.tacticsConfig, playerRoles: roles } };
     });
@@ -348,9 +412,10 @@ export const TacticsView: React.FC = () => {
       const base = idx >= 0 ? roles[idx] : { slotIndex, role: '', duty: '' } as any;
       const merged = { ...base, slotIndex, playerId: benchPlayerId, line: slot.line };
       if (idx >= 0) roles[idx] = merged; else roles.push(merged);
-      const xi = FORMATIONS[formation].map((_, i) => {
-        const rr = roles.find(r => r.slotIndex === i);
-        return rr?.playerId ?? '';
+      // E-08: Reconstruct xi from starters (has fallback) with bench player swapped in
+      const xi = starters.map((p, i) => {
+        if (i === slotIndex) return benchPlayerId;
+        return p?.id ?? '';
       }).filter(Boolean);
       return { ...t, startingXI: xi, tacticsConfig: { ...t.tacticsConfig, playerRoles: roles } };
     });
@@ -414,6 +479,7 @@ export const TacticsView: React.FC = () => {
               <Pencil size={13} /> Editar tática
             </button>
             <button className="fmt-tool-icon" title="Auto-preencher escalão" onClick={autoFillBestXI}><Plus size={15} /></button>
+            <button className="fmt-tool-icon" title="Substituir lesionados" onClick={replaceInjured} style={injuredInXI > 0 ? { color: 'var(--t-accent)' } : undefined}><Heart size={15} />{injuredInXI > 0 && <span className="fmt-badge">{injuredInXI}</span>}</button>
             <button className="fmt-tool-icon" title="Salvar" onClick={handleSave}><Download size={15} /></button>
             {saveStatus && <span style={{ fontSize: 10, color: 'var(--t-text-3)', marginLeft: 4 }}>{saveStatus}</span>}
           </div>
@@ -534,6 +600,7 @@ export const TacticsView: React.FC = () => {
             <div className="fmt-select"><Info size={13} /> Informações da seleção <ChevronDown size={13} /></div>
             <div className="fmt-toolbar-spacer" />
             <button className="fmt-link-btn" onClick={autoFillBestXI}>Sugestão de seleção</button>
+            <button className="fmt-link-btn" onClick={replaceInjured} disabled={injuredInXI === 0} style={injuredInXI > 0 ? { color: 'var(--t-accent)' } : undefined}>Substituir lesionados{injuredInXI > 0 ? ` (${injuredInXI})` : ''}</button>
             <div className="fmt-select" style={{ cursor: 'pointer' }} onClick={autoFillBestXI}>Escolha rápida <ChevronDown size={13} /></div>
             <button className="fmt-tool-icon" title={showAllSquad ? 'Mostrar titulares' : 'Mostrar todo o elenco'} onClick={() => setShowAllSquad(s => !s)}><ListFilter size={15} /></button>
           </div>

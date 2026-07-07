@@ -1,5 +1,6 @@
 import type { GameStore, SaveSlot } from '../../types/game';
 import { persistSave, loadSaveFromDisk, deleteSaveFromDisk } from '../../services/saveService';
+import { CURRENT_SCHEMA_VERSION } from '../../types/saves';
 import { useGameStore } from '../gameStore';
 import { healTeamsXI } from '../../utils/lineup';
 
@@ -23,8 +24,9 @@ export const createSavesSlice = (set: Set, get: Get) => ({
         currentWeek: state.currentWeek,
         currentSeason: state.currentSeason,
         savedAt: timestamp,
+        schemaVersion: CURRENT_SCHEMA_VERSION,
       },
-      gameState: {
+      gameState: structuredClone({
         selectedTeam: state.selectedTeam,
         currentWeek: state.currentWeek,
         currentSeason: state.currentSeason,
@@ -67,7 +69,9 @@ export const createSavesSlice = (set: Set, get: Get) => ({
         mediaPressure: state.mediaPressure,
         isAdvancing: false,
         matchBlockMessage: null,
-      },
+        freeAgents: state.freeAgents ?? [],
+      }),
+      schemaVersion: CURRENT_SCHEMA_VERSION,
     };
 
     const currentSlots = state.saveSlots ?? [];

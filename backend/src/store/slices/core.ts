@@ -1,4 +1,4 @@
-import type { GameStore, Team, InboxMessage, SeasonSummary } from '../../types/game';
+import type { GameStore, Team, Player, InboxMessage, SeasonSummary } from '../../types/game';
 import { generateTeam, generateYouthIntake } from '../../utils/playerGenerator';
 import { loadTeamsFromDatabase, assignBoardExpectations } from '../../utils/dataLoader';
 import { healTeamsXI } from '../../utils/lineup';
@@ -18,9 +18,180 @@ import { calculateTicketRevenue, calculateSponsorshipRevenue, calculateBroadcast
 import { updatePlayerAttributes } from '../helpers/training';
 import { weeklyFanMoodDecay, weeklyMediaPressureDecay } from '../helpers/press';
 import { getFullName } from '../../utils/playerName';
+import { autoSave } from '../../services/saveService.js';
+import { CURRENT_SCHEMA_VERSION } from '../../types/saves.js';
 
 type Set = (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void;
 type Get = () => GameStore;
+
+/**
+ * Processa features "single-track" (parcelas, bônus, scout, torcida/mídia)
+ * para UM time humano. Usado no online para processar o escopo de cada
+ * humano não-host após o advanceWeek principal (C6).
+ */
+export function processWeeklyScopedFeatures(
+  get: Get,
+  set: Set,
+  teamId: string,
+  newWeek: number,
+  updatedTeams: Team[],
+): { teams: Team[]; inboxMessages: InboxMessage[] } {
+  const state = get();
+  let teams = [...updatedTeams];
+  const inboxMessages: InboxMessage[] = [];
+  const teamIdx = teams.findIndex(t => t.id === teamId);
+  if (teamIdx === -1) return { teams, inboxMessages };
+
+  // 1. Processar parcelas vencidas
+  let updatedPendingInstallments = state.pendingInstallments;
+  if (state.pendingInstallments.length > 0) {
+    const userTeam = { ...teams[teamIdx] };
+    updatedPendingInstallments = state.pendingInstallments.map(inst => {
+      if (inst.status !== 'active') return inst;
+      const isReceivable = inst.direction === 'receivable';
+      const updatedPayments = inst.payments.map(p => {
+        if (p.paid || p.dueWeek > newWeek) return p;
+        if (isReceivable) {
+          userTeam.budget += p.amount;
+          return { ...p, paid: true, paidWeek: newWeek };
+        }
+        if (userTeam.budget >= p.amount) {
+          userTeam.budget -= p.amount;
+          return { ...p, paid: true, paidWeek: newWeek };
+        }
+        inboxMessages.push({
+          id: `inst_default_${Date.now()}_${p.installmentNumber}_${Math.random().toString(36).substr(2, 5)}`,
+          type: 'suggestion',
+          subject: '⚠️ Parcela Vencida',
+          body: `Não foi possível pagar a parcela ${p.installmentNumber} de R$ ${p.amount}M. Verifique o orçamento do clube.`,
+          timestamp: Date.now(),
+          read: false,
+          priority: 'high',
+        });
+        return p;
+      });
+      const allPaid = updatedPayments.every(p => p.paid);
+      return { ...inst, payments: updatedPayments, status: allPaid ? 'completed' as const : inst.status };
+    });
+    userTeam.wageBill = recalcWageBill(userTeam);
+    teams[teamIdx] = userTeam;
+  }
+
+  // 2. Auto-check bonuses
+  if (state.incomingBonuses.length > 0) {
+    const userTeamForBonus = teams[teamIdx];
+    const userStandingForBonus = state.leagueTable.find(s => s.teamId === teamId);
+    const updatedBonuses = state.incomingBonuses.map(b => {
+      if (b.triggered || b.claimed) return b;
+      const player = teams.flatMap(t => t.squad).find(p => p.id === b.playerId);
+      if (!player) return b;
+      let shouldTrigger = false;
+      if (b.type === 'goals') shouldTrigger = (player.seasonGoals ?? 0) >= b.threshold;
+      else if (b.type === 'assists') shouldTrigger = (player.seasonAssists ?? 0) >= b.threshold;
+      else if (b.type === 'appearances') shouldTrigger = (userTeamForBonus?.played ?? 0) >= b.threshold;
+      else if (b.type === 'titles') shouldTrigger = (userStandingForBonus?.position ?? 99) === 1;
+      else if (b.type === 'performance') shouldTrigger = (player.form ?? 0) >= b.threshold;
+      if (shouldTrigger) return { ...b, triggered: true, triggeredWeek: newWeek };
+      return b;
+    });
+    const newlyTriggered = updatedBonuses.filter(b => b.triggered && !state.incomingBonuses.find(old => old.id === b.id)?.triggered);
+    newlyTriggered.forEach(b => {
+      inboxMessages.push({
+        id: `bonus_triggered_${Date.now()}_${b.playerId}_${Math.random().toString(36).substr(2, 5)}`,
+        type: 'news',
+        subject: '💰 Bónus Ativado!',
+        body: `Um bónus de R$ ${b.bonusAmount}K foi ativado. Vá em Transferências > Bónus para reclamá-lo.`,
+        timestamp: Date.now(),
+        read: false,
+        priority: 'medium',
+      });
+    });
+    set({ incomingBonuses: updatedBonuses });
+  }
+
+  // 3. Processar missões de scouting
+  let updatedScoutKnowledge = state.scoutKnowledge;
+  let updatedScoutMissions = state.scoutMissions;
+  let updatedScoutReports = state.scoutReports;
+  let updatedRecommendations = state.scoutRecommendations;
+
+  if (state.scoutMissions.length > 0) {
+    const scoutResult = processScoutMissions(
+      state.scoutMissions, state.scoutKnowledge, teams, teamId, newWeek,
+    );
+    updatedScoutKnowledge = scoutResult.updatedKnowledge;
+    updatedScoutMissions = scoutResult.updatedMissions;
+    inboxMessages.push(...scoutResult.newInboxMessages);
+    const reportIds = new Set(scoutResult.newScoutReports.map(r => r.playerId));
+    updatedScoutReports = [
+      ...scoutResult.newScoutReports,
+      ...state.scoutReports.filter(r => !reportIds.has(r.playerId)),
+    ];
+    if (scoutResult.updatedScouts) {
+      teams[teamIdx] = { ...teams[teamIdx], scouts: scoutResult.updatedScouts };
+    } else {
+      const activeScoutIds = new Set(updatedScoutMissions.map(m => m.scoutId));
+      if (teams[teamIdx].scouts) {
+        teams[teamIdx] = {
+          ...teams[teamIdx],
+          scouts: teams[teamIdx].scouts.map(s => ({ ...s, assigned: activeScoutIds.has(s.id) })),
+        };
+      }
+    }
+  }
+
+  // Scout knowledge decay
+  const activeTargetIds = new Set(updatedScoutMissions.map(m => m.targetId));
+  const shortlistPlayerIds = new Set(state.shortlist.map(s => s.playerId));
+  updatedScoutKnowledge = decayScoutKnowledge(updatedScoutKnowledge, activeTargetIds, shortlistPlayerIds);
+
+  // Scout recommendations
+  const isTransferWindowWeek = (newWeek >= 1 && newWeek <= 12) || (newWeek >= 20 && newWeek <= 26);
+  if (isTransferWindowWeek && newWeek % 4 === 0) {
+    const userTeam = teams[teamIdx];
+    if (userTeam) {
+      const existingRecIds = new Set(state.scoutRecommendations.map(r => r.id));
+      const newRecs = generateScoutRecommendations(userTeam, teams, newWeek, existingRecIds, updatedScoutKnowledge);
+      if (newRecs.length > 0) {
+        updatedRecommendations = [...state.scoutRecommendations, ...newRecs];
+        for (const rec of newRecs) {
+          inboxMessages.push({
+            id: `scout_rec_${rec.id}_${newWeek}`,
+            type: 'suggestion',
+            subject: `💡 Recomendação do ${rec.scoutName}: ${rec.playerName} (Nota ${rec.grade})`,
+            body: `${rec.scoutName} recomenda ${rec.playerName} (${rec.position}, ${rec.age} anos) do ${rec.currentTeamName}. CA estimado: ${rec.estimatedCA}, PA estimado: ${rec.estimatedPA}. Valor estimado: R$ ${rec.estimatedValue}M. ${rec.reason}`,
+            timestamp: Date.now(),
+            read: false,
+            priority: rec.grade === 'A' ? 'high' : 'medium',
+            relatedPlayerId: rec.playerId,
+          });
+        }
+      }
+    }
+  }
+
+  // 4. Press decay (fan mood, media pressure)
+  let updatedFanMood = state.fanMood;
+  let updatedMediaPressure = state.mediaPressure;
+  const teamForPress = teams[teamIdx];
+  if (teamForPress) {
+    updatedFanMood = weeklyFanMoodDecay(state.fanMood, teamForPress.leagueForm ?? []);
+    updatedMediaPressure = weeklyMediaPressureDecay(state.mediaPressure);
+  }
+
+  // 5. Commit scoped state updates
+  set({
+    pendingInstallments: updatedPendingInstallments,
+    scoutKnowledge: updatedScoutKnowledge,
+    scoutMissions: updatedScoutMissions,
+    scoutReports: updatedScoutReports,
+    scoutRecommendations: updatedRecommendations,
+    fanMood: updatedFanMood,
+    mediaPressure: updatedMediaPressure,
+  });
+
+  return { teams, inboxMessages };
+}
 
 // Auto-finaliza a partida pendente do usuário (caso ele avance sem jogá-la ao vivo).
 // Muta `matches` no lugar (marca a partida como completed) e retorna o novo array de teams
@@ -40,7 +211,7 @@ function finalizePendingUserMatch(matches: Match[], teams: Team[], selectedTeam:
   let result;
   if (pending.isLive && pending.liveMatchState) {
     let liveState = pending.liveMatchState;
-    for (let m = pending.liveMinute + 1; m <= 90; m++) {
+    for (let m = pending.liveMinute + 1; m <= 90 + (liveState.addedTime ?? 0); m++) {
       liveState = simulateMinute(ph, pa, liveState, m);
     }
     const events: MatchEvent[] = liveState.events.sort((a, b) => a.minute - b.minute);
@@ -114,12 +285,14 @@ export const createCoreSlice = (set: Set, get: Get) => ({
     assignBoardExpectations(teams);
     teams = healTeamsXI(teams);
 
-    const initialMatches = generateWeekMatches(teams, 1);
-    const initialStandings = calculateLeagueStandings(teams, initialMatches, 0);
+    // E-14: Não gerar partidas no initGame — o primeiro advanceWeek gera a semana 1.
+    // Antes, initGame criava partidas para semana 1 (currentWeek=0) e advanceWeek
+    // gerava outra semana 1, causando rodada duplicada e 39 jogos para o usuário.
+    const initialStandings = calculateLeagueStandings(teams, [], 0);
 
     set({
       teams,
-      matches: initialMatches,
+      matches: [],
       currentWeek: 0,
       currentSeason: 1,
       selectedTeam: null,
@@ -204,19 +377,24 @@ export const createCoreSlice = (set: Set, get: Get) => ({
     }
 
     set({ isAdvancing: true, matchBlockMessage: null });
+    try {
     const newWeek = state.currentWeek + 1;
     const newSeason = state.currentSeason;
     const youthReset = state.youthIntakeCompleted;
     const championshipEnded = newWeek > 38;
 
+    // E-05: Garantir que todo time tenha 11 titulares válidos antes de simular.
+    // Jogadores vendidos/emprestados podem ter saído do squad mas ficado no startingXI.
+    const teamsWithValidXI = healTeamsXI(state.teams);
+
     if (championshipEnded) {
       // Campeonato encerrado após 38 rodadas - não gerar novas partidas
       const inboxMessage = generateInboxMessage(38, {
-        teams: state.teams,
+        teams: teamsWithValidXI,
         selectedTeamId: state.selectedTeam,
         hasIncomingTransfer: false,
       });
-      let updatedTeams = [...state.teams];
+      let updatedTeams = [...teamsWithValidXI];
 
       // Manter partidas existentes sem gerar novas, mas auto-finalizar a partida
       // pendente da rodada 38 do usuário para que a classificação final seja justa.
@@ -354,7 +532,7 @@ export const createCoreSlice = (set: Set, get: Get) => ({
     }
 
     // Comportamento normal - campeonato em andamento
-    let updatedTeams = [...state.teams];
+    let updatedTeams = [...teamsWithValidXI];
 
     // Auto-finaliza partida pendente do usuário da rodada anterior (mantém a
     // classificação justa caso ele avance a semana sem jogá-la ao vivo).
@@ -440,9 +618,12 @@ export const createCoreSlice = (set: Set, get: Get) => ({
     // PROCESSAMENTO DE FADIGA E RECOMENDAÇÕES (AVANCE WEEK)
     // ============================================================
     const newInboxMessages: InboxMessage[] = [];
+    // E-10: Mapa de inbox por time humano para distribuição no online.
+    const inboxByTeam: Record<string, InboxMessage[]> = {};
 
     // Processamento de fadiga/cura/lesões/contratos para CADA time humano.
     for (const hid of humans) {
+      inboxByTeam[hid] = [];
       const teamIdx = updatedTeams.findIndex(t => t.id === hid);
       if (teamIdx !== -1) {
         const team = updatedTeams[teamIdx];
@@ -457,8 +638,31 @@ export const createCoreSlice = (set: Set, get: Get) => ({
           // Decrement contract countdown
           if (updated.contractEnd > 0) {
             updated.contractEnd -= 1;
+            if (updated.contractEnd === 4) {
+              inboxByTeam[hid].push({
+                id: `contract_warn4_${Date.now()}_${updated.id}`,
+                type: 'suggestion',
+                subject: `⏰ Contrato expira em 4 semanas: ${getFullName(updated)}`,
+                body: `${getFullName(updated)} tem o contrato vencendo em 4 semanas. Considere renovar ou planejar a saída.`,
+                timestamp: Date.now(),
+                read: false,
+                priority: 'medium',
+                relatedPlayerId: updated.id,
+              });
+            } else if (updated.contractEnd === 2) {
+              inboxByTeam[hid].push({
+                id: `contract_warn2_${Date.now()}_${updated.id}`,
+                type: 'suggestion',
+                subject: `🚨 Contrato expira em 2 semanas: ${getFullName(updated)}`,
+                body: `${getFullName(updated)} tem o contrato vencendo em 2 semanas — renove ou perca o jogador gratuitamente.`,
+                timestamp: Date.now(),
+                read: false,
+                priority: 'high',
+                relatedPlayerId: updated.id,
+              });
+            }
             if (updated.contractEnd === 0) {
-              newInboxMessages.push({
+              inboxByTeam[hid].push({
                 id: `contract_exp_${Date.now()}_${updated.id}`,
                 type: 'suggestion',
                 subject: `📋 Contrato Expirado: ${getFullName(updated)}`,
@@ -539,8 +743,14 @@ export const createCoreSlice = (set: Set, get: Get) => ({
         updatedTeams[teamIdx] = team;
 
         // 5. Adicionar recomendações e notificações de lesão ao inbox
-        newInboxMessages.push(...injuryRecommendations, ...substitutionRecommendations, ...injuryInboxMessages);
+        inboxByTeam[hid].push(...injuryRecommendations, ...substitutionRecommendations, ...injuryInboxMessages);
       }
+    }
+
+    // E-10: Mesclar mensagens do time selecionado (host no online) de volta em newInboxMessages.
+    // As mensagens dos outros humanos ficam em inboxByTeam para distribuição via advanceRoomWeek.
+    if (state.selectedTeam && inboxByTeam[state.selectedTeam]) {
+      newInboxMessages.push(...inboxByTeam[state.selectedTeam]);
     }
 
     // ============================================================
@@ -609,6 +819,10 @@ export const createCoreSlice = (set: Set, get: Get) => ({
     // ============================================================
     const leagueStandings = calculateLeagueStandings(updatedTeams, updatedMatches, newWeek);
 
+    // Sincronizar leaguePosition real em todos os times
+    const positionMap = new Map(leagueStandings.map(s => [s.teamId, s.position]));
+    updatedTeams = updatedTeams.map(t => ({ ...t, leaguePosition: positionMap.get(t.id) ?? t.leaguePosition }));
+
     // Auto-check bonuses using real player stats
     if (state.incomingBonuses.length > 0) {
       const userTeamForBonus = state.selectedTeam
@@ -620,7 +834,7 @@ export const createCoreSlice = (set: Set, get: Get) => ({
 
       const updatedBonuses = state.incomingBonuses.map(b => {
         if (b.triggered || b.claimed) return b;
-        const player = userTeamForBonus?.squad.find(p => p.id === b.playerId);
+        const player = updatedTeams.flatMap(t => t.squad).find(p => p.id === b.playerId);
         if (!player) return b;
 
         let shouldTrigger = false;
@@ -674,9 +888,53 @@ export const createCoreSlice = (set: Set, get: Get) => ({
     // ROTINA SEMANAL DA IA — Clubes AI tomam decisões ativas
     // (transferências entre si, ajustes táticos, renovações)
     // ============================================================
-    const aiResult = processAIWeeklyDecisions(updatedTeams, leagueStandings, newWeek, state.selectedTeam);
+    const aiResult = processAIWeeklyDecisions(updatedTeams, leagueStandings, newWeek, state.selectedTeam, state.freeAgents || []);
     updatedTeams = aiResult.teams;
     const aiCompletedTransfers = aiResult.completedTransfers;
+    const updatedFreeAgents = aiResult.freeAgents;
+
+    // E-13: Resolução de contrapropostas pendentes — a IA decide aceitar ou rejeitar.
+    let updatedCounterOffers = state.counterOffers;
+    const counterOfferMessages: InboxMessage[] = [];
+    if (state.counterOffers.length > 0) {
+      updatedCounterOffers = state.counterOffers.map(co => {
+        if (co.status !== 'pending') return co;
+        const player = updatedTeams.flatMap(t => t.squad).find(p => p.id === co.originalPlayerId);
+        const buyerTeam = updatedTeams.find(t => t.id === co.originalFromTeam);
+        const buyerName = buyerTeam ? buyerTeam.name : 'Time interessado';
+        const playerName = player ? getFullName(player) : 'jogador';
+        if (!player) return { ...co, status: 'rejected' as const };
+        // Aceita se o preço contraposto for <= 130% do valor de mercado
+        const ratio = co.counterPrice / Math.max(player.marketValue, 1);
+        const acceptChance = Math.max(0, 0.8 - (ratio - 1.1) * 2);
+        if (Math.random() < acceptChance) {
+          // Aceitar: executar a venda via acceptIncomingTransfer
+          get().acceptIncomingTransfer(co.originalPlayerId);
+          counterOfferMessages.push({
+            id: `msg_cor_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            type: 'news',
+            subject: 'Contra-oferta Aceita!',
+            body: `O ${buyerName} aceitou a sua contra-oferta de R$ ${co.counterPrice}M por ${playerName}. A transferência foi concluída.`,
+            timestamp: Date.now(),
+            read: false,
+            priority: 'high',
+            relatedPlayerId: co.originalPlayerId,
+          });
+          return { ...co, status: 'accepted' as const };
+        }
+        counterOfferMessages.push({
+          id: `msg_cor_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          type: 'news',
+          subject: 'Contra-oferta Recusada',
+          body: `O ${buyerName} recusou a sua contra-oferta de R$ ${co.counterPrice}M por ${playerName}.`,
+          timestamp: Date.now(),
+          read: false,
+          priority: 'medium',
+          relatedPlayerId: co.originalPlayerId,
+        });
+        return { ...co, status: 'rejected' as const };
+      });
+    }
 
     // ============================================================
     // DINÂMICA SOCIAL — Consequências do vestiário
@@ -788,9 +1046,10 @@ export const createCoreSlice = (set: Set, get: Get) => ({
     }
 
     // === PROCESSAMENTO DE EMPRÉSTIMOS ===
-    let updatedActiveLoans = state.activeLoans;
-    if (state.activeLoans.length > 0) {
-      const loanResult = processLoans(state.activeLoans, updatedTeams, newWeek);
+    // E-06: Mesclar novos empréstimos IA antes de processLoans, para que sejam rastreados.
+    let updatedActiveLoans = [...(state.activeLoans ?? []), ...(aiResult.newLoans ?? [])];
+    if (updatedActiveLoans.length > 0) {
+      const loanResult = processLoans(updatedActiveLoans, updatedTeams, newWeek);
       updatedActiveLoans = loanResult.updatedLoans;
       updatedTeams = loanResult.updatedTeams;
       scoutInboxMessages.push(...loanResult.inboxMessages);
@@ -807,6 +1066,7 @@ export const createCoreSlice = (set: Set, get: Get) => ({
     // Build final inbox: all new messages (injury, installment, bonus, scout, AI) + weekly message + existing
     // Limit to last 100 messages to prevent unbounded growth (#52)
     const finalInbox = [
+      ...counterOfferMessages,
       ...newInboxMessages,
       ...scoutInboxMessages,
       ...aiResult.inboxMessages,
@@ -916,6 +1176,7 @@ export const createCoreSlice = (set: Set, get: Get) => ({
       teams: updatedTeams,
       inbox: finalInbox,
       youthIntakeCompleted,
+      counterOffers: updatedCounterOffers,
       incomingTransfers: newIncoming
         ? [...state.incomingTransfers, newIncoming]
         : state.incomingTransfers,
@@ -931,32 +1192,101 @@ export const createCoreSlice = (set: Set, get: Get) => ({
       fanMood: updatedFanMood,
       mediaPressure: updatedMediaPressure,
       isAdvancing: false,
+      freeAgents: updatedFreeAgents,
     });
+
+    // C9: Autosave não-bloqueante após avanço de semana
+    const autosaveState = get();
+    const userTeam = autosaveState.selectedTeam
+      ? autosaveState.teams.find(t => t.id === autosaveState.selectedTeam)
+      : undefined;
+    // Construir gameState sem funções (extractState espera GameStoreApi, não GameStore)
+    const stateKeys = Object.keys(autosaveState).filter(k => typeof (autosaveState as any)[k] !== 'function');
+    const gameState: any = {};
+    for (const k of stateKeys) gameState[k] = (autosaveState as any)[k];
+    autoSave({
+      metadata: {
+        slotNumber: 0,
+        teamName: userTeam?.name ?? 'Unknown',
+        currentWeek: newWeek,
+        currentSeason: newSeason,
+        savedAt: new Date().toISOString(),
+        schemaVersion: CURRENT_SCHEMA_VERSION,
+      },
+      gameState,
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+    }).catch(() => {});
+
+    return inboxByTeam;
+    } finally {
+      set({ isAdvancing: false });
+    }
   },
 
   startNextSeason: () => {
     const state = get();
     const nextSeason = state.currentSeason + 1;
 
-    // Reset team stats for new season
-    const updatedTeams = state.teams.map(team => ({
-      ...team,
-      points: 0,
-      played: 0,
-      won: 0,
-      drawn: 0,
-      lost: 0,
-      goalsFor: 0,
-      goalsAgainst: 0,
-      squad: team.squad.map(player => ({
-        ...player,
-        seasonGoals: 0,
-        seasonAssists: 0,
-      })),
-    }));
+    // Remover jogadores com contrato expirado (agentes livres)
+    const expiredInbox: InboxMessage[] = [];
+    const newFreeAgents: Player[] = [...(state.freeAgents || [])];
+
+    let updatedTeams = state.teams.map(team => {
+      const expiredPlayers = team.squad.filter(p => p.contractEnd === 0);
+      const remainingSquad = team.squad.filter(p => p.contractEnd !== 0);
+
+      if (expiredPlayers.length > 0) {
+        for (const p of expiredPlayers) {
+          newFreeAgents.push({
+            ...p,
+            freeAgent: true,
+            contractEnd: 52,
+            squadStatus: 'Excess',
+            seasonGoals: 0,
+            seasonAssists: 0,
+            lastInjuryWeek: undefined,
+            degradedCondition: undefined,
+          });
+          expiredInbox.push({
+            id: `fa_leave_${Date.now()}_${p.id}`,
+            type: 'news',
+            subject: `🚪 ${getFullName(p)} deixou o clube — contrato expirado`,
+            body: `${getFullName(p)} (${p.position}, ${p.age} anos) deixou o ${team.name} após a expiração do contrato. O jogador agora é agente livre.`,
+            timestamp: Date.now(),
+            read: false,
+            priority: 'high',
+            relatedPlayerId: p.id,
+            relatedTeamId: team.id,
+          });
+        }
+      }
+
+      return {
+        ...team,
+        points: 0,
+        played: 0,
+        won: 0,
+        drawn: 0,
+        lost: 0,
+        goalsFor: 0,
+        goalsAgainst: 0,
+        squad: remainingSquad.map(player => ({
+          ...player,
+          seasonGoals: 0,
+          seasonAssists: 0,
+          // E-19: Limpar condição degradada pós-lesão para a nova temporada.
+          lastInjuryWeek: undefined,
+          degradedCondition: undefined,
+        })),
+      };
+    });
 
     const newMatches = generateWeekMatches(updatedTeams, 1);
     const newStandings = calculateLeagueStandings(updatedTeams, newMatches, 0);
+
+    // Sincronizar leaguePosition real em todos os times para a nova temporada
+    const newPositionMap = new Map(newStandings.map(s => [s.teamId, s.position]));
+    updatedTeams = updatedTeams.map(t => ({ ...t, leaguePosition: newPositionMap.get(t.id) ?? t.leaguePosition }));
 
     set({
       currentWeek: 0,
@@ -971,7 +1301,7 @@ export const createCoreSlice = (set: Set, get: Get) => ({
       transfers: [],
       counterOffers: [],
       deferredTransfers: [],
-      inbox: [],
+      inbox: expiredInbox,
       scoutReports: [],
       pendingInstallments: [],
       incomingBonuses: [],
@@ -983,6 +1313,7 @@ export const createCoreSlice = (set: Set, get: Get) => ({
       biddingWars: [],
       fanMood: { value: 50, trend: 'stable', sentiment: 'neutral' },
       mediaPressure: { value: 20, level: 'low' },
+      freeAgents: newFreeAgents,
     });
   },
 });

@@ -99,11 +99,12 @@ function calculateOverall(technical: Partial<PlayerAttribute>, mental: Partial<P
   const physicalValues = [physical.speed, physical.stamina, physical.strength, physical.agility, physical.acceleration];
   physicalValues.forEach(v => { if (v) { sum += v; count++; } });
   
-  return Math.round((sum / count) * 10); // Escala 1-100
+  return Math.round((sum / count) * 10); // E-31: Escala 10-200 (atributos 1-20, média ~10, *10)
 }
 
 function calculateCA(overall: number): number {
-  return Math.round(overall * 10 + Math.random() * 10);
+  // E-31: overall já está na escala 10-200; não multiplicar por 10 de novo.
+  return Math.round(overall + Math.random() * 10);
 }
 
 function generatePA(age: number, overall: number): number {
@@ -269,6 +270,7 @@ export function generatePlayer(options: {
     injuryHistory: [] as InjuryHistory[],
     fatigueLog: [],
     fame: Math.min(100, overall * 0.8 + Math.random() * 20),
+    reputation: Math.max(1, Math.min(100, Math.round(overall100 * 0.6 + options.teamReputation * 0.3 + (age >= 25 && age <= 32 ? 5 : 0)))),
     seasonGoals: 0,
     seasonAssists: 0,
   };
@@ -391,10 +393,10 @@ export function generateTeam(options: {
     scouts: [],
     boardPromises: [],
     tacticsConfig: createDefaultTacticsConfig(),
-    // Performance na tabela de jogos (11.4)
-    leaguePosition: Math.floor(Math.random() * 20) + 1,
-    leagueForm: ['W', 'D', 'L', 'W', 'D'].slice(0, Math.floor(Math.random() * 3) + 1),
-    formRating: ['excellent', 'good', 'average', 'poor', 'terrible'][Math.floor(Math.random() * 5)] as Team['formRating'],
+    // leaguePosition será sincronizado por advanceWeek/startNextSeason
+    leaguePosition: 0,
+    leagueForm: [],
+    formRating: 'average' as Team['formRating'],
   };
 }
 

@@ -28,7 +28,7 @@ export type {
 } from './injury';
 
 // Financial & Board
-export type { FinancialReport, BoardReply } from './financial';
+export type { FinancialReport, BoardReply, BoardReplyOption, BoardReplyEffect } from './financial';
 
 // Inbox
 export type { InboxMessage } from './inbox';
@@ -149,6 +149,8 @@ export interface GameState {
   mediaPressure: MediaPressure;
   isAdvancing: boolean;
   matchBlockMessage: string | null;
+  // Agentes livres (jogadores sem clube após expiração de contrato)
+  freeAgents: Player[];
 }
 
 export interface GameActions {
@@ -156,13 +158,14 @@ export interface GameActions {
   deselectTeam: () => void;
   selectTeam: (teamId: string) => void;
   simulateMatch: (matchIndex: number) => void;
-  advanceWeek: (humanTeamIds?: string[], trainingByTeam?: Record<string, import('./training').WeeklyTrainingPlan | null>) => void;
+  advanceWeek: (humanTeamIds?: string[], trainingByTeam?: Record<string, import('./training').WeeklyTrainingPlan | null>) => Record<string, InboxMessage[]> | void;
   markAsRead: (messageId: string) => void;
   removeMessage: (messageId: string) => void;
   updatePlayerAttributes: (playerId: string, trainingType: string) => void;
   completeYouthIntake: () => void;
   updateTeam: (teamId: string, updater: (team: Team) => Team) => void;
   buyPlayer: (playerId: string, sellerTeamId: string, useInstallments?: boolean) => boolean;
+  signFreeAgent: (playerId: string) => boolean;
   makeOffer: (playerId: string, sellerTeamId: string, offerPrice: number, negotiationRound?: number) => NegotiationResult;
   acceptOffer: (playerId: string, sellerTeamId: string, offerPrice: number, agreedSalary: number) => boolean;
   negotiatePlayerContract: (playerId: string, sellerTeamId: string, offeredSalary: number, negotiationRound: number) => ContractNegotiationResult;
@@ -173,7 +176,7 @@ export interface GameActions {
   rejectDeferredTransfer: (playerId: string) => void;
   assignScout: (playerId?: string) => boolean;
   setTrainingPlan: (plan: WeeklyTrainingPlan) => void;
-  applyWeeklyTraining: () => void;
+  applyWeeklyTraining: (targetGroup?: import('./training').TrainingTargetGroup, customPlayerIds?: string[]) => void;
   handleInboxAction: (messageId: string, actionLabel: string) => void;
   applyMatchIntervention: (matchIndex: number, type: 'substitution' | 'shout') => void;
   substitutePlayer: (matchIndex: number, outId: string, inId: string) => void;
@@ -192,7 +195,7 @@ export interface GameActions {
   // Item 9.8.2 - Lesão: Ver Relatório
   getInjuryReport: (playerId: string) => InjuryReport | null;
   // Item 9.8.3 - Diretoria: Responder
-  handleBoardReply: (messageId: string, response: string, category: BoardReply['category']) => void;
+  handleBoardReply: (messageId: string, optionId: string) => void;
   // Item 9.8.4 - Financeiro: Ver Relatório
   getFinancialReport: () => FinancialReport | null;
   generateFinancialReport: () => FinancialReport | null;

@@ -1,21 +1,13 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, NavLink, useNavigate } from 'react-router-dom';
 import { useGameStore } from './store/gameStore';
 import { TeamSelection } from './components/TeamSelection';
 import { OnlineHome } from './components/online/OnlineHome';
 import { RoomView } from './components/online/RoomView';
-import { getActiveRoom, clearActiveRoom, getRoom, apiRoomState, setRoomReady, type PublicRoom } from './api/client';
+import { getActiveRoom, clearActiveRoom, apiRoomState, setRoomReady, closeRoom, forgetRoom, type PublicRoom } from './api/client';
 import { OnlineTransfers } from './components/online/OnlineTransfers';
+import { OnlineRoundResult } from './components/online/OnlineRoundResult';
 import './components/online/online.css';
-import { SquadView } from './components/squad/SquadView';
-import { MatchCenter } from './components/match/MatchCenter';
-import { TacticsView } from './components/tactics/TacticsView';
-import { InboxView } from './components/inbox/InboxView';
-import { TrainingView } from './components/training/TrainingView';
-import { DynamicsView } from './components/dynamics/DynamicsView';
-import { FinanceView } from './components/finance/FinanceView';
-import { LeagueTable } from './components/league/LeagueTable';
-import { PressCenter } from './components/press/PressCenter';
 import { Button } from './components/ui/Button';
 import { PageHeader } from './components/ui/PageHeader';
 import { SaveSlot } from './components/saves/SaveSlot';
@@ -23,31 +15,43 @@ import { Logo } from './components/ui/Logo';
 import { TacticalPitch } from './components/ui/TacticalPitch';
 import { ToastContainer } from './components/ui/Toast';
 import { ThemeToggle } from './components/ui/ThemeToggle';
-import type { ToastData } from './components/ui/Toast';
-import { TransferMarket as TransferMarketComponent } from './components/transfer/TransferMarket';
+import type { ToastData } from './types/game';
+import { useRoomPolling } from './hooks/useRoomPolling';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { SeasonSummaryModal } from './components/season/SeasonSummaryModal';
-import { Dashboard } from './components/dashboard/Dashboard';
 import './components/dashboard/Dashboard.css';
-import type { SaveSlotMetadata, Team } from './types/game';
+import type { SaveSlotMetadata, Team, Match } from './types/game';
 import {
   FolderOpen, Users, Calendar, BarChart3, ArrowLeftRight, ClipboardList,
   Dumbbell, Activity, Inbox, Mic, Wallet, Building2, LayoutDashboard,
   ArrowLeft, Home, Save, ArrowRight, Play,
 } from 'lucide-react';
 
+const SquadView = lazy(() => import('./components/squad/SquadView').then(m => ({ default: m.SquadView })));
+const MatchCenter = lazy(() => import('./components/match/MatchCenter').then(m => ({ default: m.MatchCenter })));
+const TacticsView = lazy(() => import('./components/tactics/TacticsView').then(m => ({ default: m.TacticsView })));
+const InboxView = lazy(() => import('./components/inbox/InboxView').then(m => ({ default: m.InboxView })));
+const TrainingView = lazy(() => import('./components/training/TrainingView').then(m => ({ default: m.TrainingView })));
+const DynamicsView = lazy(() => import('./components/dynamics/DynamicsView').then(m => ({ default: m.DynamicsView })));
+const FinanceView = lazy(() => import('./components/finance/FinanceView').then(m => ({ default: m.FinanceView })));
+const LeagueTable = lazy(() => import('./components/league/LeagueTable').then(m => ({ default: m.LeagueTable })));
+const PressCenter = lazy(() => import('./components/press/PressCenter').then(m => ({ default: m.PressCenter })));
+const TransferMarketComponent = lazy(() => import('./components/transfer/TransferMarket').then(m => ({ default: m.TransferMarket })));
+const Dashboard = lazy(() => import('./components/dashboard/Dashboard').then(m => ({ default: m.Dashboard })));
+
 type NavIcon = React.ComponentType<{ size?: number | string }>;
 
-const NAV_ITEMS: { id: string; path: string; label: string; icon: NavIcon; badge?: boolean }[] = [
-  { id: 'dashboard', path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'squad', path: '/elenco', label: 'Elenco', icon: Users },
-  { id: 'match', path: '/partidas', label: 'Partidas', icon: Calendar },
-  { id: 'league', path: '/classificacao', label: 'Classificação', icon: BarChart3 },
-  { id: 'transfer', path: '/transferencias', label: 'Transferências', icon: ArrowLeftRight },
-  { id: 'tactics', path: '/taticas', label: 'Táticas', icon: ClipboardList },
-  { id: 'training', path: '/treino', label: 'Treino', icon: Dumbbell },
-  { id: 'dynamics', path: '/dinamica', label: 'Dinâmica', icon: Activity },
-  { id: 'inbox', path: '/caixa-de-entrada', label: 'Caixa de Entrada', icon: Inbox, badge: true },
-  { id: 'press', path: '/imprensa', label: 'Imprensa', icon: Mic },
+const NAV_ITEMS: { id: string; path: string; label: string; icon: NavIcon; badge?: boolean; key?: string }[] = [
+  { id: 'dashboard', path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, key: '1' },
+  { id: 'squad', path: '/elenco', label: 'Elenco', icon: Users, key: '2' },
+  { id: 'match', path: '/partidas', label: 'Partidas', icon: Calendar, key: '3' },
+  { id: 'league', path: '/classificacao', label: 'Classificação', icon: BarChart3, key: '4' },
+  { id: 'transfer', path: '/transferencias', label: 'Transferências', icon: ArrowLeftRight, key: '5' },
+  { id: 'tactics', path: '/taticas', label: 'Táticas', icon: ClipboardList, key: '6' },
+  { id: 'training', path: '/treino', label: 'Treino', icon: Dumbbell, key: '7' },
+  { id: 'dynamics', path: '/dinamica', label: 'Dinâmica', icon: Activity, key: '8' },
+  { id: 'inbox', path: '/caixa-de-entrada', label: 'Caixa de Entrada', icon: Inbox, badge: true, key: '9' },
+  { id: 'press', path: '/imprensa', label: 'Imprensa', icon: Mic, key: '0' },
   { id: 'finance', path: '/financas', label: 'Finanças', icon: Wallet },
   { id: 'club', path: '/clube', label: 'Visão do Clube', icon: Building2 },
 ];
@@ -213,48 +217,83 @@ const ClubView: React.FC<{ team?: Team }> = ({ team }) => {
 };
 
 export const App: React.FC = () => {
-  const { selectedTeam, inbox, teams, currentWeek, currentSeason, advanceWeek, isAdvancing, matchBlockMessage, seasonSummary, gameOver } = useGameStore();
+  const { selectedTeam, inbox, teams, currentWeek, currentSeason, advanceWeek, isAdvancing, matchBlockMessage, seasonSummary, gameOver, toasts, pushToast, dismissToast } = useGameStore();
   const navigate = useNavigate();
+  useKeyboardShortcuts();
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
-  const [toasts, setToasts] = React.useState<ToastData[]>([]);
 
   const unreadCount = inbox.filter(m => !m.read).length;
   const team = teams.find(t => t.id === selectedTeam);
 
-  // ── Modo online: polling do estado da sala + ready-check (Fase 5) ──
+  // ── Modo online: polling único com backoff (C5) ──
   const online = getActiveRoom();
   const [roomPub, setRoomPub] = React.useState<PublicRoom | null>(null);
+  const [roundResult, setRoundResult] = React.useState<Match | null>(null); // Fase 8
   const lastWeekRef = React.useRef<number>(-1);
 
+  // E-21: Resetar lastWeekRef ao trocar de sala para garantir resync na nova sala.
   React.useEffect(() => {
-    if (!online) { setRoomPub(null); return; }
-    let alive = true;
-    const poll = async () => {
+    lastWeekRef.current = -1;
+  }, [online?.code]);
+
+  // Sala encerrada pelo dono / expirou (404): sai para a tela online (Fase 9).
+  const exitClosedRoom = React.useCallback(() => {
+    clearActiveRoom();
+    forgetRoom();
+    useGameStore.setState({ selectedTeam: null });
+    navigate('/online');
+  }, [navigate]);
+
+  const handleRoomUpdate = React.useCallback(async (room: PublicRoom) => {
+    if (!online) return;
+    setRoomPub(room);
+    // A rodada avançou (ou entrou agora): re-sincroniza o estado do jogo.
+    if (room.currentWeek !== lastWeekRef.current) {
+      const prevWeek = lastWeekRef.current;
+      lastWeekRef.current = room.currentWeek;
       try {
-        const { room } = await getRoom(online.code);
-        if (!alive) return;
-        setRoomPub(room);
-        // A rodada avançou (ou entrou agora): re-sincroniza o estado do jogo.
-        if (room.currentWeek !== lastWeekRef.current) {
-          lastWeekRef.current = room.currentWeek;
-          const { state } = await apiRoomState(online.code);
-          if (!alive) return;
-          useGameStore.setState({ ...state, selectedTeam: online.teamId });
+        const { state } = await apiRoomState(online.code);
+        useGameStore.setState({ ...state, selectedTeam: online.teamId });
+        // Rodada realmente fechou (não é a 1ª carga): mostra o resultado da minha partida.
+        if (prevWeek !== -1) {
+          const matches: Match[] = state.matches ?? [];
+          const mine = [...matches].reverse().find(
+            m => m.completed && (m.homeTeam === online.teamId || m.awayTeam === online.teamId),
+          );
+          if (mine) setRoundResult(mine);
         }
-      } catch { /* sala pode ter encerrado */ }
-    };
-    poll();
-    const id = setInterval(poll, 2000);
-    return () => { alive = false; clearInterval(id); };
+      } catch { /* transient error — next poll will retry */ }
+    }
   }, [online?.code, online?.teamId]);
+
+  const { isReconnecting } = useRoomPolling({
+    code: online?.code ?? '',
+    onRoomUpdate: handleRoomUpdate,
+    onRoomClosed: exitClosedRoom,
+    enabled: !!online,
+  });
 
   const myReady = roomPub?.players.find(p => p.isYou)?.ready ?? false;
   const readyCount = roomPub?.players.filter(p => p.ready).length ?? 0;
   const totalPlaying = roomPub?.players.filter(p => p.teamId).length ?? 0;
+  const [readyLoading, setReadyLoading] = React.useState(false);
   const toggleReady = () => {
-    if (!online) return;
-    setRoomReady(online.code, !myReady).then(r => setRoomPub(r.room)).catch(() => {});
+    if (!online || readyLoading) return;
+    setReadyLoading(true);
+    setRoomReady(online.code, !myReady)
+      .then(r => setRoomPub(r.room))
+      .catch(() => {})
+      .finally(() => setReadyLoading(false));
   };
+
+  // Escuta o atalho Space no modo online (disparado por useKeyboardShortcuts)
+  React.useEffect(() => {
+    if (!online) return;
+    const onReadyShortcut = () => toggleReady();
+    window.addEventListener('fm-shortcut-ready', onReadyShortcut);
+    return () => window.removeEventListener('fm-shortcut-ready', onReadyShortcut);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [online, myReady, readyLoading]);
 
   const [negoOpen, setNegoOpen] = React.useState(false);
   const offers = roomPub?.offers ?? [];
@@ -264,13 +303,8 @@ export const App: React.FC = () => {
     .map(p => ({ teamId: p.teamId as string, nickname: p.nickname }));
 
   const addToast = useCallback((message: string, type: ToastData['type'] = 'info') => {
-    const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    setToasts(prev => [...prev, { id, message, type, timestamp: Date.now() }]);
-  }, []);
-
-  const dismissToast = useCallback((id: string) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
-  }, []);
+    pushToast(message, type);
+  }, [pushToast]);
 
   const handleSaveSlotSelect = (metadata: SaveSlotMetadata) => {
     // Salvo carregado com sucesso — o store já foi atualizado pelo handleLoad do SaveSlot
@@ -364,6 +398,12 @@ export const App: React.FC = () => {
     );
   }
 
+  const pageLoader = (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: 'var(--t-text-2)' }}>
+      Carregando…
+    </div>
+  );
+
   return (
     <div className="fm-app fm-shell-fm">
       <nav className={`fm-sidebar ${sidebarCollapsed ? 'fm-sidebar--collapsed' : ''}`}>
@@ -389,11 +429,15 @@ export const App: React.FC = () => {
               key={item.id}
               to={item.path}
               className={({ isActive }) => `fm-sidebar__item ${isActive ? 'fm-sidebar__item--active' : ''}`}
+              title={item.key ? `${item.label} (${item.key})` : item.label}
             >
               <span className="fm-sidebar__item-icon"><item.icon size={18} /></span>
               <span className="fm-sidebar__item-label">{item.label}</span>
               {item.badge && unreadCount > 0 && (
                 <span className="fm-sidebar__badge">{unreadCount}</span>
+              )}
+              {item.key && !sidebarCollapsed && (
+                <span className="fm-sidebar__key-hint">{item.key}</span>
               )}
             </NavLink>
           ))}
@@ -433,11 +477,11 @@ export const App: React.FC = () => {
             </Button>
           )}
           {online ? (
-            <Button className="fm-button--continue" onClick={toggleReady} disabled={!!seasonSummary || gameOver}>
+            <Button className="fm-button--continue" onClick={toggleReady} disabled={!!seasonSummary || gameOver || readyLoading}>
               {myReady ? <>Pronto ✓ ({readyCount}/{totalPlaying})</> : <>Estou pronto <ArrowRight size={15} /></>}
             </Button>
           ) : (
-            <Button className="fm-button--continue" onClick={advanceWeek} disabled={isAdvancing || !!seasonSummary || gameOver}>
+            <Button className="fm-button--continue" onClick={advanceWeek} disabled={isAdvancing || !!seasonSummary || gameOver} title="Espaço">
               {isAdvancing ? 'Processando...' : <>Continuar <ArrowRight size={15} /></>}
             </Button>
           )}
@@ -481,9 +525,23 @@ export const App: React.FC = () => {
                   ? `Aguardando os outros (${readyCount}/${totalPlaying})`
                   : `Marque "Estou pronto" para avançar (${readyCount}/${totalPlaying})`}
             </span>
+            {roomPub.isOwner && (
+              <button
+                type="button"
+                className="fmo-readybar__close"
+                title="Encerrar sala para todos"
+                onClick={() => {
+                  if (!online || !window.confirm('Encerrar a sala para todos os jogadores?')) return;
+                  closeRoom(online.code).catch(() => {}).finally(exitClosedRoom);
+                }}
+              >
+                Encerrar sala
+              </button>
+            )}
           </div>
         )}
         <div className="fm-main__content">
+        <Suspense fallback={pageLoader}>
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/elenco" element={<SquadView />} />
@@ -500,6 +558,7 @@ export const App: React.FC = () => {
           <Route path="/clube" element={<ClubView team={team} />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
+        </Suspense>
         </div>
       </main>
       {online && negoOpen && roomPub && (
@@ -509,6 +568,14 @@ export const App: React.FC = () => {
           humanTeams={humanTeams}
           onClose={() => setNegoOpen(false)}
           onRoom={setRoomPub}
+        />
+      )}
+      {online && roundResult && (
+        <OnlineRoundResult
+          match={roundResult}
+          teams={teams}
+          myTeamId={online.teamId}
+          onClose={() => setRoundResult(null)}
         />
       )}
       <SeasonSummaryModal />
@@ -522,6 +589,9 @@ export const App: React.FC = () => {
             </Button>
           </div>
         </div>
+      )}
+      {isReconnecting && online && (
+        <div className="fm-reconnecting-banner">Reconectando…</div>
       )}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>

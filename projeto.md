@@ -39,13 +39,13 @@ A página inicial do jogo (rota `/dashboard`) é um **painel de comando** que co
 - **Duração:** 38 rodadas (semanas) por temporada, representando um campeonato de pontos corridos. O jogo suporta até 3 temporadas consecutivas.
 - **Times:** 20 clubes reais do Brasileirão Série A 2025, carregados a partir de arquivos JSON com dados reais (jogos, gols, assistências, atributos). Se o database não estiver disponível, o jogo gera 8 times procedurais como fallback.
 - **Calendário:** A cada rodada, os 20 times são embaralhados e pareados dois a dois, gerando 10 partidas por semana.
-- **Classificação:** Calculada após cada rodada, ordenando por pontos, saldo de gols e gols pró.
+- **Classificação:** Calculada após cada rodada a partir dos campos cumulativos de cada time (points/played/won/drawn/lost/goalsFor/goalsAgainst), ordenando por pontos, saldo de gols e gols pró. O array de partidas (limitado a 200) é usado apenas para exibição e forma recente.
 - **Zonas da tabela:**
   - **Título (Libertadores):** Top 4 (classificação para torneios continentais)
   - **Sul-Americana:** 5º ao 8º lugar
   - **Zona segura:** 9º ao antepenúltimo lugar
   - **Rebaixamento:** Últimos 3 colocados (marcados como rebaixados ao final da temporada, na semana 38)
-- **Fim de temporada:** Ao completar 38 rodadas, o jogo exibe um **resumo de fim de temporada** (colocação final, zona, artilheiro e líder de assistências do time). O usuário pode iniciar a próxima temporada, que reseta os stats dos times, **limpa todo o estado de transferências e scouting** (incomingTransfers, transfers, counterOffers, deferredTransfers, inbox, scoutReports, pendingInstallments, incomingBonuses, transferAgreements, scoutMissions, shortlist, scoutRecommendations, activeLoans, biddingWars, fanMood, mediaPressure) e gera novo calendário. Após a 3ª temporada, o jogo é encerrado (`gameOver`).
+- **Fim de temporada:** Ao completar 38 rodadas, o jogo exibe um **resumo de fim de temporada** (colocação final, zona, artilheiro e líder de assistências do time). O usuário pode iniciar a próxima temporada, que reseta os stats dos times, **remove jogadores com contrato expirado** (marcando-os como agentes livres em `state.freeAgents`), **limpa `lastInjuryWeek`/`degradedCondition`** de todos os jogadores, **limpa todo o estado de transferências e scouting** (incomingTransfers, transfers, counterOffers, deferredTransfers, inbox, scoutReports, pendingInstallments, incomingBonuses, transferAgreements, scoutMissions, shortlist, scoutRecommendations, activeLoans, biddingWars, fanMood, mediaPressure) e gera novo calendário. Após a 3ª temporada, o jogo é encerrado (`gameOver`).
 
 ---
 
@@ -88,7 +88,7 @@ As configurações táticas do time afetam diretamente a simulação em duas cam
 
 **Multiplicadores de força por tática (aplicados após o bônus):**
 - **Attacking:** Ataque ×1.12, Defesa ×0.85 — forte ofensivamente, fraco defensivamente
-- **Balanced:** Ataque ×0.88, Defesa ×0.88 — penalidade em ambos para compensar flexibilidade
+- **Balanced:** Ataque ×1.0, Defesa ×1.0 — neutro, sem bônus nem penalidade
 - **Defensive:** Ataque ×0.88, Defesa ×1.20 — fraco ofensivamente, forte defensivamente
 
 A pressão defensiva sobre o portador também é afetada pela intensidade de pressão, contra-pressionamento e linha de engajamento do time defensor.
@@ -215,6 +215,13 @@ Os 19 clubes controlados pela IA tomam **decisões ativas** a cada avanço de se
 - Jogadores importantes (Key Player / Regular Starter) têm 85% de chance de renovação; demais dependem do desempenho do time.
 - Salário renovado com aumento de 5-20%.
 
+### Expiração de Contrato e Agentes Livres
+
+- **Avisos prévios:** Quando `contractEnd` chega a 4 semanas, o usuário recebe um inbox de aviso médio. Quando chega a 2 semanas, recebe um aviso urgente (high priority). Ao expirar (`contractEnd === 0`), o jogador recebe a mensagem de contrato expirado.
+- **Virada de temporada:** Em `startNextSeason`, jogadores com `contractEnd === 0` são **removidos do elenco** e marcados como agentes livres (`freeAgent: true`). O usuário recebe uma inbox informando a saída de cada jogador.
+- **Agentes livres no mercado:** Jogadores marcados como `freeAgent` ficam disponíveis em `state.freeAgents` e podem ser contratados sem taxa de transferência (só salário) via `signFreeAgent`.
+- **IA assina agentes livres:** Durante as janelas de transferência (semanas 1-12 e 20-26), times AI com espaço no elenco e orçamento podem assinar agentes livres gratuitamente, priorizando a posição mais fraca.
+
 ---
 
 ## Sistema de Transferências
@@ -247,6 +254,10 @@ Cada jogador tem um nível de vontade de mudar de clube (0-100), que afeta a neg
 - **Status no plantel:** "Excesso" (+25), "Rotação" (+10), "Jogador Chave" (-15)
 - **Moral baixa (< 40):** +20; **Moral alta (> 75):** -10
 - **Reputação do comprador vs. vendedor:** Diferença positiva aumenta a vontade
+- **Reputação do jogador vs. clube comprador:** Jogadores de reputação alta relutam em ir para clubes de reputação baixa (via `reputationGapImpact`):
+  - **Vontade:** -0.4 por ponto de gap (jogador rep 80 → clube rep 40 = gap 40 → -16 na vontade)
+  - **Salário esperado:** +1.5% por ponto de gap (gap 40 = +60% salário; gap 60 = +90%)
+  - **Recusa categórica:** Gap > 40 gera chance de recusa independente de salário (gap 60 = 24%, gap 80 = 48%)
 
 A vontade reduz a "teimosia" do vendedor — quanto mais o jogador quer sair, mais flexível o clube é na negociação.
 
@@ -268,6 +279,8 @@ A probabilidade de aceitação depende de:
 Após o time aceitar a oferta, o jogador precisa concordar com o contrato. O salário esperado depende:
 - **Salário atual** do jogador
 - **Fator de prêmio:** Jogadores com pouca vontade de sair pedem mais (até 150% do salário atual); jogadores com muita vontade aceitam menos (até 80%)
+- **Prêmio de reputação:** `reputationGapImpact(playerRep, clubRep).salaryMultiplier` — jogador de rep alta exige salário muito maior em clube pequeno (+1.5% por ponto de gap)
+- **Recusa categórica:** Se o gap de reputação jogador-vs-clube > 40, há chance de recusa categorica independente do salário oferecido
 - A negociação de contrato segue a mesma lógica de aceitação/contra-oferta/recusa, com máximo de 4 rodas.
 
 ### Ofertas Recebidas (Venda de Jogadores)
@@ -276,7 +289,7 @@ Após o time aceitar a oferta, o jogador precisa concordar com o contrato. O sal
 - A oferta inclui: preço (80% a 120% do valor de mercado), proposta de contrato (salário, duração, cláusula), método de pagamento (à vista ou parcelado) e possivelmente bônus.
 - O usuário pode **aceitar, rejeitar, adiar ou contra-propor**.
   - **Adiar:** A oferta fica pendente e pode ser reinstada ou rejeitada depois.
-  - **Contra-oferta:** O usuário propõe 20-30% menos que o valor original, com novo método de pagamento e bônus.
+  - **Contra-oferta:** O usuário propõe 20-30% **a mais** que o valor original (como vendedor, pede mais), com novo método de pagamento e bônus. A contra-oferta é enviada como mensagem informativa (`type: 'news'`) e a IA decide aceitar ou rejeitar no avanço da próxima semana, gerando uma mensagem de resposta no inbox.
 
 ### Parcelas e Bônus
 
@@ -394,6 +407,74 @@ Cada scout possui campos de experiência que evoluem ao longo do jogo:
 
 ---
 
+## Sistema de Reputação
+
+### Reputação de Clubes (1-100)
+
+Cada clube possui um valor de `reputation` (1-100) baseado em dados reais do Football Manager e da realidade do futebol brasileiro (Brasileirão Série A 2025). O valor reflete o tamanho histórico, torcida, títulos e momento atual do clube.
+
+| Clube | Reputação | Justificativa |
+|-------|-----------|---------------|
+| Flamengo | 88 | Maior clube do Brasil, Libertadores 2019/2022, elenco estrelar |
+| Palmeiras | 85 | Libertadores 2020/2021, dominante no Brasileirão |
+| Corinthians | 78 | Gigante, massiva torcida, menos sucesso recente |
+| São Paulo | 76 | Tricampeão da Libertadores, gigante histórico |
+| Atlético Mineiro | 75 | Campeão Brasileirão 2021, elenco forte |
+| Santos | 74 | Clube do Pelé, 3x Libertadores, retorno do Neymar |
+| Grêmio | 73 | 2x Libertadores, gigante do RS |
+| Internacional | 72 | 2x Libertadores, gigante do RS |
+| Fluminense | 72 | Libertadores 2023, período forte recente |
+| Botafogo | 71 | Campeão Brasileirão 2024, ascensão recente |
+| Cruzeiro | 68 | 2x Libertadores, ressurgimento sob Ronaldo |
+| Vasco da Gama | 67 | Libertadores 1998, gigante em reconstrução |
+| Bahia | 62 | Crescendo com City Football Group |
+| Fortaleza | 60 | Meio-tabela consistente, força do Nordeste |
+| Red Bull Bragantino | 57 | Crescendo com Red Bull, experiência continental |
+| Ceará | 55 | Tradicional do Nordeste, recém-promovido |
+| Sport Recife | 54 | Tradicional do Nordeste, campeão histórico |
+| Vitória | 52 | Rival do Bahia, recém-promovido |
+| Juventude | 47 | Clube pequeno do RS |
+| Mirassol | 40 | Recém-promovido, menor clube da Série A 2025 |
+
+**Impacto no jogo:** A reputação do clube afeta orçamento, receitas, expectativa da diretoria, teimosia em negociações de transferência e vontade do jogador em assinar.
+
+### Impacto da Reputação nas Contratações (`reputationGapImpact`)
+
+A diferença entre a reputação do **jogador** e a do **clube comprador** afeta diretamente as transferências:
+
+| Gap (rep jogador − rep clube) | Vontade | Multiplicador de salário | Chance de recusa categórica |
+|-------------------------------|---------|--------------------------|----------------------------|
+| 0 (compatível) | 0 | 1.0× | 0% |
+| 20 | -8 | 1.30× | 0% |
+| 40 | -16 | 1.60× | 0% |
+| 60 | -24 | 1.90× | 24% |
+| 80 | -32 | 2.20× | 48% |
+
+**Onde se aplica:**
+- `makeOffer` — vontade do jogador e prévia de contrato
+- `negotiatePlayerContract` — salário esperado e recusa categórica
+- `signFreeAgent` — salário e recusa com inbox message
+- `processAITransfers` — vontade do jogador e salário na transferência AI-vs-AI
+- `processAIReleaseClauses` — vontade do jogador e salário na ativação de cláusula
+- `processAIFreeAgentSignings` — salário e recusa na assinatura de agentes livres pela IA
+
+### Reputação de Jogadores (1-100)
+
+Cada jogador possui um valor de `reputation` (1-100) que reflete seu reconhecimento no futebol mundial. A reputação é calculada na carga do database com a seguinte lógica:
+
+1. **Overrides para stars conhecidos:** Jogadores mundialmente reconhecidos (Neymar=95, Arrascaeta=82, De La Cruz=78, etc.) têm valores fixos baseados em dados do FM.
+2. **Fórmula para os demais:**
+   - **Base:** `overall × 0.6` (peso 60% do over_geral)
+   - **Produtividade:** Bônus por gols+assistências por jogo (atacantes até +15, meias até +12, zagueiros até +5, GK sem bônus)
+   - **Idade:** Jogadores em auge (25-32 anos) ganham +5; jovens (<22) perdem -5; veteranos (>33) perdem -3
+   - **Reputação do clube:** `(reputação do clube - 60) × 0.15` — jogadores de grandes clubes têm mais visibilidade
+   - **Titularidade:** Jogadores com 45+ jogos ganham +3; com menos de 20 jogos perdem -3
+3. **Resultado clampado entre 1 e 100.**
+
+**Jogadores procedurais** (fallback): `reputation = overall100 × 0.6 + teamReputation × 0.3 + (age 25-32 ? 5 : 0)`, clampado 1-100.
+
+---
+
 ## Sistema de Táticas
 
 ### Formações e Escalação
@@ -401,7 +482,8 @@ Cada scout possui campos de experiência que evoluem ao longo do jogo:
 O usuário pode arrastar e soltar jogadores nas posições do campo. As formações disponíveis incluem 4-4-2, 4-3-3, 3-5-2, 5-2-2. Cada posição tem um **role** (função) e um **duty** (dever) que afetam o desempenho.
 
 A escalação de titulares oferece múltiplas formas de troca:
-- **Auto-preencher (Plus / Sugestão de seleção / Escolha rápida):** preenche automaticamente os 11 slots com os melhores jogadores por posição (ordenados por `currentAbility`), com fallback para qualquer jogador disponível se não houver candidato da posição ideal.
+- **Auto-preencher (Plus / Sugestão de seleção / Escolha rápida):** preenche automaticamente os 11 slots em 3 passadas — 1º jogadores cuja posição primária corresponde ao slot, 2º jogadores cuja posição secundária corresponde, 3º fallback com melhor jogador disponível. O score de cada candidato é `currentAbility * (0.4 + 0.6 * positionProficiency[pos] / 20)`, garantindo que jogadores com melhor proficiência na posição sejam priorizados. Apenas jogadores não lesionados e com fitness ≥ 70 são considerados.
+- **Substituir lesionados (Heart / "Substituir lesionados"):** identifica titulares com lesão ativa no XI e substitui cada um pelo melhor reserva disponível. O algoritmo busca candidatos não lesionados, com fitness ≥ 60, e prioriza: 1º posição primária correspondente ao slot, 2º posição secundária, 3º melhor jogador por score. Um badge com a contagem de lesionados é exibido no botão do campo. O botão na tabela fica desabilitado se não houver lesionados.
 - **Drag-and-drop entre titulares:** arrasta um titular para outro slot no campo 2D para trocar jogadores entre posições (`swapSlots`).
 - **Drag-and-drop banco ↔ campo:** arrasta um reserva do banco lateral para uma posição titular no campo 2D e eles invertem — o reserva assume a vaga e o titular cai para o banco automaticamente (`swapBenchToSlot`). Também funciona arrastando do campo para o banco. Highlight visual azul indica o alvo do drop.
 - **Drag-and-drop tabela ↔ campo:** arrasta qualquer reserva da tabela de seleção à direita (incluindo jogadores fora do banco de 7) para uma posição titular no campo 2D — mesmo efeito de inversão via `swapBenchToSlot` (`dragTableBenchId`).
@@ -461,6 +543,18 @@ O usuário define um plano de treino semanal em uma grade de 7 dias × 3 períod
 - **Coesão:** Aumenta moral do jogador. Fadiga baixa.
 - **Médico/Recuperação:** Restaura condição física (+10), reduz carga acumulada, acelera recuperação de lesão (-2 dias).
 - **Leve:** Recuperação leve (+3 de condição, reduz carga).
+
+### Alvo do Treino
+
+Ao aplicar o treino (botão "Aplicar Treino Agora"), o usuário pode escolher o grupo-alvo:
+
+- **Todos:** Aplica o treino a todo o elenco (comportamento padrão).
+- **Atacantes:** Filtra jogadores com posição `FWD`.
+- **Meias:** Filtra jogadores com posição `MID`.
+- **Defensores:** Filtra jogadores com posição `DEF`.
+- **Selecionados:** Permite escolher jogadores específicos via checkboxes. O botão fica desabilitado se nenhum jogador for selecionado.
+
+O filtro é feito pela função `filterSquadByGroup` no backend (`training.ts`), que mapeia posições (`FWD→attackers`, `MID→midfielders`, `DEF→defenders`) ou usa uma lista de IDs personalizada. Goleiros (`GK`) só são incluídos no modo "Todos" ou "Selecionados". Jogadores lesionados são sempre pulados.
 
 ### Progressão de Atributos e CA
 
@@ -790,12 +884,12 @@ A cada semana, o sistema gera mensagens contextuais para o inbox:
 - **Notícias:** Transferências AI-vs-AI, cláusulas ativadas, empréstimos concluídos, bônus ativados, disputas — apenas informativo, sem ações
 - **Lesões:** Alertas de risco alto/crítico, jogadores lesionados
 - **Sugestões:** Recomendações de descanso, substituição
-- **Diretoria:** Expectativas da diretoria, cobranças por resultados
+- **Diretoria:** Expectativas da diretoria, cobranças por resultados — agora com **opções de resposta múltipla** (não mais texto livre) que afetam diretamente o jogo: satisfação da diretoria, orçamento, moral do elenco, humor da torcida, verba de transferências e promessas da diretoria
 - **Base:** Jogadores juvenis promovidos
 - **Treino:** Progressão de atributos, fadiga
 - **Financeiro:** Relatórios financeiros, alertas de orçamento
 
-As mensagens podem ter ações associadas (aceitar oferta, responder à diretoria, etc.).
+As mensagens podem ter ações associadas (aceitar oferta, responder à diretoria com opções de efeito real, etc.).
 
 ---
 
@@ -807,8 +901,18 @@ As mensagens podem ter ações associadas (aceitar oferta, responder à diretori
   - Próximos 40% → Meio de tabela
   - Bottom 20% → Evitar rebaixamento
   - Calculado por `assignBoardExpectations(teams)` em `initGame()`, após todos os times serem carregados/gerados
-- **Satisfação:** Varia de 0 a 100, baseada nos resultados e nas respostas do usuário às mensagens da diretoria
-- **Promessas da diretoria:** Objetivos com prazo (ex: "alcançar top 4 até a semana 20")
+- **Satisfação:** Varia de -100 a 100, baseada nos resultados e nas respostas do usuário às mensagens da diretoria
+- **Promessas da diretoria:** Objetivos com prazo (ex: "lutar pelo título até a semana 38", "melhorar desempenho em 6 semanas")
+- **Respostas da diretoria (Item 9.8.3):** Mensagens do tipo `board` agora incluem `boardReplyOptions` — opções pré-definidas com efeitos concretos no jogo:
+  - **satisfactionChange:** Ajusta `boardSatisfaction` (-100 a 100)
+  - **budgetChange:** Aumenta/diminui orçamento do clube (em milhões)
+  - **moraleChange:** Aumenta/diminui moral de todo o elenco (0-100 por jogador)
+  - **fanMoodChange:** Aumenta/diminui humor da torcida (0-100)
+  - **transferBudgetChange:** Aumenta verba de transferências (em milhões)
+  - **addBoardPromise:** Adiciona promessa à diretoria com goal e deadline (semanas)
+  - 4 cenários de mensagem: Expectativas de Temporada, Comunicado da Diretoria, Reunião com a Diretoria, Avaliação de Desempenho
+  - Cada cenário tem 4 opções de resposta com efeitos distintos (ex: ambicioso +15 satisfação, crítico -18 satisfação)
+  - O frontend mostra badges de efeito (positivo/negativo) para cada opção antes de selecionar
 
 ---
 
@@ -888,6 +992,19 @@ Todas as tabelas do jogo possuem **cabeçalhos clicáveis** para ordenação. Ca
 
 ---
 
+## Atalhos de Teclado
+
+O jogo suporta atalhos de teclado globais para navegação e ações rápidas. O hook `useKeyboardShortcuts` (em `frontend/src/hooks/useKeyboardShortcuts.ts`) registra um listener `keydown` em `window` e é integrado no componente `App`.
+
+- **Espaço** → Avançar semana (botão "Continuar" no modo offline) ou alternar "Estou pronto" (modo online, via `CustomEvent('fm-shortcut-ready')`)
+- **1–9, 0** → Navegação rápida entre páginas: 1=Dashboard, 2=Elenco, 3=Partidas, 4=Classificação, 5=Transferências, 6=Táticas, 7=Treino, 8=Dinâmica, 9=Caixa de Entrada, 0=Imprensa
+- **Ctrl+S** → Salvar no slot 1 (com toast de confirmação)
+- **Escape** → Fechar modal de bloqueio de partida ou voltar ao Dashboard
+- Atalhos são **ignorados** quando o foco está em campos de entrada (`input`, `textarea`, `select`, `contentEditable`)
+- Hints visuais: badges numéricos na sidebar (`.fm-sidebar__key-hint`) mostram a tecla de cada página; tooltip "Espaço" no botão Continuar
+
+---
+
 ## Resumo do Fluxo de Jogo
 
 1. **Iniciar jogo** → 20 times reais são carregados → usuário escolhe seu clube
@@ -920,6 +1037,10 @@ Todas as tabelas do jogo possuem **cabeçalhos clicáveis** para ordenação. Ca
    - Usuário pode iniciar a próxima temporada (reset de stats, novo calendário)
    - Após a 3ª temporada, o jogo é encerrado (`gameOver`)
    - Times AI tomam decisões ativas a cada semana: transferências entre si, ajustes táticos e renovações de contrato
+
+### Validação Server-Side do `updateTeam`
+
+O frontend envia o objeto `Team` completo via `updateTeam`, mas o backend valida com Zod whitelist (`teamUpdateFields` em `validation/schemas.ts`) e faz **merge seletivo** — apenas campos táticos são aplicados (tacticsConfig, startingXI, squadStatus, formation, teamMentality, tactic, passingStyle, pressIntensity, defensiveLine, etc.). Campos protegidos (budget, reputation, squad, scouts, staffLevel, facilitiesLevel, points, played, won, drawn, lost, goalsFor, goalsAgainst, leaguePosition, leagueForm, formRating) são stripped pelo Zod e preservados do estado atual do servidor. No modo online, `routes/rooms.ts` também verifica se o `teamId` alvo é o do próprio jogador.
 
 ---
 
@@ -970,7 +1091,7 @@ Não existe um sistema de "High Score" que avalie o patrimônio acumulado, títu
 - **Prêmio por colocação final:** Campeão (rep 50) = R$10M, último colocado = R$0.5M. Creditado ao final das 38 rodadas.
 - **Despesas semanais:** Folha salarial = `wageBill × (12/52)` — prorrateado mensal. Infraestruturas = `facilitiesLevel × 0.2`.
 - **Orçamento inicial:** Definido pelo database/geração procedural, variando por tier.
-- **Contratos:** Duração de 1 a 4 anos (52 a 208 semanas). Cláusula de rescisão inicial = 150% do valor de mercado. Cláusula pós-transferência = 120-150% do valor da transferência.
+- **Contratos:** Duração de 1 a 4 anos (52 a 208 semanas). Cláusula de rescisão inicial = 150% do valor de mercado. Cláusula pós-transferência = 120-150% do valor da transferência. Ao expirar (`contractEnd === 0`), o jogador vira agente livre e sai do elenco na virada da temporada.
 
 ### Problema
 
@@ -1098,7 +1219,7 @@ cd backend && python run_batch.py
 - `headless_sim.ts`: Receitas financeiras escaladas (bilheteira + patrocínio + TV)
 - `aiManager.ts`: Diversificação de escolhas táticas da IA
 
-### Testes de Regressão Financeira (Vitest)
+### Testes de Regressão (Vitest)
 
 O arquivo `backend/src/tests/balance.test.ts` contém 8 testes que verificam os invariantes do rebalanceamento financeiro:
 
@@ -1110,6 +1231,12 @@ O arquivo `backend/src/tests/balance.test.ts` contém 8 testes que verificam os 
 6. **Market value calibration:** OVR 85 = 30-55% do budget de clube grande; OVR 70 < 15%
 
 Rodar: `cd backend && npx vitest run src/tests/balance.test.ts`
+
+O arquivo `backend/src/tests/gameFlows.test.ts` contém 19 testes de smoke que cobrem os principais fluxos de jogo (seções 15.2-15.9 da especificação): geração procedural de times/jogadores, simulação de partidas ao vivo, caixa de entrada, treino, transferências, táticas, dinâmica social e finanças. Esses testes rodam contra o store do backend (Zustand vanilla) de forma síncrona, sem necessidade de servidor.
+
+Rodar: `cd backend && npx vitest run src/tests/gameFlows.test.ts`
+
+O frontend mantém apenas `winProbability.test.ts` (testes do modelo de probabilidade de vitória Poisson), que roda sem backend.
 
 ---
 
@@ -1148,3 +1275,5 @@ Rodar: `cd backend && npx vitest run src/tests/balance.test.ts`
 - **#56** `handleQuickSalaryOffer` (frontend): Funciona na primeira entrada da fase de contrato. Antes quebrava porque `contractNegotiationResult` era null; agora usa `salaryOffer` como fallback.
 - **#57** `acceptIncomingTransfer` (backend): `dueWeek` das parcelas não soma `currentWeek` duas vezes. Os pagamentos já têm `dueWeek` absoluto quando criados.
 - **#58** `negotiateCounterOffer` (backend): `InstallmentClause` agora inclui `direction: 'receivable'` para alinhar com o tipo esperado.
+- **#59** `leaguePosition` sincronizado: `advanceWeek` e `startNextSeason` agora gravam `leaguePosition` real em todos os times a partir de `calculateLeagueStandings`. Inicialização aleatória (`Math.random() * 20 + 1`) em `dataLoader.ts` e `playerGenerator.ts` substituída por `0` (posição desconhecida até a rodada 1). `setLeaguePosition` em `promises.ts` marcada como redundante.
+- **#60** `negotiateCounterOffer` (backend): Mensagem de contra-oferta mudada de `type: 'transfer'` para `type: 'news'`. Antes, a mensagem recebia botões "Aceitar/Recusar/Negociar/Adiar" que recaíam sobre a oferta original, criando um loop onde o usuário negociava com seu próprio time. Agora a mensagem é puramente informativa, e a IA responde aceitando ou rejeitando no `advanceWeek`, gerando mensagens apropriadas no inbox.

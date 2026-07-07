@@ -12,7 +12,7 @@ export function getPlayerId(): string {
 }
 
 export async function apiGet<T = any>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`);
+  const res = await fetch(`${API_BASE}${path}`, { signal: AbortSignal.timeout(15000) });
   if (!res.ok) throw new Error(`API ${path} failed: ${res.status}`);
   return res.json();
 }
@@ -22,6 +22,7 @@ export async function apiPost<T = any>(path: string, body: any): Promise<T> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(15000),
   });
   if (!res.ok) throw new Error(`API ${path} failed: ${res.status}`);
   return res.json();
@@ -79,6 +80,7 @@ export interface PublicRoom {
 async function roomFetch<T = any>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}/rooms${path}`, {
     ...options,
+    signal: AbortSignal.timeout(15000),
     headers: {
       'Content-Type': 'application/json',
       'x-player-id': getPlayerId(),
@@ -87,10 +89,18 @@ async function roomFetch<T = any>(path: string, options?: RequestInit): Promise<
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error((body as { error?: string }).error ?? `Sala: erro ${res.status}`);
+    const err = new Error((body as { error?: string }).error ?? `Sala: erro ${res.status}`) as Error & { status?: number };
+    err.status = res.status; // p/ distinguir "sala encerrada" (404) de erro transitório (Fase 9)
+    throw err;
   }
   return res.json();
 }
+
+// Última sala em que o jogador entrou — para oferecer "voltar para a sala" (Fase 9).
+const LAST_ROOM_KEY = 'fm-last-room';
+export function rememberRoom(code: string): void { localStorage.setItem(LAST_ROOM_KEY, code.toUpperCase()); }
+export function forgetRoom(): void { localStorage.removeItem(LAST_ROOM_KEY); }
+export function getRememberedRoom(): string | null { return localStorage.getItem(LAST_ROOM_KEY); }
 
 export function createRoom(nickname: string): Promise<{ code: string; room: PublicRoom }> {
   return roomFetch('', { method: 'POST', body: JSON.stringify({ nickname }) });
@@ -117,6 +127,9 @@ export function apiRoomState(code: string): Promise<{ state: any }> {
 }
 export function setRoomReady(code: string, ready?: boolean): Promise<{ room: PublicRoom }> {
   return roomFetch(`/${encodeURIComponent(code)}/ready`, { method: 'POST', body: JSON.stringify({ ready }) });
+}
+export function closeRoom(code: string): Promise<{ ok: true }> {
+  return roomFetch(`/${encodeURIComponent(code)}/close`, { method: 'POST' });
 }
 export function sendOffer(code: string, playerId: string, price: number): Promise<{ room: PublicRoom }> {
   return roomFetch(`/${encodeURIComponent(code)}/offer`, { method: 'POST', body: JSON.stringify({ playerId, price }) });

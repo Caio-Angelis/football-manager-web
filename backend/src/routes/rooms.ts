@@ -4,7 +4,7 @@ import { z } from 'zod';
 import {
   createRoom, getRoom, joinRoom, touch, toPublicRoom, getPlayer,
   startGame, pickTeam, beginGame, focusTeam, loadScope, saveScope, projectState,
-  setReady, allPlayersReady, advanceRoomWeek, isHumanTeam,
+  setReady, allPlayersReady, advanceRoomWeek, isHumanTeam, closeRoom,
   makeHumanOffer, respondHumanOffer, type Room, type RoomOpResult,
 } from '../rooms/roomManager.js';
 import { runAction } from '../store/storeHelpers.js';
@@ -96,6 +96,14 @@ roomsRouter.post('/:code/begin', (req, res) => {
   sendOpResult(res, room, playerId, beginGame(room, playerId));
 });
 
+// POST /api/rooms/:code/close — dono encerra a sala (Fase 9)
+roomsRouter.post('/:code/close', (req, res) => {
+  const { room, playerId } = requireRoom(req);
+  const r = closeRoom(room, playerId);
+  if (!r.ok) throw new AppError('ACTION_EXECUTION_ERROR', r.message, r.status);
+  res.json({ ok: true });
+});
+
 // POST /api/rooms/:code/ready — marca "pronto"; quando todos estão prontos,
 // a rodada é fechada automaticamente (ready-check, Fase 5).
 roomsRouter.post('/:code/ready', (req, res) => {
@@ -151,6 +159,8 @@ const ROOM_FORBIDDEN_ACTIONS = new Set([
   'advanceWeek', 'startNextSeason', 'initGame',
   'selectTeam', 'deselectTeam', 'updateTeam',   // updateTeam tem caminho próprio abaixo
   'saveGame', 'loadGame', 'deleteSave',
+  'simulateMatch', 'generateLiveMatchMinute', 'finishMatch',
+  'substitutePlayer', 'applyShout', 'applyMatchIntervention',
 ]);
 
 // Ações que adquirem um jogador (sellerTeamId em args[1]) — bloqueadas contra times humanos.
@@ -185,8 +195,13 @@ roomsRouter.post('/:code/action', (req, res) => {
   }
 
   if (myTeamId) loadScope(room, myTeamId);
-  focusTeam(room, playerId);
-  const result = runAction(room.store, action, argList);
-  if (myTeamId) saveScope(room, myTeamId);
-  res.json({ result, state: projectState(room, myTeamId) });
+  try {
+    focusTeam(room, playerId);
+    const result = runAction(room.store, action, argList);
+    if (myTeamId) saveScope(room, myTeamId);
+    res.json({ result, state: projectState(room, myTeamId) });
+  } catch (err) {
+    // E-20: Em caso de erro, descartar mutações escopadas (não salvar).
+    throw err;
+  }
 });

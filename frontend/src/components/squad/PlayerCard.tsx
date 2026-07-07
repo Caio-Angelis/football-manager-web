@@ -123,7 +123,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
         </div>
         <div className="fm-player-card__salary">
           <span className="fm-player-card__label">Salário:</span>
-          <span className="fm-player-card__value">R$ {(player.salary / 1000).toFixed(1)}K</span>
+          <span className="fm-player-card__value">R$ {player.salary}K</span>
         </div>
       </div>
 

@@ -15,14 +15,11 @@ export const FinanceView: React.FC = () => {
   const navigate = useNavigate();
   const team = teams.find(t => t.id === selectedTeam);
 
-  if (!team) {
-    return <div className="fm-empty">Selecione um time para ver finanças</div>;
-  }
-
+  // E-22: Hooks devem ser chamados incondicionalmente (regra dos Hooks).
   const { sortState, toggleSort } = useSortable<WageSortKey>('salary', 'desc');
 
   const sortedSquad = useMemo(() => {
-    const list = [...team.squad];
+    const list = [...(team?.squad ?? [])];
     list.sort((a, b) => {
       let cmp: number;
       if (sortState.key === 'name') {
@@ -35,7 +32,11 @@ export const FinanceView: React.FC = () => {
       return sortState.direction === 'asc' ? cmp : -cmp;
     });
     return list;
-  }, [team.squad, sortState]);
+  }, [team?.squad, sortState]);
+
+  if (!team) {
+    return <div className="fm-empty">Selecione um time para ver finanças</div>;
+  }
 
   const ticketRevenue = calculateTicketRevenue(team.reputation);
   const sponsorship = calculateSponsorshipRevenue(team.reputation);

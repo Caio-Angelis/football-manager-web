@@ -85,9 +85,22 @@
   display: flex; align-items: center; justify-content: center;
   background: var(--t-panel-2); border: 1px solid var(--t-border);
   color: var(--t-text-2); cursor: pointer;
+  position: relative;
 }
 .fmt-tool-icon:hover { color: var(--t-text); }
 .fmt-tool-icon--right { margin-left: auto; }
+.fmt-badge {
+  position: absolute;
+  top: -4px; right: -4px;
+  background: var(--t-accent, #e94560);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  min-width: 14px; height: 14px;
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 3px;
+}
 
 /* The pitch */
 .fmt-pitch {

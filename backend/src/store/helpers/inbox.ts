@@ -1,6 +1,7 @@
 // Geração de Mensagens do Inbox — context-aware
 
 import type { InboxMessage, Team } from '../../types/game';
+import type { BoardReplyOption } from '../../types/financial';
 import { getFullName } from '../../utils/playerName';
 
 export interface GenerateInboxContext {
@@ -104,11 +105,195 @@ export function generateInboxMessage(week: number, context?: GenerateInboxContex
     }
 
     case 'board': {
-      const boardMessages = [
-        { subject: 'Comunicado da Diretoria', body: 'A diretoria faz um comunicado sobre as expectativas do clube para a temporada. Responda para manter o relacionamento.' },
-        { subject: 'Reunião com a Diretoria', body: 'A diretoria gostaria de discutir o desempenho recente da equipe e os objetivos para as próximas rodadas.' },
-        { subject: 'Avaliação de Desempenho', body: 'A diretoria solicitou uma avaliação de desempenho do elenco e da comissão técnica. Responda com sua análise.' },
-        { subject: 'Expectativas de Temporada', body: 'A diretoria reafirma as metas estabelecidas no início da temporada e aguarda seu posicionamento.' },
+      const boardMessages: {
+        subject: string;
+        body: string;
+        options: BoardReplyOption[];
+      }[] = [
+        {
+          subject: 'Expectativas de Temporada',
+          body: 'A diretoria reafirma as metas estabelecidas no início da temporada e aguarda seu posicionamento.',
+          options: [
+            {
+              id: 'expect_ambitious',
+              label: 'Vamos lutar pelo título!',
+              description: 'Demonstra ambição e compromete o elenco com metas altas.',
+              effects: {
+                satisfactionChange: 15,
+                moraleChange: 5,
+                fanMoodChange: 8,
+                addBoardPromise: { goal: 'fight_for_title', deadline: 38 },
+              },
+            },
+            {
+              id: 'expect_realistic',
+              label: 'Vamos garantir a permanência primeiro',
+              description: 'Postura realista, foco na estabilidade do clube.',
+              effects: {
+                satisfactionChange: 5,
+                moraleChange: 0,
+                fanMoodChange: -3,
+              },
+            },
+            {
+              id: 'expect_investment',
+              label: 'Precisamos de mais investimentos para alcançar as metas',
+              description: 'Pede reforços financeiros. A diretoria pode ceder ou não.',
+              effects: {
+                satisfactionChange: -8,
+                budgetChange: 3,
+                moraleChange: 3,
+                fanMoodChange: 2,
+              },
+            },
+            {
+              id: 'expect_critical',
+              label: 'As metas estão muito altas para o elenco atual',
+              description: 'Crítica aberta às expectativas. Pode irritar a diretoria.',
+              effects: {
+                satisfactionChange: -18,
+                moraleChange: -5,
+                fanMoodChange: -5,
+              },
+            },
+          ],
+        },
+        {
+          subject: 'Comunicado da Diretoria',
+          body: 'A diretoria faz um comunicado sobre as expectativas do clube para a temporada. Responda para manter o relacionamento.',
+          options: [
+            {
+              id: 'comm_acknowledge',
+              label: 'Entendido, vamos trabalhar',
+              description: 'Aceita o comunicado de forma profissional.',
+              effects: {
+                satisfactionChange: 10,
+                moraleChange: 2,
+              },
+            },
+            {
+              id: 'comm_autonomy',
+              label: 'Preciso de mais autonomia técnica',
+              description: 'Pede independência nas decisões futebolísticas.',
+              effects: {
+                satisfactionChange: -5,
+                moraleChange: 5,
+                fanMoodChange: 3,
+              },
+            },
+            {
+              id: 'comm_plan',
+              label: 'Vou apresentar um plano detalhado',
+              description: 'Propõe apresentar um plano estratégico completo.',
+              effects: {
+                satisfactionChange: 15,
+                moraleChange: 5,
+                fanMoodChange: 2,
+              },
+            },
+            {
+              id: 'comm_disagree',
+              label: 'Não concordo com a abordagem',
+              description: 'Desafia a diretoria abertamente. Arriscado.',
+              effects: {
+                satisfactionChange: -15,
+                moraleChange: 8,
+                fanMoodChange: 5,
+              },
+            },
+          ],
+        },
+        {
+          subject: 'Reunião com a Diretoria',
+          body: 'A diretoria gostaria de discutir o desempenho recente da equipe e os objetivos para as próximas rodadas.',
+          options: [
+            {
+              id: 'meeting_improve',
+              label: 'O desempenho vai melhorar',
+              description: 'Promete melhoria imediata nos resultados.',
+              effects: {
+                satisfactionChange: 8,
+                moraleChange: 3,
+                addBoardPromise: { goal: 'improve_performance', deadline: 6 },
+              },
+            },
+            {
+              id: 'meeting_reinforce',
+              label: 'Precisamos de reforços no próximo mercado',
+              description: 'Solicita novos jogadores para melhorar o elenco.',
+              effects: {
+                satisfactionChange: -5,
+                transferBudgetChange: 5,
+                moraleChange: 2,
+              },
+            },
+            {
+              id: 'meeting_competitive',
+              label: 'O elenco é competitivo, os resultados virão',
+              description: 'Confia no elenco atual e demonstra segurança.',
+              effects: {
+                satisfactionChange: 5,
+                moraleChange: 5,
+                fanMoodChange: 3,
+              },
+            },
+            {
+              id: 'meeting_rebuild',
+              label: 'Estamos em processo de reconstrução',
+              description: 'Pede paciência, argumenta que o projeto é de longo prazo.',
+              effects: {
+                satisfactionChange: 3,
+                moraleChange: -3,
+                fanMoodChange: -2,
+              },
+            },
+          ],
+        },
+        {
+          subject: 'Avaliação de Desempenho',
+          body: 'A diretoria solicitou uma avaliação de desempenho do elenco e da comissão técnica. Responda com sua análise.',
+          options: [
+            {
+              id: 'eval_results_will_come',
+              label: 'Os resultados vão vir, o trabalho está bom',
+              description: 'Confia no processo e defende o trabalho atual.',
+              effects: {
+                satisfactionChange: 5,
+                moraleChange: 5,
+              },
+            },
+            {
+              id: 'eval_need_time',
+              label: 'O elenco precisa de mais tempo para entrosar',
+              description: 'Pede paciência, justifica com tempo de adaptação.',
+              effects: {
+                satisfactionChange: 3,
+                moraleChange: -3,
+                fanMoodChange: -2,
+              },
+            },
+            {
+              id: 'eval_tactical_change',
+              label: 'Vou mudar a abordagem tática',
+              description: 'Propõe mudanças táticas para melhorar resultados.',
+              effects: {
+                satisfactionChange: 12,
+                moraleChange: 5,
+                fanMoodChange: 5,
+              },
+            },
+            {
+              id: 'eval_accept_criticism',
+              label: 'Aceito a crítica, vamos corrigir',
+              description: 'Aceita a crítica da diretoria com humildade.',
+              effects: {
+                satisfactionChange: 15,
+                moraleChange: -5,
+                fanMoodChange: -3,
+              },
+            },
+          ],
+        },
       ];
       const msg = boardMessages[Math.floor(Math.random() * boardMessages.length)];
       return {
@@ -119,6 +304,7 @@ export function generateInboxMessage(week: number, context?: GenerateInboxContex
         priority: 'medium',
         timestamp: ts,
         read: false,
+        boardReplyOptions: msg.options,
       };
     }
 

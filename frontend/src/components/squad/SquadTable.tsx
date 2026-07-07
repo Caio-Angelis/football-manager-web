@@ -214,7 +214,7 @@ export const SquadTable: React.FC<SquadTableProps> = ({
                   )}
                   <td><span className="fms-badge">{STATUS_LABELS[player.squadStatus] || player.squadStatus}</span></td>
                   {!isNarrow && <td className="fms-text-2">R$ {player.marketValue.toFixed(1)}M</td>}
-                  {!isNarrow && <td className="fms-text-2">R$ {(player.salary / 1000).toFixed(1)}K</td>}
+                  {!isNarrow && <td className="fms-text-2">R$ {player.salary}K</td>}
                   <td className="fms-center">
                     {player.injury?.active ? (
                       <span className="fms-badge fms-badge--red">🏥 {player.injury.daysRemaining}d</span>

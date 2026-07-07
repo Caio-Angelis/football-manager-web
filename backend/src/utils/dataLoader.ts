@@ -95,13 +95,131 @@ function getTeamDisplayName(teamKey: string): string {
 }
 
 // ============================================================
-// REPUTAÇÃO BASEADA NO OVERALL MÉDIO
+// REPUTAÇÃO REAL DOS CLUBES — BRASILEIRÃO SÉRIE A 2025
+// Baseada em dados do Football Manager e realidade do futebol brasileiro
+// Escala 1-100 (100 = nível de Real Madrid / Barcelona)
 // ============================================================
 
-function calculateTeamReputation(players: JsonPlayer[]): number {
+const TEAM_REPUTATION: Record<string, number> = {
+  flamengo: 88,              // Maior clube do Brasil, Libertadores 2019/2022, elenco estrelar
+  palmeiras: 85,             // Libertadores 2020/2021, dominante no Brasileirão
+  corinthians: 78,           // Gigante, massiva torcida, mas menos sucesso recente
+  sao_paulo: 76,             // Tricampeão da Libertadores, gigante histórico
+  atletico_mineiro: 75,      // Campeão Brasileirão 2021, elenco forte
+  santos: 74,                // Clube do Pelé, 3x Libertadores, retorno do Neymar
+  gremio: 73,                // 2x Libertadores, gigante do RS
+  internacional: 72,         // 2x Libertadores, gigante do RS
+  fluminense: 72,            // Libertadores 2023, período forte recente
+  botafogo: 71,              // Campeão Brasileirão 2024, ascensão recente
+  cruzeiro: 68,              // 2x Libertadores, ressurgimento sob Ronaldo
+  vasco_da_gama: 67,         // Libertadores 1998, gigante em reconstrução
+  bahia: 62,                 // Crescendo com City Football Group
+  fortaleza: 60,             // Meio-tabela consistente, força do Nordeste
+  red_bull_bragantino: 57,   // Crescendo com Red Bull, experiência continental
+  ceara: 55,                 // Tradicional do Nordeste, recém-promovido
+  sport_recife: 54,          // Tradicional do Nordeste, campeão histórico
+  vitoria: 52,               // Rival do Bahia, recém-promovido
+  juventude: 47,             // Clube pequeno do RS
+  mirassol: 40,              // Recém-promovido, menor clube da Série A 2025
+};
+
+function calculateTeamReputation(teamKey: string, players: JsonPlayer[]): number {
+  const known = TEAM_REPUTATION[teamKey];
+  if (known !== undefined) return known;
+  // Fallback: usa overall médio do elenco
   if (players.length === 0) return 50;
   const avgOverall = players.reduce((sum, p) => sum + p.over_geral, 0) / players.length;
-  return Math.max(20, Math.min(95, Math.round(avgOverall)));
+  return Math.max(20, Math.min(80, Math.round(avgOverall)));
+}
+
+// ============================================================
+// REPUTAÇÃO DE JOGADORES — Lógica baseada em múltiplos fatores
+// ============================================================
+// Fatores:
+//   1. Overall (over_geral) — base (peso 60%)
+//   2. Produtividade (gols+assistências por jogo) — reconhecimento por performance
+//   3. Idade — jogadores em auge (25-32) são mais conhecidos
+//   4. Reputação do clube — jogadores de grandes clubes têm mais visibilidade
+//   5. Posição — atacantes e meias tendem a ter mais reputação
+// ============================================================
+
+// Jogadores com reputação mundialmente conhecida — valores baseados em FM
+const PLAYER_REPUTATION_OVERRIDES: Record<string, number> = {
+  'Neymar': 95,              // Superstar global, ex-Barcelona/PSG, seleção brasileira
+  'Arrascaeta': 82,          // Craque do Flamengo, referência no Brasil
+  'De La Cruz': 78,          // Destaque do Flamengo, seleção argentina
+  'Gerson': 76,              // Seleção brasileira, ex-Roma
+  'Estêvão': 72,             // Wonderkid, vendido ao Chelsea, seleção brasileira
+  'Pedro': 74,               // Artilheiro, seleção brasileira
+  'Bruno Henrique': 73,      // Seleção brasileira, Libertadores
+  'Everton Cebolinha': 75,   // Seleção brasileira, ex-Benfica
+  'Facundo Torres': 76,      // Seleção uruguaia, ex-Palmeiras destaque
+  'Raphael Veiga': 72,       // Palmeiras, artilheiro histórico
+  'Richard Ríos': 70,        // Seleção colombiana, destaque Palmeiras
+  'Weverton': 70,            // Seleção brasileira, herói da Libertadores 2020
+  'Gustavo Gómez': 72,       // Seleção paraguaia, capitão Palmeiras
+  'Vitor Roque': 68,         // Jovem promessa, ex-Barcelona
+  'Soteldo': 65,             // Seleção venezuelana, ex-Toronto
+  'Tiquinho Soares': 60,     // Veterano, ex-Olympiacos
+  'Pulgar': 65,              // Seleção chilena, ex-Bologna
+  'Piquerez': 68,            // Seleção uruguaia, ex-Defensor
+};
+
+function calculatePlayerReputation(
+  json: JsonPlayer,
+  gamePosition: string,
+  teamReputation: number,
+): number {
+  // 1. Verificar override para jogadores conhecidos
+  const override = PLAYER_REPUTATION_OVERRIDES[json.nome];
+  if (override !== undefined) return override;
+
+  const overall = json.over_geral;
+
+  // 2. Base: overall (peso 60%)
+  let reputation = overall * 0.6;
+
+  // 3. Produtividade: gols + assistências por jogo
+  const games = Math.max(1, json.jogos);
+  const gaPerGame = (json.gols + json.assistencias) / games;
+  // Atacantes e meias ganham mais reputação por produtividade
+  const isFWD = gamePosition === 'FWD';
+  const isMID = gamePosition === 'MID';
+  const isGK = gamePosition === 'GK';
+  const isDEF = gamePosition === 'DEF';
+
+  if (isFWD) {
+    reputation += Math.min(15, gaPerGame * 20); // até +15
+  } else if (isMID) {
+    reputation += Math.min(12, gaPerGame * 18); // até +12
+  } else if (isDEF) {
+    reputation += Math.min(5, gaPerGame * 10);  // até +5
+  }
+  // GK não ganha por produtividade ofensiva
+
+  // 4. Fator idade — jogadores em auge são mais conhecidos
+  const age = json.idade ?? 25;
+  if (age >= 25 && age <= 32) {
+    reputation += 5; // auge = mais reconhecimento
+  } else if (age < 22) {
+    reputation -= 5; // jovens ainda não são tão conhecidos
+  } else if (age > 33) {
+    reputation -= 3; // veteranos em declínio de fama
+  }
+
+  // 5. Reputação do clube — jogadores de grandes clubes têm mais visibilidade
+  // Diferença entre reputação do clube e 60 (média)
+  const teamFactor = (teamReputation - 60) * 0.15;
+  reputation += teamFactor; // clube grande (+), clube pequeno (-)
+
+  // 6. Bônus para jogadores com muitos jogos (titulares consolidados)
+  if (games >= 45) {
+    reputation += 3;
+  } else if (games < 20) {
+    reputation -= 3;
+  }
+
+  return Math.max(1, Math.min(100, Math.round(reputation)));
 }
 
 // ============================================================
@@ -227,9 +345,10 @@ function buildAttributes(json: JsonPlayer, gamePosition: string): {
 // CONVERTER JOGADOR JSON → PLAYER
 // ============================================================
 
-function convertPlayer(json: JsonPlayer, teamId: string, index: number): Player {
+function convertPlayer(json: JsonPlayer, teamId: string, index: number, teamReputation: number): Player {
   const gamePosition = POSITION_MAP[json.posicao] ?? 'MID';
   const { technical, mental, physical, goalkeeping } = buildAttributes(json, gamePosition);
+  const reputation = calculatePlayerReputation(json, gamePosition, teamReputation);
 
   const overall = json.over_geral;
   const currentAbility = Math.round(overall * 2);
@@ -312,6 +431,7 @@ function convertPlayer(json: JsonPlayer, teamId: string, index: number): Player 
     injuryHistory: [],
     fatigueLog: [],
     fame: Math.min(100, overall * 0.8 + Math.random() * 20),
+    reputation,
     seasonGoals: 0,
     seasonAssists: 0,
   };
@@ -323,8 +443,8 @@ function convertPlayer(json: JsonPlayer, teamId: string, index: number): Player 
 
 function convertTeam(json: JsonTeam, teamId: string): Team {
   const displayName = getTeamDisplayName(json.time);
-  const reputation = calculateTeamReputation(json.jogadores);
-  const squad = json.jogadores.map((jp, i) => convertPlayer(jp, teamId, i));
+  const reputation = calculateTeamReputation(json.time, json.jogadores);
+  const squad = json.jogadores.map((jp, i) => convertPlayer(jp, teamId, i, reputation));
   const budget = calculateTeamBudget(reputation);
 
   return {
@@ -374,9 +494,9 @@ function convertTeam(json: JsonTeam, teamId: string): Team {
     scouts: [],
     boardPromises: [],
     tacticsConfig: createDefaultTacticsConfig(),
-    leaguePosition: Math.floor(Math.random() * 20) + 1,
-    leagueForm: ['W', 'D', 'L', 'W', 'D'].slice(0, Math.floor(Math.random() * 3) + 1),
-    formRating: ['excellent', 'good', 'average', 'poor', 'terrible'][Math.floor(Math.random() * 5)] as Team['formRating'],
+    leaguePosition: 0,
+    leagueForm: [],
+    formRating: 'average' as Team['formRating'],
   };
 }
 

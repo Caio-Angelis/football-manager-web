@@ -29,13 +29,33 @@ export interface FinancialReport {
 // RESPOSTA À DIRETORIA (Item 9.8.3)
 // ============================================================
 
+export interface BoardReplyEffect {
+  satisfactionChange: number;
+  budgetChange?: number;
+  moraleChange?: number;
+  transferBudgetChange?: number;
+  fanMoodChange?: number;
+  addBoardPromise?: { goal: string; deadline: number };
+}
+
+export interface BoardReplyOption {
+  id: string;
+  label: string;
+  description: string;
+  effects: BoardReplyEffect;
+}
+
 export interface BoardReply {
   messageId: string;
   subject: string;
-  response: string;
+  optionId: string;
+  optionLabel: string;
   timestamp: number;
   sent: boolean;
-  // Efeito na satisfação da diretoria (-100 a 100)
   satisfactionChange: number;
+  budgetChange?: number;
+  moraleChange?: number;
+  transferBudgetChange?: number;
+  fanMoodChange?: number;
   category: 'budget' | 'transfer' | 'expectation' | 'performance' | 'general';
 }

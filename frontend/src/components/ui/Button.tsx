@@ -13,6 +13,7 @@ interface ButtonProps {
 export const Button: React.FC<ButtonProps> = ({
   onClick,
   disabled = false,
+  variant = 'primary',
   children,
   className = '',
   title,
@@ -30,7 +31,7 @@ export const Button: React.FC<ButtonProps> = ({
 
   return (
     <button
-      className={`fm-button ${rippling ? 'fm-button--rippling' : ''} ${className}`}
+      className={`fm-button fm-button--${variant} ${rippling ? 'fm-button--rippling' : ''} ${className}`}
       onClick={handleClick}
       disabled={disabled || loading}
       aria-disabled={disabled || loading}

@@ -55,6 +55,11 @@ export interface LiveMatchState {
   interventionBoost?: { team: 'home' | 'away'; type: string; untilMinute: number };
   cards?: Record<string, number>;                 // playerId -> yellow count this match
   sentOff?: { home: string[]; away: string[] };    // playerIds sent off, per side
+  ballPosY?: number;      // 0-1 largura do campo (0 = topo, 1 = base); jogo pelos flancos
+  momentum?: number;      // -1..1, positivo = casa embalada; move chances de finalização
+  fatigue?: Record<string, number>;               // playerId -> fadiga 0-0.6 acumulada na partida
+  addedTime?: number;     // acréscimos do 2º tempo (jogo termina em 90 + addedTime)
+  passTotals?: { homeAtt: number; homeCmp: number; awayAtt: number; awayCmp: number };
 }
 
 // ============================================================

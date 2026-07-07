@@ -66,14 +66,16 @@ export const createMatchSlice = (set: Set, get: Get) => ({
     const homeTeam = state.teams.find(t => t.id === match.homeTeam);
     const awayTeam = state.teams.find(t => t.id === match.awayTeam);
     if (!homeTeam || !awayTeam) return;
-    const minute = Math.min(90, match.liveMinute + 1);
+    // Tempo total = 90 + acréscimos (definidos pelo motor aos 89')
+    const fullTime = 90 + (match.liveMatchState.addedTime ?? 0);
+    const minute = Math.min(fullTime, match.liveMinute + 1);
 
     // Simula 1 minuto de jogo passo a passo (cada passe, drible, chute)
     const newLiveState = simulateMinute(homeTeam, awayTeam, match.liveMatchState, minute);
 
     const updatedMatches = [...state.matches];
 
-    if (minute >= 90) {
+    if (minute >= 90 + (newLiveState.addedTime ?? 0)) {
       // Finaliza a partida — calcula ratings e aplica resultado às equipes
       const events = newLiveState.events.sort((a, b) => a.minute - b.minute);
       const stats: MatchStats = {
@@ -96,7 +98,7 @@ export const createMatchSlice = (set: Set, get: Get) => ({
         ...match,
         isLive: false,
         completed: true,
-        liveMinute: 90,
+        liveMinute: minute,
         homeGoals: newLiveState.homeGoals,
         awayGoals: newLiveState.awayGoals,
         liveEvents: events,
@@ -224,6 +226,10 @@ export const createMatchSlice = (set: Set, get: Get) => ({
     if (team.startingXI.includes(inId)) return;          // quem entra precisa estar no banco
     if (!team.squad.some(p => p.id === inId)) return;     // e existir no elenco
     if ((match.liveMatchState.sentOff?.[userSide] ?? []).includes(inId)) return; // não pode ter sido expulso
+    // C7: Validações adicionais — não pode entrar lesionado nem sair expulso
+    if ((match.liveMatchState.sentOff?.[userSide] ?? []).includes(outId)) return; // expulso não pode "sair"
+    const inPlayer = team.squad.find(p => p.id === inId);
+    if (inPlayer?.injury?.active) return; // lesionado não pode entrar
 
     const outName = team.squad.find(p => p.id === outId)?.name ?? 'jogador';
     const inName = team.squad.find(p => p.id === inId)?.name ?? 'jogador';
@@ -312,7 +318,8 @@ export const createMatchSlice = (set: Set, get: Get) => ({
     if (!homeTeam || !awayTeam) return;
     let liveState = match.liveMatchState;
 
-    for (let m = match.liveMinute + 1; m <= 90; m++) {
+    // 90 + acréscimos (o motor define addedTime aos 89')
+    for (let m = match.liveMinute + 1; m <= 90 + (liveState.addedTime ?? 0); m++) {
       liveState = simulateMinute(homeTeam, awayTeam, liveState, m);
     }
 

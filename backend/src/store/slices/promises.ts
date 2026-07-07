@@ -204,6 +204,8 @@ export const createPromisesSlice = (set: Set, get: Get) => ({
     set({ teams: updatedTeams });
   },
 
+  // NOTA: Esta ação é redundante pois advanceWeek sincroniza leaguePosition
+  // automaticamente a partir de calculateLeagueStandings. Mantida por compatibilidade.
   setLeaguePosition: (position: number) => {
     const state = get();
     if (!state.selectedTeam) return;

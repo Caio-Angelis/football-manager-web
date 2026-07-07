@@ -5,7 +5,7 @@ import type {
   CounterOffer, InboxMessage, DeferredTransfer, NegotiationResult,
   ContractNegotiationResult, LoanDeal, BiddingWar,
 } from '../../types/game';
-import { recalcWageBill, maybeGenerateBiddingWar } from '../helpers/transfer';
+import { recalcWageBill, maybeGenerateBiddingWar, reputationGapImpact } from '../helpers/transfer';
 import { getFullName } from '../../utils/playerName';
 
 type Set = (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void;
@@ -150,6 +150,80 @@ export const createTransferSlice = (set: Set, get: Get) => ({
     return true;
   },
 
+  signFreeAgent: (playerId: string) => {
+    const state = get();
+    if (!state.selectedTeam) return false;
+
+    const buyerIdx = state.teams.findIndex(t => t.id === state.selectedTeam);
+    if (buyerIdx === -1) return false;
+
+    const faIdx = (state.freeAgents || []).findIndex(p => p.id === playerId);
+    if (faIdx === -1) return false;
+
+    const player = state.freeAgents[faIdx];
+
+    const buyer = { ...state.teams[buyerIdx] };
+
+    // Verificar reputação: jogador de rep alta pode recusar clube de rep baixa
+    const repImpact = reputationGapImpact(player.reputation, buyer.reputation);
+    if (repImpact.refuseChance > 0 && Math.random() < repImpact.refuseChance) {
+      const refuseMsg: InboxMessage = {
+        id: `fa_refuse_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        type: 'news',
+        subject: `❌ ${getFullName(player)} recusou a proposta`,
+        body: `${getFullName(player)} recusou assinar com o ${buyer.name}. A reputação do clube é muito inferior à dele — ele prefere esperar por uma oportunidade melhor.`,
+        timestamp: Date.now(),
+        read: false,
+        priority: 'medium',
+        relatedPlayerId: player.id,
+      };
+      set({ inbox: [...(state.inbox ?? []), refuseMsg] });
+      return false;
+    }
+
+    // Agentes livres não têm taxa de transferência — só salário
+    // Salário reflete prêmio de reputação (jogador de rep alta em clube pequeno custa mais)
+    const contractWeeks = 52 + Math.floor(Math.random() * 156);
+    const weeklySalary = Math.round(player.salary * (1.0 + Math.random() * 0.3) * repImpact.salaryMultiplier);
+
+    // Adicionar ao elenco com novo contrato
+    buyer.squad = [...buyer.squad, {
+      ...player,
+      freeAgent: false,
+      squadStatus: 'Rotation',
+      contractEnd: contractWeeks,
+      salary: weeklySalary,
+    }];
+    buyer.wageBill = recalcWageBill(buyer);
+
+    const updatedTeams = [...state.teams];
+    updatedTeams[buyerIdx] = buyer;
+
+    const completedTransfer: CompletedTransfer = {
+      id: `ct_fa_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      playerId,
+      playerName: getFullName(player),
+      position: player.position,
+      age: player.age,
+      nationality: player.nationality,
+      fromTeamId: 'free_agent',
+      fromTeamName: 'Agente Livre',
+      transferFee: 0,
+      paymentMethod: 'cash',
+      contractWeeks,
+      weeklySalary,
+      transferDate: Date.now(),
+      transferWeek: state.currentWeek,
+    };
+
+    set({
+      teams: updatedTeams,
+      freeAgents: (state.freeAgents || []).filter(p => p.id !== playerId),
+      completedTransfers: [...state.completedTransfers, completedTransfer],
+    });
+    return true;
+  },
+
   makeOffer: (playerId: string, sellerTeamId: string, offerPrice: number, negotiationRound = 1): NegotiationResult => {
     const state = get();
     if (!state.selectedTeam) {
@@ -184,6 +258,9 @@ export const createTransferSlice = (set: Set, get: Get) => ({
     if (buyer) {
       const repDiff = buyer.reputation - seller.reputation;
       willingness += repDiff * 0.3; // Mais vontade se for para um clube maior
+      // Reputação do jogador vs clube comprador — jogador de rep alta reluta em ir para clube pequeno
+      const repImpact = reputationGapImpact(player.reputation, buyer.reputation);
+      willingness += repImpact.willingnessAdjust;
     }
     willingness = Math.max(5, Math.min(95, Math.round(willingness)));
 
@@ -220,8 +297,10 @@ export const createTransferSlice = (set: Set, get: Get) => ({
     }
 
     // === PRÉVIA DE CONTRATO ===
+    // Salário estimado reflete prêmio de reputação (jogador de rep alta em clube pequeno custa mais)
+    const repSalaryMult = buyer ? reputationGapImpact(player.reputation, buyer.reputation).salaryMultiplier : 1;
     const contractPreview = {
-      estimatedSalary: Math.round(player.salary * (1.0 + Math.random() * 0.5)),
+      estimatedSalary: Math.round(player.salary * (1.0 + Math.random() * 0.5) * repSalaryMult),
       estimatedWeeks: 52 + Math.floor(Math.random() * 156),
       estimatedReleaseClause: Math.round(offerPrice * (1.2 + Math.random() * 0.3) * 10) / 10,
     };
@@ -456,6 +535,9 @@ export const createTransferSlice = (set: Set, get: Get) => ({
     if (buyer) {
       const repDiff = buyer.reputation - seller.reputation;
       willingness += repDiff * 0.3;
+      // Reputação do jogador vs clube comprador
+      const repImpact = reputationGapImpact(player.reputation, buyer.reputation);
+      willingness += repImpact.willingnessAdjust;
     }
     willingness = Math.max(5, Math.min(95, Math.round(willingness)));
 
@@ -464,7 +546,22 @@ export const createTransferSlice = (set: Set, get: Get) => ({
     // Low willingness = more demanding (higher expected)
     // 0.80 (muita vontade de sair, aceita menos) a 1.50 (pouca vontade, pede mais); 1.15 no meio
     const premiumFactor = 1.15 - (willingness - 50) * 0.00778;
-    const expectedSalary = Math.round(player.salary * premiumFactor);
+    // Prêmio de reputação: jogador de rep alta exige salário muito maior em clube pequeno
+    const repSalaryMult = buyer ? reputationGapImpact(player.reputation, buyer.reputation).salaryMultiplier : 1;
+    const expectedSalary = Math.round(player.salary * premiumFactor * repSalaryMult);
+
+    // Recusa categórica: se o gap de reputação for muito grande, o jogador pode recusar qualquer proposta
+    const repRefuseChance = buyer ? reputationGapImpact(player.reputation, buyer.reputation).refuseChance : 0;
+    if (repRefuseChance > 0 && Math.random() < repRefuseChance) {
+      return {
+        status: 'rejected',
+        offeredSalary,
+        expectedSalary,
+        message: `${getFullName(player)} recusou categoricamente. A reputação do ${buyer!.name} é muito inferior à dele — ele não tem interesse em assinar, independentemente do salário oferecido.`,
+        negotiationRound,
+        maxRounds,
+      };
+    }
 
     const ratio = offeredSalary / expectedSalary;
     const roll = Math.random();
@@ -743,9 +840,9 @@ export const createTransferSlice = (set: Set, get: Get) => ({
     const team = state.teams.find(t => t.id === state.selectedTeam);
     if (!team) return false;
 
-    // Counter-offer: propose 20-30% less than original offer
+    // E-13: Counter-offer as SELLER should ask for MORE, not less. Invert sign.
     const reduction = 0.2 + Math.random() * 0.1;
-    const counterPrice = Math.round(offer.offerPrice * (1 - reduction) * 10) / 10;
+    const counterPrice = Math.round(offer.offerPrice * (1 + reduction) * 10) / 10;
 
     // Determine payment method
     const paymentMethod: 'cash' | 'installments' = Math.random() < 0.6 ? 'cash' : 'installments';
@@ -807,21 +904,26 @@ export const createTransferSlice = (set: Set, get: Get) => ({
       bonuses,
     };
 
+    const buyerTeam = state.teams.find(t => t.id === offer.fromTeam);
+    const buyerName = buyerTeam ? buyerTeam.name : 'Time interessado';
+    const player = team.squad.find(p => p.id === offer.playerId);
+    const playerName = player ? getFullName(player) : 'jogador';
+
     const counterMessage: InboxMessage = {
       id: `msg_co_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      type: 'transfer',
-      subject: 'Contra-oferta Recebida',
-      body: `${team.name} fez uma contra-oferta de R$ ${counterPrice}M para o jogador. Aceitar ou recusar?`,
+      type: 'news',
+      subject: 'Contra-oferta Enviada',
+      body: `Você fez uma contra-oferta de R$ ${counterPrice}M para o ${buyerName} por ${playerName}. Aguarde a resposta na próxima semana.`,
       timestamp: Date.now(),
       read: false,
       priority: 'high',
       relatedPlayerId: offer.playerId,
     };
 
+    // E-13: Don't remove the original offer — keep it so the deal survives if the
+    // counter-offer is rejected by the AI. The counter-offer is resolved in advanceWeek.
     set({
       counterOffers: [...state.counterOffers, newCounterOffer],
-      incomingTransfers: state.incomingTransfers.filter(o => o.playerId !== playerId),
-      deferredTransfers: state.deferredTransfers.filter(o => o.playerId !== playerId),
       inbox: [counterMessage, ...state.inbox],
     });
 
@@ -931,7 +1033,7 @@ export const createTransferSlice = (set: Set, get: Get) => ({
     const updatedBonuses = state.incomingBonuses.map(b => {
       if (b.triggered || b.claimed || (playerId && b.playerId !== playerId)) return b;
 
-      const player = userTeam?.squad.find(p => p.id === b.playerId);
+      const player = state.teams.flatMap(t => t.squad).find(p => p.id === b.playerId);
       if (!player) return b;
 
       let shouldTrigger = false;

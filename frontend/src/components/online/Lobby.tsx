@@ -7,9 +7,10 @@ interface LobbyProps {
   room: PublicRoom;
   busy: boolean;
   onStart: () => void;
+  onClose: () => void;
 }
 
-export const Lobby: React.FC<LobbyProps> = ({ code, room, busy, onStart }) => {
+export const Lobby: React.FC<LobbyProps> = ({ code, room, busy, onStart, onClose }) => {
   const [copied, setCopied] = React.useState(false);
   const copyCode = async () => {
     try { await navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1500); }
@@ -39,9 +40,19 @@ export const Lobby: React.FC<LobbyProps> = ({ code, room, busy, onStart }) => {
 
       <div className="fmo-actions">
         {room.isOwner ? (
-          <Button className="fmo-block" disabled={busy} onClick={onStart}>
-            {busy ? 'Aguarde…' : 'Iniciar jogo'}
-          </Button>
+          <>
+            <Button className="fmo-block" disabled={busy} onClick={onStart}>
+              {busy ? 'Aguarde…' : 'Iniciar jogo'}
+            </Button>
+            <button
+              type="button"
+              className="fmo-linkbtn"
+              disabled={busy}
+              onClick={() => { if (window.confirm('Encerrar a sala para todos?')) onClose(); }}
+            >
+              Encerrar sala
+            </button>
+          </>
         ) : (
           <p className="fmo-hint">Aguardando o dono iniciar o jogo…</p>
         )}

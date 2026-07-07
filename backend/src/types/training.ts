@@ -12,3 +12,5 @@ export interface WeeklyTrainingPlan {
   sessions: TrainingSession[];
   teamFocus: string; // 'attack', 'defense', 'physical', 'cohesion'
 }
+
+export type TrainingTargetGroup = 'all' | 'attackers' | 'midfielders' | 'defenders' | 'custom';

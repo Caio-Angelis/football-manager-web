@@ -1,159 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../../store/gameStore';
 import { PlayerCard } from '../squad/PlayerCard';
 import { Button } from '../ui/Button';
 import { ScoutReportCard } from './ScoutReportCard';
+import { InstallmentClauseDisplay } from './InstallmentClauseDisplay';
+import { PlayerBonusDisplay } from './PlayerBonusDisplay';
+import { TransferAgreementDisplay } from './TransferAgreementDisplay';
 import { getFullName } from '../../utils/player';
-import type { IncomingTransfer, Player, InstallmentClause, PlayerBonus, TransferAgreement, NegotiationResult, ContractNegotiationResult, LoanDeal, ShortlistEntry, ScoutRecommendation, BiddingWar } from '../../types/game';
+import type { IncomingTransfer, Player, InstallmentClause, PlayerBonus, NegotiationResult, ContractNegotiationResult, LoanDeal, ShortlistEntry, ScoutRecommendation, BiddingWar } from '../../types/game';
 import { Globe, Users } from 'lucide-react';
 import { PageHeader } from '../ui/PageHeader';
 
 const SquadStatusOptions = ['Key Player', 'Regular Starter', 'Rotation', 'Young Talent', 'Excess'];
-
-// Componente para exibir cláusula de pagamento parcelado
-const InstallmentClauseDisplay: React.FC<{ clause: InstallmentClause }> = ({ clause }) => {
-  const paidCount = clause.payments.filter(p => p.paid).length;
-
-  return (
-    <div className="fm-installments-display">
-      <div className="fm-installments-display__header">
-        <span className="fm-installments-display__label">Pagamentos Parcelados</span>
-        <span className={`fm-installments-display__status fm-installments-display__status--${clause.status}`}>
-          {clause.status === 'completed' ? 'Completo' : clause.status === 'defaulted' ? 'Inadimplente' : 'Ativo'}
-        </span>
-      </div>
-      <div className="fm-installments-display__summary">
-        <span className="fm-installments-display__total">Total: R$ {clause.totalAmount}M</span>
-        <span className="fm-installments-display__progress">{paidCount}/{clause.installmentCount} pagos</span>
-      </div>
-      <div className="fm-installments-display__payments">
-        {clause.payments.map(payment => (
-          <div key={payment.installmentNumber} className={`fm-installment-payment ${payment.paid ? 'fm-installment-payment--paid' : ''}`}>
-            <span className="fm-installment-payment__number">Parcela {payment.installmentNumber}</span>
-            <span className="fm-installment-payment__amount">R$ {payment.amount}M</span>
-            <span className="fm-installment-payment__status">
-              {payment.paid ? '✓ Pago' : `Vencimento: Sem. ${payment.dueWeek}`}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-// Componente para exibir bónus
-const PlayerBonusDisplay: React.FC<{ bonus: PlayerBonus }> = ({ bonus }) => {
-  const typeLabels: Record<PlayerBonus['type'], string> = {
-    goals: 'Golos',
-    appearances: 'Aparições',
-    assists: 'Assistências',
-    titles: 'Títulos',
-    performance: 'Performance',
-  };
-
-  return (
-    <div className={`fm-bonus-display ${bonus.triggered ? 'fm-bonus-display--triggered' : ''}`}>
-      <span className="fm-bonus-display__type">{typeLabels[bonus.type]}</span>
-      <span className="fm-bonus-display__threshold">{bonus.threshold}x</span>
-      <span className="fm-bonus-display__amount">R$ {bonus.bonusAmount}K</span>
-      {bonus.triggered && (
-        <span className="fm-bonus-display__triggered">✓ Ativo</span>
-      )}
-    </div>
-  );
-};
-
-// Componente para exibir acordo contratual de transferência (Item 7.10)
-const TransferAgreementDisplay: React.FC<{
-  agreement: TransferAgreement;
-  onTerminate?: () => void;
-}> = ({ agreement, onTerminate }) => {
-  const contractWeeks = agreement.contract.contractWeeks;
-  const years = Math.floor(contractWeeks / 52);
-  const weeks = contractWeeks % 52;
-  const durationText = years > 0 ? `${years} ano${years > 1 ? 's' : ''}${weeks > 0 ? ` e ${weeks} semana${weeks > 1 ? 's' : ''}` : ''}` : `${weeks} semana${weeks !== 1 ? 's' : ''}`;
-
-  return (
-    <div className="fm-transfer-agreement">
-      <div className="fm-transfer-agreement__header">
-        <h3 className="fm-transfer-agreement__player-name">{agreement.playerName}</h3>
-        <span className={`fm-transfer-agreement__status fm-transfer-agreement__status--${agreement.status}`}>
-          {agreement.status === 'active' ? 'Ativo' : agreement.status === 'terminated' ? 'Encerrado' : 'Expirado'}
-        </span>
-      </div>
-      <div className="fm-transfer-agreement__details">
-        <div className="fm-transfer-agreement__detail">
-          <span className="fm-transfer-agreement__detail-label">Valor da Transferência:</span>
-          <span className="fm-transfer-agreement__detail-value">R$ {agreement.transferFee}M</span>
-        </div>
-        <div className="fm-transfer-agreement__detail">
-          <span className="fm-transfer-agreement__detail-label">Método de Pagamento:</span>
-          <span className="fm-transfer-agreement__detail-value">
-            {agreement.paymentMethod === 'installments' ? 'Parcelado' : 'À vista'}
-          </span>
-        </div>
-        <div className="fm-transfer-agreement__detail">
-          <span className="fm-transfer-agreement__detail-label">Contrato:</span>
-          <span className="fm-transfer-agreement__detail-value">{durationText}</span>
-        </div>
-        <div className="fm-transfer-agreement__detail">
-          <span className="fm-transfer-agreement__detail-label">Salário Semanal:</span>
-          <span className="fm-transfer-agreement__detail-value">R$ {agreement.contract.weeklySalary}K</span>
-        </div>
-        <div className="fm-transfer-agreement__detail">
-          <span className="fm-transfer-agreement__detail-label">Cláusula de Rescisão:</span>
-          <span className="fm-transfer-agreement__detail-value">R$ {agreement.contract.releaseClause}M</span>
-        </div>
-        {agreement.contract.performanceBonuses && agreement.contract.performanceBonuses.length > 0 ? (
-          <div className="fm-transfer-agreement__bonuses">
-            <span className="fm-transfer-agreement__detail-label">Bónus de Performance:</span>
-            <div className="fm-transfer-agreement__bonuses-list">
-              {agreement.contract.performanceBonuses.map((bonus, index) => {
-                const typeLabels: Record<PlayerBonus['type'], string> = {
-                  goals: 'Golos',
-                  appearances: 'Aparições',
-                  assists: 'Assistências',
-                  titles: 'Títulos',
-                  performance: 'Performance',
-                };
-                return (
-                  <span key={index} className="fm-transfer-agreement__bonus-tag">
-                    {typeLabels[bonus.type]}: {bonus.threshold}x → R$ {bonus.bonusAmount}K
-                  </span>
-                );
-              })}
-            </div>
-          </div>
-        ) : null}
-        {agreement.installmentClause && agreement.status === 'active' ? (
-          <div className="fm-transfer-agreement__installments">
-            <span className="fm-transfer-agreement__detail-label">Pagamentos Pendentes:</span>
-            <div className="fm-transfer-agreement__installments-summary">
-              <span>
-                Pagos: {agreement.installmentClause.payments.filter(p => p.paid).length}/{agreement.installmentClause.installmentCount}
-              </span>
-              <span>
-                Restante: R$ {agreement.installmentClause.payments.filter(p => !p.paid).reduce((sum, p) => sum + p.amount, 0)}M
-              </span>
-            </div>
-          </div>
-        ) : null}
-      </div>
-      <div className="fm-transfer-agreement__history">
-        <span className="fm-transfer-agreement__history-label">Data de Assinatura:</span>
-        <span className="fm-transfer-agreement__history-value">
-          {new Date(agreement.agreementDate).toLocaleDateString('pt-BR')}
-        </span>
-      </div>
-      {onTerminate && agreement.status === 'active' && (
-        <div className="fm-transfer-agreement__actions">
-          <Button variant="secondary" onClick={onTerminate}>Encerrar Acordo</Button>
-        </div>
-      )}
-    </div>
-  );
-};
 
 const TransferOfferCard: React.FC<{
   offer: IncomingTransfer;
@@ -276,14 +135,9 @@ export const TransferMarket: React.FC<{
   const [salaryOffer, setSalaryOffer] = useState('');
 
   // Item 8: Debounce de 300ms na busca de jogadores
-  const filterRef = useRef(debouncedFilter);
-  useEffect(() => {
-    filterRef.current = debouncedFilter;
-  }, [debouncedFilter]);
-
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedFilter(filterRef.current);
+      setDebouncedFilter(filter);
     }, 300);
     return () => clearTimeout(timer);
   }, [filter]);
@@ -393,7 +247,9 @@ export const TransferMarket: React.FC<{
 
   const handleQuickSalaryOffer = (percentage: number) => {
     if (!negotiationModal) return;
-    const base = contractNegotiationResult?.expectedSalary ?? parseFloat(salaryOffer) ?? 50;
+    // E-36: Number.isFinite em vez de ?? (NaN ?? 50 ainda é NaN).
+    const parsed = parseFloat(salaryOffer);
+    const base = contractNegotiationResult?.expectedSalary ?? (Number.isFinite(parsed) ? parsed : 50);
     const value = Math.round(base * percentage);
     setSalaryOffer(String(value));
   };
@@ -442,11 +298,11 @@ export const TransferMarket: React.FC<{
     try {
       const success = await acceptOffer(negotiationModal.playerId, negotiationModal.sellerTeamId, price, salary);
       if (success) {
+        const squadStatus: Record<string, string> = {};
+        squadStatus[negotiationModal.playerId] = selectedStatus;
         updateTeam(selectedTeam!, (t) => ({
           ...t,
-          squad: t.squad.map(p =>
-            p.id === negotiationModal.playerId ? { ...p, squadStatus: selectedStatus } : p,
-          ),
+          squadStatus,
         }));
         addToast?.('Jogador contratado com sucesso!', 'success');
         closeNegotiation();
@@ -467,6 +323,7 @@ export const TransferMarket: React.FC<{
       const result = await makeOffer(negotiationModal.playerId, negotiationModal.sellerTeamId, negotiationResult.counterPrice, negotiationRound);
       if (result.status === 'accepted') {
         setNegotiationResult(result);
+        setOfferAmount(String(negotiationResult.counterPrice));
         setNegotiationHistory(prev => [...prev, { round: negotiationRound, offerPrice: negotiationResult.counterPrice!, result }]);
         // Transition to contract negotiation phase
         const estSalary = result.contractPreview?.estimatedSalary ?? 50;
@@ -644,16 +501,20 @@ export const TransferMarket: React.FC<{
               {sortDesc ? '↓' : '↑'}
             </button>
           </div>
-          {selectedPlayerId && (
+          {selectedPlayerId && (() => {
+            const sel = marketPlayers.find(m => m.player.id === selectedPlayerId);
+            if (!sel) { setSelectedPlayerId(null); return null; }
+            return (
             <div className="fm-transfer-market__selection-bar">
               <span>
                 Jogador selecionado:{' '}
-                {getFullName(marketPlayers.find(m => m.player.id === selectedPlayerId)?.player!)}
+                {getFullName(sel.player)}
               </span>
               <Button onClick={() => handleAssignScout(selectedPlayerId)}>Confirmar</Button>
               <Button variant="secondary" onClick={() => setSelectedPlayerId(null)}>Cancelar</Button>
             </div>
-          )}
+            );
+          })()}
           <div className="fm-transfer-market__players">
             {filteredPlayers.length === 0 ? (
               <div className="fm-empty">Nenhum jogador disponível no mercado.</div>
@@ -887,11 +748,11 @@ export const TransferMarket: React.FC<{
                     )}
                     {clause.status === 'active' && (
                       <div className="fm-installment-clause-card__actions">
-                        <Button variant="primary" onClick={() => {
+                        <Button variant="primary" onClick={async () => {
                           // Pay next pending installment
                           const nextPending = clause.payments.find(p => !p.paid);
                           if (nextPending) {
-                            const success = payInstallment(`${clause.id || ''}:${nextPending.installmentNumber}`);
+                            const success = await payInstallment(`${clause.id || ''}:${nextPending.installmentNumber}`);
                             if (success) {
                               setInstallmentFeedback(`Parcela ${nextPending.installmentNumber} paga com sucesso!`);
                             } else {

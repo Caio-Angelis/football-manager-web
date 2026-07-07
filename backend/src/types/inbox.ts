@@ -1,6 +1,6 @@
 // Tipos de Mensagens (Inbox)
 
-import type { BoardReply } from './financial';
+import type { BoardReply, BoardReplyOption } from './financial';
 
 export interface InboxMessage {
   id: string;
@@ -14,4 +14,5 @@ export interface InboxMessage {
   relatedTeamId?: string;
   // Item 9.8.3 - Diretoria: Responder
   boardReply?: BoardReply;
+  boardReplyOptions?: BoardReplyOption[];
 }

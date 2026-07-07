@@ -3,18 +3,37 @@ import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../../store/gameStore';
 import { Button } from '../ui/Button';
 import type { TrainingSession, WeeklyTrainingPlan } from '../../types/game';
-import { Globe, Users } from 'lucide-react';
+import {
+  Activity,
+  AlertTriangle,
+  Camera,
+  CheckCircle2,
+  ClipboardList,
+  Dumbbell,
+  Eye,
+  EyeOff,
+  Globe,
+  HeartPulse,
+  Play,
+  RotateCcw,
+  Save,
+  Shield,
+  Target,
+  Users,
+  Zap,
+  type LucideIcon,
+} from 'lucide-react';
 import { PageHeader } from '../ui/PageHeader';
 import { getInverseRatingColor, getRatingColor } from '../../utils/statusColors';
 
 const TRAINING_TYPES = [
-  { id: 'physical', label: 'Físico', desc: 'Velocidade e resistência (+risco de lesão)', icon: '🏃' },
-  { id: 'technical', label: 'Técnico', desc: 'Passe, técnica e finalização', icon: '⚽' },
-  { id: 'cohesion', label: 'Coesão', desc: 'Moral e espírito de equipa', icon: '🤝' },
-  { id: 'medical', label: 'Médico', desc: 'Recuperação de lesões', icon: '🏥' },
-  { id: 'recovery', label: 'Recuperação', desc: 'Restauração física', icon: '💆' },
-  { id: 'light', label: 'Leve', desc: 'Aquecimento e mobilidade', icon: '🧘' },
-];
+  { id: 'physical', label: 'Físico', desc: 'Velocidade e resistência; aumenta risco de lesão', Icon: Dumbbell },
+  { id: 'technical', label: 'Técnico', desc: 'Passe, técnica e finalização', Icon: Target },
+  { id: 'cohesion', label: 'Coesão', desc: 'Moral e espírito de equipa', Icon: Users },
+  { id: 'medical', label: 'Médico', desc: 'Recuperação de lesões', Icon: HeartPulse },
+  { id: 'recovery', label: 'Recuperação', desc: 'Restauração física', Icon: Activity },
+  { id: 'light', label: 'Leve', desc: 'Aquecimento e mobilidade', Icon: RotateCcw },
+] satisfies Array<{ id: string; label: string; desc: string; Icon: LucideIcon }>;
 
 const DAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 const BLOCKS = ['morning', 'afternoon', 'evening'] as const;
@@ -99,6 +118,21 @@ function generateWeeklySchedule(focus: string): TrainingSession[] {
   }));
 }
 
+const TARGET_GROUPS = [
+  { id: 'all', label: 'Todos', Icon: Users },
+  { id: 'attackers', label: 'Atacantes', Icon: Zap },
+  { id: 'midfielders', label: 'Meias', Icon: Target },
+  { id: 'defenders', label: 'Defensores', Icon: Shield },
+  { id: 'custom', label: 'Selecionados', Icon: CheckCircle2 },
+] as const;
+
+const POSITION_LABELS: Record<string, string> = {
+  GK: 'GOL',
+  DEF: 'DEF',
+  MID: 'MEI',
+  FWD: 'ATA',
+};
+
 export const TrainingView: React.FC = () => {
   const { selectedTeam, teams, currentWeek, trainingPlan, setTrainingPlan, applyWeeklyTraining, calculateInjuryRisk, schedulePreventionSession, getInjuryRiskSummary, applyPreventionSession, captureWeeklyAttributeSnapshot } = useGameStore();
   const navigate = useNavigate();
@@ -106,6 +140,11 @@ export const TrainingView: React.FC = () => {
   const [teamFocus, setTeamFocus] = useState(trainingPlan?.teamFocus ?? 'technical');
   const [showInjuryRisk, setShowInjuryRisk] = useState(false);
   const [showProgression, setShowProgression] = useState(true);
+  const [targetGroup, setTargetGroup] = useState<'all' | 'attackers' | 'midfielders' | 'defenders' | 'custom'>('all');
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
+  const [isManualPlan, setIsManualPlan] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('Escolha um foco, gere o calendário e ajuste sessões se necessário.');
+  const [busyAction, setBusyAction] = useState<string | null>(null);
 
   useEffect(() => {
     if (trainingPlan?.teamFocus) {
@@ -119,25 +158,50 @@ export const TrainingView: React.FC = () => {
 
   const sessions = trainingPlan?.sessions ?? DAYS.map((_, i) => createEmptySession(i));
 
+  const persistPlan = (nextSessions: TrainingSession[], message: string) => {
+    const plan: WeeklyTrainingPlan = { week: currentWeek, teamFocus, sessions: nextSessions };
+    useGameStore.setState({ trainingPlan: plan });
+    setTrainingPlan(plan);
+    setStatusMessage(message);
+  };
+
+  const handleFocusChange = (focus: string) => {
+    setTeamFocus(focus);
+    setStatusMessage('Foco alterado. Gere um calendário sugerido ou guarde o plano manual atual.');
+  };
+
+  const generateFocusPlan = () => {
+    const generatedSessions = generateWeeklySchedule(teamFocus);
+    persistPlan(generatedSessions, 'Calendário gerado a partir do foco semanal.');
+    setIsManualPlan(false);
+  };
+
   const updateSession = (dayIdx: number, block: typeof BLOCKS[number], type: string) => {
     const newSessions = sessions.map((s, i) => {
       if (i !== dayIdx) return s;
       return { ...s, [block]: { type, focus: type } };
     });
-    const plan: WeeklyTrainingPlan = { week: currentWeek, teamFocus, sessions: newSessions };
-    useGameStore.setState({ trainingPlan: plan });
-    setTrainingPlan(plan);
+    persistPlan(newSessions, 'Calendário editado manualmente. As alterações serão mantidas ao guardar ou aplicar.');
+    setIsManualPlan(true);
   };
 
   const savePlan = () => {
-    const generatedSessions = generateWeeklySchedule(teamFocus);
-    const plan: WeeklyTrainingPlan = {
-      week: currentWeek,
-      teamFocus,
-      sessions: generatedSessions,
-    };
-    useGameStore.setState({ trainingPlan: plan });
-    setTrainingPlan(plan);
+    persistPlan(sessions, isManualPlan ? 'Plano manual guardado.' : 'Plano semanal guardado.');
+  };
+
+  const applyPlan = () => {
+    setBusyAction('apply');
+    persistPlan(sessions, 'Treino aplicado ao grupo selecionado.');
+    applyWeeklyTraining(targetGroup, targetGroup === 'custom' ? selectedPlayerIds : undefined);
+    window.setTimeout(() => setBusyAction(null), 400);
+  };
+
+  const runPrevention = (type: 'medical' | 'recovery' | 'light', targetPlayerIds: string[], effectiveness: number, message: string) => {
+    setBusyAction(type);
+    schedulePreventionSession({ type, targetPlayerIds, effectiveness, day: 0 });
+    applyPreventionSession();
+    setStatusMessage(message);
+    window.setTimeout(() => setBusyAction(null), 400);
   };
 
   const getRiskColor = (risk: number) => getInverseRatingColor(risk, { high: 60, medium: 30 });
@@ -164,38 +228,144 @@ export const TrainingView: React.FC = () => {
         ]}
       />
 
-      <div className="fms-body--scroll">
+      <div className="fms-body--scroll fm-training-view">
+      <div className="fm-training-shell">
+      <div className="fm-training-plan-column">
 
-      <section className="fm-training-view__section">
-        <h2>Foco Semanal</h2>
+      <section className="fms-section fm-training-view__section">
+        <div className="fm-training-view__section-header">
+          <h2 className="fms-section__title">Plano semanal</h2>
+          <span className={`fms-badge ${isManualPlan ? 'fms-badge--amber' : 'fms-badge--accent'}`}>
+            {isManualPlan ? 'Manual' : 'Gerado por foco'}
+          </span>
+        </div>
+        <p className="fm-training-view__hint" role="status" aria-live="polite">{statusMessage}</p>
         <div className="fm-training-view__types">
           {TRAINING_TYPES.map((t) => (
             <button
               key={t.id}
               className={`fm-training-type ${teamFocus === t.id ? 'fm-training-type--active' : ''}`}
-              onClick={() => setTeamFocus(t.id)}
+              onClick={() => handleFocusChange(t.id)}
+              aria-pressed={teamFocus === t.id}
             >
-              <span className="fm-training-type__icon">{t.icon}</span>
+              <span className="fm-training-type__icon" aria-hidden="true"><t.Icon size={18} /></span>
               <span className="fm-training-type__label">{t.label}</span>
               <span className="fm-training-type__desc">{t.desc}</span>
             </button>
           ))}
         </div>
+        <div className="fm-training-view__target-group">
+          <h3>Alvo do Treino</h3>
+          <div className="fm-training-view__target-buttons">
+            {TARGET_GROUPS.map((g) => (
+              <button
+                key={g.id}
+                className={`fm-training-type fm-training-type--compact ${targetGroup === g.id ? 'fm-training-type--active' : ''}`}
+                onClick={() => setTargetGroup(g.id)}
+                aria-pressed={targetGroup === g.id}
+              >
+                <span className="fm-training-type__icon" aria-hidden="true"><g.Icon size={16} /></span>
+                <span className="fm-training-type__label">{g.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {targetGroup === 'custom' && (
+          <div className="fm-training-view__player-select">
+            <h3>Selecionar Jogadores</h3>
+            <div className="fm-training-view__player-list">
+              {team.squad.map((player) => (
+                <label key={player.id} className="fm-training-view__player-item">
+                  <input
+                    type="checkbox"
+                    checked={selectedPlayerIds.includes(player.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedPlayerIds([...selectedPlayerIds, player.id]);
+                      } else {
+                        setSelectedPlayerIds(selectedPlayerIds.filter(id => id !== player.id));
+                      }
+                    }}
+                  />
+                  <span className="fm-training-view__player-name">{player.name}</span>
+                  <span className="fm-training-view__player-pos">{POSITION_LABELS[player.position] ?? player.position}</span>
+                  {player.injury?.active && <span className="fm-fatigue-card__injury">Lesão</span>}
+                </label>
+              ))}
+            </div>
+            <p className="fm-training-view__select-count">
+              {selectedPlayerIds.length} jogador(es) selecionado(s)
+            </p>
+          </div>
+        )}
+
         <div className="fm-training-view__actions">
-          <Button onClick={savePlan}>Salvar Plano</Button>
-          <Button variant="success" onClick={() => { savePlan(); applyWeeklyTraining(); }}>Aplicar Treino Agora</Button>
-          <Button variant="secondary" onClick={() => setShowInjuryRisk(!showInjuryRisk)}>
-            {showInjuryRisk ? 'Ocultar' : 'Mostrar'} Risco de Lesões
+          <Button variant="secondary" onClick={generateFocusPlan}>
+            <ClipboardList size={14} /> Gerar calendário do foco
+          </Button>
+          <Button onClick={savePlan}>
+            <Save size={14} /> Guardar plano atual
+          </Button>
+          <Button
+            variant="success"
+            disabled={targetGroup === 'custom' && selectedPlayerIds.length === 0}
+            loading={busyAction === 'apply'}
+            onClick={applyPlan}
+          >
+            <Play size={14} /> Aplicar treino agora
           </Button>
         </div>
       </section>
 
-      {showInjuryRisk && riskSummary && (
-        <section className="fm-training-view__section fm-injury-risk-section">
-          <h2>🚨 Resumo de Risco de Lesões</h2>
-          <div className="fm-injury-risk-grid">
+      <section className="fms-section fm-training-view__section">
+        <div className="fm-training-view__section-header">
+          <h2 className="fms-section__title">Calendário semanal</h2>
+          <span className="fm-training-view__hint">Alterações manuais são preservadas ao guardar ou aplicar.</span>
+        </div>
+        <div className="fm-training-calendar">
+          {DAYS.map((day, dayIdx) => (
+            <div key={day} className="fm-training-day">
+              <h3 className="fm-training-day__title">{day}</h3>
+              {BLOCKS.map((block) => {
+                const inputId = `training-session-${dayIdx}-${block}`;
+                return (
+                  <div key={block} className="fm-training-block">
+                    <label className="fm-training-block__label" htmlFor={inputId}>{BLOCK_LABELS[block]}</label>
+                    <select
+                      id={inputId}
+                      name={inputId}
+                      className="fms-select fm-training-block__select"
+                      value={sessions[dayIdx]?.[block]?.type ?? 'rest'}
+                      onChange={(e) => updateSession(dayIdx, block, e.target.value)}
+                    >
+                      <option value="rest">Descanso</option>
+                      {TRAINING_TYPES.map((t) => (
+                        <option key={t.id} value={t.id}>{t.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </section>
+      </div>
+
+      <div className="fm-training-monitor-column">
+      <section className="fms-section fm-training-view__section">
+        <div className="fm-training-view__section-header">
+          <h2 className="fms-section__title">Monitor de fadiga e risco</h2>
+          <Button variant="secondary" onClick={() => setShowInjuryRisk(!showInjuryRisk)}>
+            {showInjuryRisk ? <EyeOff size={14} /> : <Eye size={14} />}
+            {showInjuryRisk ? 'Ocultar resumo' : 'Ver resumo'}
+          </Button>
+        </div>
+        {showInjuryRisk && riskSummary && (
+          <div className="fm-injury-risk-grid" id="injury-risk-summary">
             <div className="fm-injury-risk-category fm-injury-risk--critical">
-              <h3>⚠️ Crítico ({riskSummary.critical.length})</h3>
+              <h3><AlertTriangle size={14} /> Crítico ({riskSummary.critical.length})</h3>
               <ul>
                 {riskSummary.critical.map(p => (
                   <li key={p.id} className="fm-injury-risk-item">
@@ -207,7 +377,7 @@ export const TrainingView: React.FC = () => {
               </ul>
             </div>
             <div className="fm-injury-risk-category fm-injury-risk--high">
-              <h3>🟠 Alto ({riskSummary.high.length})</h3>
+              <h3><span className="fms-dot fm-risk-dot--high" /> Alto ({riskSummary.high.length})</h3>
               <ul>
                 {riskSummary.high.map(p => (
                   <li key={p.id}>
@@ -217,7 +387,7 @@ export const TrainingView: React.FC = () => {
               </ul>
             </div>
             <div className="fm-injury-risk-category fm-injury-risk--moderate">
-              <h3>🟡 Moderado ({riskSummary.moderate.length})</h3>
+              <h3><span className="fms-dot fm-risk-dot--moderate" /> Moderado ({riskSummary.moderate.length})</h3>
               <ul>
                 {riskSummary.moderate.map(p => (
                   <li key={p.id}>
@@ -227,7 +397,7 @@ export const TrainingView: React.FC = () => {
               </ul>
             </div>
             <div className="fm-injury-risk-category fm-injury-risk--low">
-              <h3>🟢 Baixo ({riskSummary.low.length})</h3>
+              <h3><span className="fms-dot fm-risk-dot--low" /> Baixo ({riskSummary.low.length})</h3>
               <ul>
                 {riskSummary.low.map(p => (
                   <li key={p.id}>
@@ -237,46 +407,14 @@ export const TrainingView: React.FC = () => {
               </ul>
             </div>
           </div>
-        </section>
-      )}
-
-      <section className="fm-training-view__section">
-        <h2>Calendário Semanal</h2>
-        <div className="fm-training-calendar">
-          {DAYS.map((day, dayIdx) => (
-            <div key={day} className="fm-training-day">
-              <h3 className="fm-training-day__title">{day}</h3>
-              {BLOCKS.map((block) => (
-                <div key={block} className="fm-training-block">
-                  <span className="fm-training-block__label">{BLOCK_LABELS[block]}</span>
-                  <select
-                    id={`training-session-${dayIdx}-${block}`}
-                    name={`training-session-${dayIdx}-${block}`}
-                    className="fm-training-block__select"
-                    value={sessions[dayIdx]?.[block]?.type ?? 'rest'}
-                    onChange={(e) => updateSession(dayIdx, block, e.target.value)}
-                  >
-                    <option value="rest">Descanso</option>
-                    {TRAINING_TYPES.map((t) => (
-                      <option key={t.id} value={t.id}>{t.label}</option>
-                    ))}
-                  </select>
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="fm-training-view__section">
-        <h2>Monitor de Fadiga e Risco</h2>
+        )}
         <div className="fm-fatigue-grid">
           {team.squad.map((player) => {
             const risk = calculateInjuryRisk(player.id);
             return (
               <div key={player.id} className="fm-fatigue-card">
                 <span className="fm-fatigue-card__name">{player.name}</span>
-                <div className="fm-fatigue-card__bar">
+                <div className="fm-fatigue-card__bar" aria-label={`Fitness ${player.fitness}%`}>
                   <div
                     className="fm-fatigue-card__fill"
                     style={{
@@ -287,11 +425,11 @@ export const TrainingView: React.FC = () => {
                 </div>
                 <span className="fm-fatigue-card__value">{player.fitness}%</span>
                 {player.injury?.active && (
-                  <span className="fm-fatigue-card__injury">🏥 {player.injury.daysRemaining}d</span>
+                  <span className="fm-fatigue-card__injury">Lesão: {player.injury.daysRemaining}d</span>
                 )}
                 <div className="fm-fatigue-card__risk">
-                  <span style={{ color: getRiskColor(risk) }}>
-                    ⚠️ Risco: {risk}% ({getRiskLabel(risk)})
+                  <span className="fm-risk-text" style={{ color: getRiskColor(risk) }}>
+                    Risco: {risk}% ({getRiskLabel(risk)})
                   </span>
                 </div>
               </div>
@@ -300,30 +438,35 @@ export const TrainingView: React.FC = () => {
         </div>
       </section>
 
-      <section className="fm-training-view__section">
+      <section className="fms-section fm-training-view__section">
         <div className="fm-training-view__section-header">
-          <h2>Progressão de Atributos</h2>
+          <h2 className="fms-section__title">Progressão de atributos</h2>
           <button
-            className="fm-training-view__toggle-btn"
+            className="fms-link-btn fm-training-view__toggle-btn"
             onClick={() => {
               setShowProgression(!showProgression);
             }}
+            aria-expanded={showProgression}
+            aria-controls="attribute-progression-panel"
           >
-            {showProgression ? 'Ocultar' : 'Mostrar'}
+            {showProgression ? 'Ver atributos atuais' : 'Ver deltas semanais'}
           </button>
         </div>
         {!showProgression && (
-          <div className="fm-attribute-progression">
+          <div className="fm-attribute-progression" id="attribute-progression-panel">
             <p className="fm-attribute-progression__hint">
               Monitore o desenvolvimento dos jogadores ao longo das semanas.
               Treinos consistentes melhoram atributos técnicos e físicos.
             </p>
+            {team.squad.length > 15 && (
+              <p className="fm-attribute-progression__hint">Mostrando 15 de {team.squad.length} jogadores.</p>
+            )}
             <div className="fm-attribute-progression-grid">
               {team?.squad.slice(0, 15).map((player) => (
                 <div key={player.id} className="fm-attribute-progression-card">
                   <div className="fm-attribute-progression-card__header">
                     <span className="fm-attribute-progression-card__name">{player.name}</span>
-                    <span className="fm-attribute-progression-card__position">{player.position}</span>
+                    <span className="fm-attribute-progression-card__position">{POSITION_LABELS[player.position] ?? player.position}</span>
                   </div>
                   <div className="fm-attribute-progression-card__body">
                     <div className="fm-attribute-progression-bar-row">
@@ -394,18 +537,24 @@ export const TrainingView: React.FC = () => {
           </div>
         )}
         {showProgression && (
-          <div className="fm-attribute-progression">
+          <div className="fm-attribute-progression" id="attribute-progression-panel">
             <div className="fm-attribute-progression__toolbar">
               <button
                 className="fm-attribute-progression__capture-btn"
-                onClick={() => captureWeeklyAttributeSnapshot()}
+                onClick={() => {
+                  captureWeeklyAttributeSnapshot();
+                  setStatusMessage('Snapshot semanal capturado para comparar evolução.');
+                }}
               >
-                📷 Capturar Snapshot Semanal
+                <Camera size={14} /> Capturar snapshot semanal
               </button>
               <p className="fm-attribute-progression__hint">
-                Visualize as mudanças nos atributos dos jogadores ao longo das semanas.
+                Compare o último snapshot com a semana anterior. Capture um novo snapshot depois de aplicar treino.
               </p>
             </div>
+            {team.squad.length > 15 && (
+              <p className="fm-attribute-progression__hint">Mostrando 15 de {team.squad.length} jogadores.</p>
+            )}
             <div className="fm-attribute-progression-grid">
               {team?.squad.slice(0, 15).map((player) => {
                 const historyLength = player.attributeHistory?.length ?? 0;
@@ -417,7 +566,7 @@ export const TrainingView: React.FC = () => {
                   <div key={player.id} className="fm-attribute-progression-card">
                     <div className="fm-attribute-progression-card__header">
                       <span className="fm-attribute-progression-card__name">{player.name}</span>
-                      <span className="fm-attribute-progression-card__position">{player.position}</span>
+                      <span className="fm-attribute-progression-card__position">{POSITION_LABELS[player.position] ?? player.position}</span>
                       {hasHistory && (
                         <span className="fm-attribute-progression-card__weeks">
                           {historyLength - 1} semanas
@@ -437,7 +586,7 @@ export const TrainingView: React.FC = () => {
                               <span className="fm-attribute-progression-delta-new">
                                 {latestSnapshot.technical.technique || 8}
                               </span>
-                              <span className={`fm-attribute-progression-delta-change ${(Number(latestSnapshot.technical.technique || 8) - Number(prevSnapshot.technical.technique || 8)) >= 0 ? 'positive' : 'negative'}`}>
+                              <span className={`fm-attribute-progression-delta-change fm-attribute-progression-delta-change--${(Number(latestSnapshot.technical.technique || 8) - Number(prevSnapshot.technical.technique || 8)) >= 0 ? 'positive' : 'negative'}`}>
                                 {(Number(latestSnapshot.technical.technique || 8) - Number(prevSnapshot.technical.technique || 8)) >= 0 ? '+' : ''}
                                 {(Number(latestSnapshot.technical.technique || 8) - Number(prevSnapshot.technical.technique || 8))}
                               </span>
@@ -453,7 +602,7 @@ export const TrainingView: React.FC = () => {
                               <span className="fm-attribute-progression-delta-new">
                                 {latestSnapshot.technical.passing || 8}
                               </span>
-                              <span className={`fm-attribute-progression-delta-change ${(Number(latestSnapshot.technical.passing || 8) - Number(prevSnapshot.technical.passing || 8)) >= 0 ? 'positive' : 'negative'}`}>
+                              <span className={`fm-attribute-progression-delta-change fm-attribute-progression-delta-change--${(Number(latestSnapshot.technical.passing || 8) - Number(prevSnapshot.technical.passing || 8)) >= 0 ? 'positive' : 'negative'}`}>
                                 {(Number(latestSnapshot.technical.passing || 8) - Number(prevSnapshot.technical.passing || 8)) >= 0 ? '+' : ''}
                                 {(Number(latestSnapshot.technical.passing || 8) - Number(prevSnapshot.technical.passing || 8))}
                               </span>
@@ -469,7 +618,7 @@ export const TrainingView: React.FC = () => {
                               <span className="fm-attribute-progression-delta-new">
                                 {latestSnapshot.currentAbility}
                               </span>
-                              <span className={`fm-attribute-progression-delta-change ${(latestSnapshot.currentAbility - prevSnapshot.currentAbility) >= 0 ? 'positive' : 'negative'}`}>
+                              <span className={`fm-attribute-progression-delta-change fm-attribute-progression-delta-change--${(latestSnapshot.currentAbility - prevSnapshot.currentAbility) >= 0 ? 'positive' : 'negative'}`}>
                                 {(latestSnapshot.currentAbility - prevSnapshot.currentAbility) >= 0 ? '+' : ''}
                                 {(latestSnapshot.currentAbility - prevSnapshot.currentAbility)}
                               </span>
@@ -485,7 +634,7 @@ export const TrainingView: React.FC = () => {
                               <span className="fm-attribute-progression-delta-new">
                                 {latestSnapshot.fitness}%
                               </span>
-                              <span className={`fm-attribute-progression-delta-change ${(latestSnapshot.fitness - prevSnapshot.fitness) >= 0 ? 'positive' : 'negative'}`}>
+                              <span className={`fm-attribute-progression-delta-change fm-attribute-progression-delta-change--${(latestSnapshot.fitness - prevSnapshot.fitness) >= 0 ? 'positive' : 'negative'}`}>
                                 {(latestSnapshot.fitness - prevSnapshot.fitness) >= 0 ? '+' : ''}
                                 {Math.round(latestSnapshot.fitness - prevSnapshot.fitness)}%
                               </span>
@@ -510,59 +659,52 @@ export const TrainingView: React.FC = () => {
         )}
       </section>
 
-      <section className="fm-training-view__section">
-        <h2>Sessões de Prevenção</h2>
+      <section className="fms-section fm-training-view__section">
+        <h2 className="fms-section__title">Sessões de prevenção</h2>
         <div className="fm-prevention-section">
-          <p>Agendar sessão para reduzir risco de lesões:</p>
+          <p className="fm-training-view__hint">Aplique uma sessão pontual para reduzir risco sem alterar o calendário semanal.</p>
           <div className="fm-prevention-buttons">
             <Button
               variant="secondary"
-              onClick={() => {
-              const session = {
-                type: 'medical' as const,
-                targetPlayerIds: team.squad.filter(p => calculateInjuryRisk(p.id) >= 60).map(p => p.id),
-                effectiveness: 50,
-                day: 0,
-              };
-              schedulePreventionSession(session);
-              applyPreventionSession();
-            }}
+              loading={busyAction === 'medical'}
+              onClick={() => runPrevention(
+                'medical',
+                team.squad.filter(p => calculateInjuryRisk(p.id) >= 60).map(p => p.id),
+                50,
+                'Sessão médica aplicada a jogadores com risco alto ou crítico.',
+              )}
             >
-              🏥 Sessão Médica (Jogadores Críticos)
+              <HeartPulse size={14} /> Sessão médica
             </Button>
             <Button
               variant="secondary"
-              onClick={() => {
-              const session = {
-                type: 'recovery' as const,
-                targetPlayerIds: team.squad.filter(p => p.fitness < 50 || p.recoveryNeeded).map(p => p.id),
-                effectiveness: 70,
-                day: 0,
-              };
-              schedulePreventionSession(session);
-              applyPreventionSession();
-            }}
+              loading={busyAction === 'recovery'}
+              onClick={() => runPrevention(
+                'recovery',
+                team.squad.filter(p => p.fitness < 50 || p.recoveryNeeded).map(p => p.id),
+                70,
+                'Sessão de recuperação aplicada a jogadores com fitness baixo.',
+              )}
             >
-              💆 Sessão de Recuperação (Fitness Baixo)
+              <Activity size={14} /> Recuperação
             </Button>
             <Button
               variant="secondary"
-              onClick={() => {
-              const session = {
-                type: 'light' as const,
-                targetPlayerIds: team.squad.filter(p => p.consecutivePhysicalDays >= 3).map(p => p.id),
-                effectiveness: 40,
-                day: 0,
-              };
-              schedulePreventionSession(session);
-              applyPreventionSession();
-            }}
+              loading={busyAction === 'light'}
+              onClick={() => runPrevention(
+                'light',
+                team.squad.filter(p => p.consecutivePhysicalDays >= 3).map(p => p.id),
+                40,
+                'Treino leve aplicado a jogadores com carga acumulada alta.',
+              )}
             >
-              🧘 Treino Leve (Carga Alta)
+              <RotateCcw size={14} /> Treino leve
             </Button>
           </div>
         </div>
       </section>
+      </div>
+      </div>
       </div>
     </div>
   );

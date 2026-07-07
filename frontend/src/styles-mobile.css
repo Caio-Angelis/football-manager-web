@@ -297,6 +297,10 @@
 
 /* ===== Training View Mobile ===== */
 @media (max-width: 768px) {
+  .fm-training-shell {
+    grid-template-columns: 1fr;
+  }
+
   .fm-injury-risk-grid,
   .fm-fatigue-grid,
   .fm-attribute-progression-grid {
@@ -308,6 +312,10 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
+  }
+
+  .fm-training-calendar {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   }
 }
 

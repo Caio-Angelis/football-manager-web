@@ -8,15 +8,22 @@
 
 **Progresso estimado:** ~99% da especificação completa (ver `IMPLMENTATION_CHECKLIST.md`). Fluxos completos documentados em `docs/fluxo.md`. Database real de 20 clubes do Brasileirão integrada (ver `DataBase jogadores/`). Sistema multi-temporada (até 3), IA adversária ativa, dinâmica de moral semanal e relatórios pós-jogo implementados.
 
+## Atualização recente — Treinos UI (2026-07-06)
+
+- `frontend/src/components/training/TrainingView.tsx` recebeu uma passagem `/impeccable` completa: foco visual no sistema `fms-*`, ícones Lucide no lugar de emoji, layout em duas áreas (`Plano semanal` e `Monitor de fadiga e risco`) e copy mais explícita para ações.
+- O fluxo foco/calendário foi corrigido: `Guardar plano atual` e `Aplicar treino agora` preservam as edições manuais; `Gerar calendário do foco` é agora uma ação separada e explícita.
+- `frontend/src/components/ui/Button.tsx` agora aplica `variant` (`primary`, `secondary`, `success`), destravando a hierarquia visual dos CTAs.
+- Estilos de treino em `styles.css`, `styles-supplement.css` e `styles-mobile.css` foram alinhados aos tokens escuros `--t-*`, removendo os anti-padrões locais de emoji, barras com gradiente e `border-left` colorido nos cards de risco.
+
 **Stack:**
 - **Backend:** Express 4, Zustand 5 (estado em memória), Zod 4 (validação), TypeScript 5.6, tsx (dev), Vitest 4 (testes). Script headless (`headless_sim.ts`) para simulação sem servidor.
 - **Frontend:** Vite 6, React 19, Zustand 5 (thin client), React Router DOM 7, Lucide React (ícones), Recharts (gráficos), TypeScript 5.6, Vitest 3 + happy-dom (testes)
 - **Root:** concurrently (orquestra backend + frontend)
 
 **Persistência:**
-- **Saves:** arquivos JSON em `backend/saves/` (`save_slot_1.json`, `save_slot_2.json`) — até 2 slots
+- **Saves:** arquivos JSON em `backend/saves/` (`save_slot_0.json` = autosave, `save_slot_1.json`, `save_slot_2.json`) — 2 slots manuais + autosave oculto. Versionamento de schema com migração automática (C9).
 - **Tema:** `fm-theme-pref` em localStorage (`light` | `dark` | `system`)
-- **Estado do jogo:** em memória no backend (Zustand sem persist); hidratado dos saves ao iniciar o servidor
+- **Estado do jogo:** em memória no backend (Zustand sem persist); hidratado dos saves ao iniciar o servidor. Autosave disparado após cada `advanceWeek` (C9).
 
 ---
 
@@ -80,7 +87,7 @@ football-manager-web/
 │       ├── middleware/
 │       │   ├── auth.ts          # Bearer token auth (opcional via API_TOKEN env)
 │       │   ├── errorHandler.ts  # AppError → JSON, 404 handler
-│       │   ├── rateLimiter.ts   # 120 req/min por IP (cleanup periódico)
+│       │   ├── rateLimiter.ts   # 200 req/min por player-id (fallback IP, trust proxy)
 │       │   └── requestLogger.ts # INFO/WARN logs
 │       ├── services/
 │       │   └── saveService.ts   # I/O disco: persist/load/delete/list saves
@@ -109,17 +116,17 @@ football-manager-web/
 │       ├── store/
 │       │   ├── gameStore.ts     # Composition root — combina 14 slices
 │       │   ├── slices/          # 14 slices de domínio
-│       │   │   ├── core.ts          # initGame, selectTeam, advanceWeek
+│       │   │   ├── core.ts          # initGame (sem partidas iniciais), advanceWeek (try/finally, healTeamsXI, retorna inboxByTeam, avisos de contrato 4/2/0 semanas), startNextSeason (remove jogadores com contractEnd=0 → freeAgents, limpa lastInjuryWeek/degradedCondition)
 │       │   │   ├── match.ts         # simulateMatch (bloqueia início se jogador lesionado no XI), liveMatch, finishMatch, getPreMatchAnalysis
-│       │   │   ├── transfer.ts      # buy/makeOffer/accept/defer/negotiate
-│       │   │   ├── training.ts      # setTrainingPlan, applyWeeklyTraining
+│       │   │   ├── transfer.ts      # buy/makeOffer/accept/defer/negotiate, signFreeAgent (agentes livres sem taxa)
+│       │   │   ├── training.ts      # setTrainingPlan, applyWeeklyTraining (targetGroup: all/attackers/midfielders/defenders/custom + customPlayerIds), filterSquadByGroup, applyTrainingCooldown
 │       │   │   ├── injury.ts        # injury risk, prevention, fatigue, recovery
 │       │   │   ├── inbox.ts         # handleInboxAction, handleBoardReply
 │       │   │   ├── financial.ts     # generateFinancialReport, adjustSalary
 │       │   │   ├── scouting.ts      # assignScout
 │       │   │   ├── social.ts        # generateSocialTree, updateConnections
 │       │   │   ├── promises.ts      # updatePromiseCountdown, checkDeadlines
-│       │   │   ├── saves.ts         # saveGame, loadGame, deleteSave (disco)
+│       │   │   ├── saves.ts         # saveGame (structuredClone deep copy), loadGame, deleteSave (disco)
 │       │   │   ├── youth.ts         # academy, reserve team
 │       │   │   ├── attributes.ts    # snapshot, progression, delta
 │       │   │   └── press.ts         # coletiva de imprensa, fan mood, media pressure
@@ -131,14 +138,16 @@ football-manager-web/
 │       │       ├── training.ts      # applyTrainingToPlayer, captureSnapshot
 │       │       ├── transfer.ts      # maybeGenerateIncomingTransfer, recalcWageBill
 │       │       ├── scouting.ts      # maskAttributeValue, processScoutMissions, generateScoutReportForMission, calculateScoutGrade
-│       │       ├── aiManager.ts     # processAIWeeklyDecisions — transferências AI-vs-AI, ajustes táticos, renovações de contrato
+│       │       ├── aiManager.ts     # processAIWeeklyDecisions — transferências AI-vs-AI, ajustes táticos, renovações de contrato, assinatura de agentes livres
 │       │       ├── moraleDynamics.ts # applyWeeklyMoraleDynamics — 6 motores de moral (promessas, tempo de jogo, forma, cascata social, regressão)
 │       │       ├── finance.ts       # calculateMarketValue, calculatePlayerSalary, calculateTeamBudget, calculateTicketRevenue, calculateSponsorshipRevenue, calculateBroadcastingRevenue, calculateFacilityCosts, calculateStaffCosts, weeklyWages, calculateWageLimit, calculateMatchPrizeMoney, calculateSeasonFinalPrize
 │       │       └── preMatchAnalysis.ts # generatePreMatchAnalysis — Monte Carlo (500 iterações), key matchups, recomendação tática
 │       └── tests/
 │           ├── errors.test.ts
 │           ├── schemas.test.ts
-│           └── balance.test.ts   # Regression tests: 6 financial invariants (idle season, wage/revenue, market value, prizes)
+│           ├── matchEngine.test.ts  # Motor de simulação: xG, posse, cartões, acréscimos
+│           ├── balance.test.ts     # Regression tests: 6 financial invariants (idle season, wage/revenue, market value, prizes)
+│           └── gameFlows.test.ts   # Smoke tests de fluxos de jogo (15.2-15.9): geração procedural, partidas, inbox, treino, transferências, táticas, dinâmica, finanças
 │
 └── frontend/
     ├── package.json            # Vite, React 19, React Router 7, Lucide, Recharts, happy-dom
@@ -159,7 +168,8 @@ football-manager-web/
         │   └── game.ts         # Tipos espelhados do backend
         ├── hooks/
         │   ├── useTheme.ts     # Theme preference + system listener
-        │   └── useSortable.ts  # Reusable table sorting hook (sort key + direction toggle)
+        │   ├── useSortable.ts  # Reusable table sorting hook (sort key + direction toggle)
+        │   └── useKeyboardShortcuts.ts  # Global keyboard shortcuts (Space=advance week, 1-0=navigate, Ctrl+S=save, Esc=back)
         ├── utils/
         │   ├── theme.ts        # resolveTheme, applyTheme, getStoredThemePreference
         │   ├── player.ts       # getFullName() — nome completo do jogador (mirror do backend)
@@ -170,7 +180,7 @@ football-manager-web/
         ├── styles-mobile.css      # ~8KB, media queries (1024/900/768/640/480px), reduced backdrop-filter em mobile
         ├── smoke/
         │   ├── setup.ts
-        │   └── gameFlows.test.ts  # Smoke tests (Vitest)
+        │   └── winProbability.test.ts  # Testes do modelo de probabilidade de vitória (Poisson)
         └── components/
             ├── TeamSelection.tsx
             ├── ui/
@@ -204,7 +214,7 @@ football-manager-web/
             │   └── tactics-fm.css        # tema dark estilo Football Manager (escopado em .fm-tactics-fm)
             ├── inbox/
             │   ├── InboxView.tsx
-            │   └── constants.ts         # BOARD_REPLY_CATEGORIES
+            │   └── constants.ts         # BOARD_REPLY_CATEGORIES (obsoleto — não mais importado)
             ├── training/
             │   └── TrainingView.tsx
             ├── dynamics/
@@ -257,7 +267,7 @@ Backend (Express 4)
 
 - **Frontend store** (`frontend/src/store/gameStore.ts`): thin client Zustand. Getters (`getSaveSlots`, `calculateInjuryRisk`, `getActivePromises`, `getPlayerAttributeProgression`, etc.) computam localmente do estado sincronizado. Mutations chamam `apiAction()` e sincronizam resposta.
 - **Backend store** (`backend/src/store/gameStore.ts`): Zustand em memória, composition root de 13 slices. Sem persistência — estado é reconstruído em `initGame()` ou hidratado de saves em `hydrateSavesFromDisk()`.
-- **`updateTeam`**: caso especial — frontend computa o `newTeam` localmente (UI instantânea) e envia o objeto completo ao backend.
+- **`updateTeam`**: caso especial — frontend computa o `newTeam` localmente (UI instantânea) e envia o objeto ao backend. O backend valida com Zod whitelist (`teamUpdateFields`) e faz **merge seletivo** — apenas campos táticos são aplicados (tacticsConfig, startingXI, squadStatus, formation, teamMentality, tactic, passingStyle, etc.). Campos protegidos (budget, reputation, squad, scouts, staffLevel, points, played, etc.) são stripped pelo Zod e preservados do estado atual.
 - **`syncFromResponse()`**: `useGameStore.setState(data.state)` — substitui todo o estado frontend pelo estado backend.
 
 ### Tipos
@@ -275,17 +285,18 @@ Tipos são definidos no backend em 13 arquivos de domínio sob `backend/src/type
 - **Atributos de GK** (`GKAttributes`)
 - **Atributos ocultos** (`HiddenAttributes`)
 - **CA/PA** (`currentAbility` / `potentialAbility`): escala 1-200
-- **Contrato:** salário (milhares), `contractEnd` (semanas), cláusula de rescisão
+- **Contrato:** salário (milhares), `contractEnd` (semanas), cláusula de rescisão, `freeAgent` (opcional, true se sem clube)
 - **Status:** moral, forma, condição física, lesão (`{ active, daysRemaining, totalDays, type, severity, source }`), `squadStatus`
 - **Dinâmica:** `teamMates`, `socialGroup`, `promises` (interface `PlayerPromise`)
 - **Histórico:** `attributeHistory` (limitado a 20 snapshots), `fatigueLog` (limitado a 20 entradas)
 - **Gestão:** `coachTreatment`, `trustLevel`, `cumulativeLoad`, `fatigueLog`
+- **Reputação:** `reputation` (1-100) — reconhecimento mundial do jogador; `fame` (1-100) — fama para scouting
 
 ### Time (`team.ts`)
 - Identidade, finanças, infraestrutura, estatísticas de temporada
 - **Táticas avançadas:** mentalidade (7 níveis), largura, passe, ritmo, pressão, etc.
 - **`tacticsConfig`:** roles por posição + instruções individuais + `setPieces?: SetPiecesConfig` (bolas paradas: escanteios, faltas, laterais, pênaltis, defesa)
-- **`coachTreatment`**, `leagueForm`, `formRating`, `leaguePosition`
+- **`coachTreatment`**, `leagueForm`, `formRating`, `leaguePosition` (**sincronizado automaticamente** por `advanceWeek` e `startNextSeason` via `calculateLeagueStandings`; inicializa em 0)
 - **Olheiros:** `scouts: Scout[]` (id, name, judgingAbility, judgingPotential, assigned)
 
 ### Partida (`match.ts`)
@@ -313,7 +324,7 @@ Tipos são definidos no backend em 13 arquivos de domínio sob `backend/src/type
 - `FatigueLogEntry`, `Recommendation`, `DegradedCondition`, `InjuryReport`
 
 ### Outros
-- `InboxMessage` (`inbox.ts` — tipos: transfer/injury/suggestion/board/youth/training/financial/news), `BoardReply` + `FinancialReport` (`financial.ts`) — `FinancialReport` inclui `facilityCosts` e `broadcastingRevenue`
+- `InboxMessage` (`inbox.ts` — tipos: transfer/injury/suggestion/board/youth/training/financial/news; inclui `boardReplyOptions?: BoardReplyOption[]`), `BoardReply` + `BoardReplyOption` + `BoardReplyEffect` + `FinancialReport` (`financial.ts`) — `BoardReply` agora usa `optionId`/`optionLabel` (não mais `response`); `BoardReplyOption` tem `effects` com `satisfactionChange`, `budgetChange`, `moraleChange`, `transferBudgetChange`, `fanMoodChange`, `addBoardPromise`; `FinancialReport` inclui `facilityCosts` e `broadcastingRevenue`
 - `TrainingSession`, `WeeklyTrainingPlan` (`training.ts`)
 - `SocialNode`, `SocialTree` (`social.ts`)
 - `FormResult`, `LeagueStandings` (`league.ts`)
@@ -333,8 +344,10 @@ Carrega times reais do Brasileirão a partir de arquivos JSON em `DataBase jogad
 | Função | Descrição |
 |--------|-----------|
 | `loadTeamsFromDatabase()` | Lê todos os `*.json` de `DataBase jogadores/`, converte para `Team[]` |
-| `convertPlayer()` | Converte `JsonPlayer` (6 stats + over_geral) → `Player` completo |
-| `convertTeam()` | Converte `JsonTeam` → `Team` com reputação baseada no overall médio |
+| `convertPlayer()` | Converte `JsonPlayer` (6 stats + over_geral) → `Player` completo com reputação calculada (overall + produtividade + idade + reputação do clube) |
+| `convertTeam()` | Converte `JsonTeam` → `Team` com reputação real do clube (mapa hardcoded Brasileirão 2025) |
+| `calculateTeamReputation()` | Retorna reputação real do clube (1-100) baseada em mapa hardcoded FM; fallback usa overall médio |
+| `calculatePlayerReputation()` | Calcula reputação do jogador (1-100): 60% overall + bônus produtividade + idade + visibilidade do clube + overrides para stars |
 | `assignBoardExpectations()` | Atribui `boardExpectation` por percentis da reputação (top 10% title, próximos 30% top4, próximos 40% midtable, bottom 20% relegation) |
 | `buildAttributes()` | Deriva atributos técnicos, mentais, físicos e GK dos 6 stats básicos |
 | `to20()` | Converte escala 0-100 → 1-20 |
@@ -403,6 +416,7 @@ shortlist (ShortlistEntry[]), scoutRecommendations (ScoutRecommendation[]),
 activeLoans (LoanDeal[]), biddingWars (BiddingWar[]),
 isAdvancing (boolean) — lock contra chamadas concorrentes de advanceWeek
 matchBlockMessage (string | null) — mensagem de bloqueio quando jogador lesionado está no XI
+freeAgents (Player[]) — jogadores sem clube após expiração de contrato
 ```
 
 ### Slices (14)
@@ -411,10 +425,10 @@ matchBlockMessage (string | null) — mensagem de bloqueio quando jogador lesion
 |-------|---------|-----------------|
 | Core | `core.ts` | `initGame` (database real + fallback procedural; **reseta TODOS os campos de estado** incluindo pendingInstallments, incomingBonuses, transfers, counterOffers, fatigueLog, recommendations, degradedConditions, socialTree, youthAcademy, reserveTeam, completedTransfers, etc.; **mediaPressure inicial = 50/low**), `selectTeam`, `deselectTeam`, `updateTeam`, `advanceWeek` (**bloqueia avanço se jogador lesionado no XI** — define `matchBlockMessage`; **lock isAdvancing** contra chamadas concorrentes; auto-finaliza partida pendente, simula outras, **cura lesões via `healInjuryForPlayer`** (7 dias base + bonus staff/facilities, age penalty, severity penalty; marca injuryHistory como recovered), **gera lesões baseadas em risco** (roll semanal: 2% base + risk×0.08%, via `generateInjuryForPlayer`), processa IA adversária, dinâmica de moral, scouting, finanças, fadiga via helper compartilhado `applyFatigueDecayToPlayer`, condição degradada via `updateDegradedConditionForPlayer`, parcelas com direction payable/receivable, **bônus baseados em estatísticas reais** seasonGoals/seasonAssists/played/form/position, inbox; **todas as atualizações pós-semana (promise countdown, treino, snapshot de atributos, press decay, youth intake) são batched em um único `set()` final** — sem chamadas `set()` adicionais), `startNextSeason` (**reseta stats + TODO o estado de transferências/scouting**: incomingTransfers, transfers, counterOffers, deferredTransfers, inbox, scoutReports, pendingInstallments, incomingBonuses, transferAgreements, scoutMissions, shortlist, scoutRecommendations, activeLoans, biddingWars, fanMood, mediaPressure; gera novo calendário), `updateClubPerformance`, `updateLeagueForm`, `setLeaguePosition` |
 | Match | `match.ts` | `simulateMatch` (inicia estado ao vivo via `initLiveMatchState`), `generateLiveMatchMinute` (simula 1 minuto via `simulateMinute`), `applyMatchIntervention` (legado), `substitutePlayer` (substituição real: troca outId↔inId no startingXI do usuário; limite 5; efeito imediato pois o motor lê state.teams por minuto), `applyShout` (grito tipado encourage/demand/praise/calm — moral + interventionBoost distintos), `finishMatch` (continua simulação até minuto 90, gera `postMatchReport`), `getPreMatchAnalysis`. **Intervalo (half-time)** é gerenciado no frontend (pausa o loop aos 45' até o técnico iniciar o 2º tempo) (gera análise preditiva via Monte Carlo 500 iterações — probabilidades, placar provável, duelos, recomendação tática) |
-| Transfer | `transfer.ts` | `buyPlayer` (parcelas marcadas como `direction: 'payable'`), `makeOffer`, `acceptOffer`, `negotiatePlayerContract`, `deferTransfer`, `reinstateDeferredTransfer`, `rejectDeferredTransfer`, `negotiateCounterOffer`, `acceptIncomingTransfer` (parcelas marcadas como `direction: 'receivable'`), `generateInstallmentClause`, `generatePlayerBonus`, `checkBonuses` (usa estatísticas reais: seasonGoals, seasonAssists, played, form, league position), `claimBonus`, parcelas, bônus, acordos, `loanPlayer`, `recallLoanedPlayer`, `buyLoanedPlayer`, `activateReleaseClause`, `raiseBid`, `withdrawBid` |
-| Training | `training.ts` | `setTrainingPlan`, `applyWeeklyTraining` (passa o foco real — physical, technical, cohesion, medical, recovery, light — diretamente para `updatePlayerAttributes`), `applyTrainingCooldown` — **buscam apenas no time selecionado** |
+| Transfer | `transfer.ts` | `buyPlayer` (parcelas marcadas como `direction: 'payable'`), `signFreeAgent` (agentes livres sem taxa, só salário), `makeOffer`, `acceptOffer`, `negotiatePlayerContract`, `deferTransfer`, `reinstateDeferredTransfer`, `rejectDeferredTransfer`, `negotiateCounterOffer`, `acceptIncomingTransfer` (parcelas marcadas como `direction: 'receivable'`), `generateInstallmentClause`, `generatePlayerBonus`, `checkBonuses` (usa estatísticas reais: seasonGoals, seasonAssists, played, form, league position), `claimBonus`, parcelas, bônus, acordos, `loanPlayer`, `recallLoanedPlayer`, `buyLoanedPlayer`, `activateReleaseClause`, `raiseBid`, `withdrawBid` |
+| Training | `training.ts` | `setTrainingPlan`, `applyWeeklyTraining` (aceita `targetGroup` — all/attackers/midfielders/defenders/custom — e `customPlayerIds?`; filtra elenco via `filterSquadByGroup` antes de aplicar o foco real — physical, technical, cohesion, medical, recovery, light — diretamente para `updatePlayerAttributes`), `applyTrainingCooldown` — **buscam apenas no time selecionado** |
 | Injury | `injury.ts` | `getInjuryReport` (usa dados armazenados: type, severity, daysRemaining, totalDays para recoveryProgress), `schedulePreventionSession`, `recoverInjuredPlayer` (marca apenas a lesão mais recente não recuperada no injuryHistory), `applyPostInjuryCondition` (degradedCondition baseado em severity: severe→minimal, moderate→low, minor→moderate), `updateDegradedConditions`, fadiga, recomendações — **todas as ações buscam apenas no time selecionado** (`state.selectedTeam`) |
-| Inbox | `inbox.ts` | `handleInboxAction`, `handleBoardReply`, `markAsRead`, `removeMessage` |
+| Inbox | `inbox.ts` | `handleInboxAction`, `handleBoardReply` (agora aceita `optionId` — aplica efeitos reais: satisfactionChange, budgetChange, moraleChange, fanMoodChange, transferBudgetChange, addBoardPromise), `markAsRead`, `removeMessage` |
 | Financial | `financial.ts` | `generateFinancialReport`, `getFinancialReport`, `adjustPlayerSalary` |
 | Scouting | `scouting.ts` | `assignScout` (sem playerId: embaralha candidatos antes de selecionar 3), `assignScoutMission`, `getScoutKnowledge`, `addToShortlist` (playerId, priority?, notes?), `removeFromShortlist`, `getShortlist`, `dismissScoutRecommendation` |
 | Social | `social.ts` | `generateSocialTree` (**guard para elenco vazio**, força de conexão determinística baseada em socialGroup/squadStatus), `updateSocialConnections` (atualização imutável de edges, **bidirecional**: sempre atualiza/cria tanto A→B quanto B→A) |
@@ -428,14 +442,14 @@ matchBlockMessage (string | null) — mensagem de bloqueio quando jogador lesion
 
 | Helper | Arquivo | Funções |
 |--------|---------|---------|
-| Match Engine | `matchEngine.ts` | `getTacticalBonus`, `calculateTeamStrength`, `getPossessionBias`, `simulateMatchResult` (xG+Poisson+set pieces), `simulateFullMatch` (90min passo a passo), `simulateMinute` (integra set pieces: cantos, faltas, pênaltis, laterais), `initLiveMatchState`, `calculatePlayerMatchRatings`, `generatePostMatchReport` (mapa de calor, insights, conselhos), `generateWeekMatches`, `applyMatchResultToTeams` |
-| League | `league.ts` | `calculateLeagueStandings` |
+| Match Engine | `matchEngine.ts` | `getTacticalBonus`, `calculateTeamStrength`, `getPossessionBias`, `simulateMatchResult` (xG+Poisson+set pieces), `simulateFullMatch` (90min passo a passo, **filtra sentOff** via `_matchSentOff`), `simulateMinute` (integra set pieces: cantos, faltas, pênaltis, laterais; **posicionamento correto de tiro de meta**), `initLiveMatchState`, `calculatePlayerMatchRatings` (**limita minutesPlayed de expulsos**), `generatePostMatchReport` (mapa de calor, insights, conselhos), `generateWeekMatches`, `applyMatchResultToTeams` |
+| League | `league.ts` | `calculateLeagueStandings` (**usa campos cumulativos do Team**, não array de partidas) |
 | Inbox | `inbox.ts` | `generateInboxMessage` |
 | Injury | `injury.ts` | `calculatePlayerInjuryRisk` (retorna 0 se já lesionado), `getRiskLevel`, `generateInjuryForPlayer` (centralizada: severity roll baseado em risk+proneness, age/fitness penalties, staff/facilities care reduction, injury type, injuryHistory, degradedCondition, fitness drop), `healInjuryForPlayer` (cura semanal: base 7 dias + staff/facilities bonus, age penalty, severity penalty no início), `applyFatigueDecayToPlayer` (recuperação semanal: fitness +5, load -5, consecutive -1, clear recoveryNeeded), `updateDegradedConditionForPlayer`, `reduceInjuryFromRecoveryTraining`, `INJURY_TYPE_LABELS` |
 | Training | `training.ts` | `applyTrainingToPlayer`, `captureSnapshot`, `updatePlayerAttributes` (recalcula CA com curva de idade: <21 ×1.5, 21-23 ×1.2, 24-27 ×0.8, 28-30 ×0.4, 31+ ×0.1; **respeita PA ceiling**: `min(potentialAbility, 200, ...)`; **usa `generateInjuryForPlayer` centralizada** para lesões em treino físico; **usa `reduceInjuryFromRecoveryTraining`** para sessões médico/recuperação; aceita `facilitiesLevel` e `staffLevel` como params) |
-| Transfer | `transfer.ts` | `maybeGenerateIncomingTransfer`, `recalcWageBill` |
+| Transfer | `transfer.ts` | `maybeGenerateIncomingTransfer`, `recalcWageBill`, `reputationGapImpact` (calcula impacto do gap reputação jogador-vs-clube: willingnessAdjust, salaryMultiplier, refuseChance) |
 | Scouting | `scouting.ts` | `maskAttributeValue`, `maskPlayerAttributes`, `getBestScout`, `generateDefaultScouts`, `processScoutMissions`, `generateScoutReportForMission`, `calculateScoutGrade` |
-| AI Manager | `aiManager.ts` | `processAIWeeklyDecisions` — orquestra `processAITransfers` (janelas 1-12 e 20-26, AI-vs-AI), `processAITactics` (ajustes a cada 4 semanas: rebaixamento 50/30/20 attacking/balanced/defensive, título 40% attacking em boa forma, mid-table 50% defensive após derrotas; demissão de técnico com nova formação), `processAIContracts` (renovação automática) |
+| AI Manager | `aiManager.ts` | `processAIWeeklyDecisions` — orquestra `processAITransfers` (janelas 1-12 e 20-26, AI-vs-AI; **usa `reputationGapImpact`** para vontade do jogador, salário e recusa categórica), `processAITactics` (ajustes a cada 4 semanas: rebaixamento 50/30/20 attacking/balanced/defensive, título 40% attacking em boa forma, mid-table 50% defensive após derrotas; demissão de técnico com nova formação), `processAIContracts` (renovação automática), `processAIReleaseClauses` (ativa cláusulas de rescisão; **usa `reputationGapImpact`**), `processAIFreeAgentSignings` (IA assina agentes livres sem taxa, priorizando posição mais fraca; **usa `reputationGapImpact`**) |
 | Morale Dynamics | `moraleDynamics.ts` | `applyWeeklyMoraleDynamics` — 6 motores: promessas expiradas, tempo de jogo vs. status, forma do time, cascata do capitão, cascata de grupo social, regressão à média |
 | Finance | `finance.ts` | `calculateMarketValue` (exponencial por overall, topo ~80M), `calculatePlayerSalary` (×30 + ruído, semanal em K R$), `calculateTeamBudget` (×10), `calculateTicketRevenue`, `calculateSponsorshipRevenue`, `calculateBroadcastingRevenue`, `calculateFacilityCosts` (×0.35), `calculateStaffCosts` (×0.25), `weeklyWages` (passa direto, sem conversão), `calculateWageLimit` (60% receita semanal), `calculateMatchPrizeMoney` (base ×0.2, win ×3/draw ×1.5/loss ×0.5), `calculateSeasonFinalPrize` (base ×10 × positionFactor, creditado ao final das 38 rodadas) — espelhado em `frontend/src/utils/finance.ts` |
 | Press | `press.ts` | `generatePressConference` (gera perguntas contextuais por categoria/tom), `calculatePressConferenceEffects` (mapeia tom de resposta → efeitos em moral/diretoria/torcida/mídia), `updateFanMood`, `updateMediaPressure`, `weeklyFanMoodDecay`, `weeklyMediaPressureDecay`, `getMediaPressurePerformanceModifier`, `getFanMoodRevenueModifier`, `RESPONSE_OPTIONS` (banco de respostas predefinidas por tom) |
@@ -515,13 +529,13 @@ matchBlockMessage (string | null) — mensagem de bloqueio quando jogador lesion
 **`/api/action` fluxo:**
 1. Auto-discover action names do store (funções, **excluindo internas do Zustand**: setState, getState, subscribe, destroy, getInitialState)
 2. Valida args com Zod schema (`actionSchemas`)
-3. Caso especial: `updateTeam` recebe `[teamId, newTeam]` em vez de updater
+3. Caso especial: `updateTeam` recebe `[teamId, newTeam]` — valida com Zod whitelist (`teamUpdateFields`), faz merge seletivo preservando budget/reputation/squad, e não chama `fn.apply`
 4. Executa `fn.apply(store, args)`
 5. Retorna `{ result, state }`
 
 ### Validação Zod (`backend/src/validation/schemas.ts`)
 
-91 schemas cobrindo todas as actions. Tipos comuns: `zString`, `zNumber`, `zNumberNonNeg`, `zMatchIndex`, `zSlot` (1|2), `zEmpty`. Actions sem schema emitem `console.warn`. Novos schemas: `loanPlayerSchema`, `recallLoanedPlayerSchema`, `buyLoanedPlayerSchema`, `activateReleaseClauseSchema`, `raiseBidSchema`, `withdrawBidSchema`, `addToShortlistSchema`, `removeFromShortlistSchema`, `getShortlistSchema`, `dismissScoutRecommendationSchema`.
+91 schemas cobrindo todas as actions. Tipos comuns: `zString`, `zNumber`, `zNumberNonNeg`, `zMatchIndex`, `zSlot` (1|2), `zEmpty`. Actions sem schema emitem `console.warn`. `updateTeam` usa `teamUpdateFields` (Zod object whitelist) que faz strip de campos protegidos (budget, reputation, squad, etc.) e permite apenas campos táticos. Novos schemas: `loanPlayerSchema`, `recallLoanedPlayerSchema`, `buyLoanedPlayerSchema`, `activateReleaseClauseSchema`, `raiseBidSchema`, `withdrawBidSchema`, `addToShortlistSchema`, `removeFromShortlistSchema`, `getShortlistSchema`, `dismissScoutRecommendationSchema`.
 
 ### Erros (`backend/src/utils/errors.ts`)
 
@@ -536,7 +550,7 @@ matchBlockMessage (string | null) — mensagem de bloqueio quando jogador lesion
 | CORS | (express) | Permite cross-origin |
 | JSON Body | (express) | Limite 5mb |
 | Request Logger | `requestLogger.ts` | `INFO/WARN method path → status (duration)` |
-| Rate Limiter | `rateLimiter.ts` | 120 req/min por IP (429 se exceder); cleanup de entradas expiradas a cada 5min |
+| Rate Limiter | `rateLimiter.ts` | 200 req/min por player-id (fallback IP, trust proxy); cleanup de entradas expiradas a cada 5min |
 | Auth | `auth.ts` | Bearer token (opcional, ativa se `API_TOKEN` env set) |
 | Error Handler | `errorHandler.ts` | `AppError` → JSON; 404 handler |
 
@@ -624,7 +638,16 @@ matchBlockMessage (string | null) — mensagem de bloqueio quando jogador lesion
 
 - **Hook reutilizável** `useSortable<T>(initialKey, initialDirection)` — gerencia `SortState<T>` (key + direction) e `toggleSort(key)` que alterna asc/desc
 - Aplicado em: `SquadTable`, `FinanceView` (folha salarial), `DynamicsView` (satisfação), `LeagueTable`, `MatchCenter` (classificação inline)
-- Cabeçalhos clicáveis com indicador ↑/↓; CSS `--sortable` classes com `cursor: pointer` e hover
+
+### Atalhos de Teclado (`frontend/src/hooks/useKeyboardShortcuts.ts`)
+
+- **Hook global** `useKeyboardShortcuts()` — registra listener `keydown` em `window`, integrado em `App.tsx`
+- **Space** → avançar semana (offline) ou toggle ready (online, via `CustomEvent('fm-shortcut-ready')`)
+- **1-9, 0** → navegação rápida entre páginas (dashboard=1, elenco=2, … imprensa=0)
+- **Ctrl+S** → salvar no slot 1
+- **Escape** → fechar modais (match block) ou voltar ao dashboard
+- **Ignora** atalhos quando foco está em `input`, `textarea`, `select` ou `contentEditable`
+- Hints visuais: badges numéricos na sidebar (`.fm-sidebar__key-hint`) e tooltip no botão Continuar
 
 ### Componentes UI
 
@@ -704,9 +727,9 @@ matchBlockMessage (string | null) — mensagem de bloqueio quando jogador lesion
 - **Topbar:** logo do clube, título "Táticas", subtítulo com próximo jogo (oponente + C/F), data (temporada/semana) e botão **Continuar** (`advanceWeek`); setas de navegação ciclam formações (`cycleFormation`); ícones Globe → `/clube` e Trophy → `/classificacao`
 - **Subtabs:** Overview, Player, Opposition, Set pieces, Roles, Numbers — Overview/Player mostram tabela de seleção; Opposition mostra análise do adversário; Roles mostra tabela de papéis/funções por slot; Set pieces tem painel completo de bolas paradas; Numbers é placeholder
 - **Campo vertical (`FORMATIONS`):** GK embaixo → ataque no topo; marcadores com camisa, código do role + duty (cores por linha: GK/DEF verde, MID âmbar, FWD vermelho); **drag-and-drop** troca jogadores entre slots (`swapSlots` → atualiza `startingXI` + `tacticsConfig.playerRoles`) e entre banco e campo (`swapBenchToSlot` → reserva assume slot, titular cai para banco automaticamente); highlight visual de drop-target com brilho azul (`--t-accent`)
-- **Toolbar do campo:** "Editar tática" (toggle painel), botão Plus (auto-preencher escalão com melhores jogadores por posição via `autoFillBestXI`), botão Save (`saveGame(1)` com feedback de status)
+- **Toolbar do campo:** "Editar tática" (toggle painel), botão Plus (auto-preencher escalão via `autoFillBestXI` — algoritmo de 3 passadas: 1º posição primária, 2º posição secundária, 3º fallback por `currentAbility * positionProficiency`), botão Heart (substituir lesionados via `replaceInjured` — identifica titulares com `injury.active`, busca substitutos não lesionados com fitness ≥ 60, prioriza posição primária → secundária → fallback, mostra badge com contagem), botão Save (`saveGame(1)` com feedback de status)
 - **Indicadores:** Entrosamento / Intensidade / Resposta + banco lateral com nomes reais dos reservas (`benchPlayers`); itens do banco são **draggable** — arrastar reserva para slot do campo inverte com titular; arrastar titular para banco também funciona
-- **Tabela de seleção:** colunas Instruções (barra colorida + role/duty), Nac, Habilidade (estrelas via `currentAbility`), Jogador, Posição, Con (fitness), Pre, Mor (cor por moral), Carga, Desempenho, Últ. 5, Méd; titulares por slot + reservas; botão "Sugestão de seleção" e "Escolha rápida" disparam `autoFillBestXI`; botão Filter alterna entre titulares e elenco completo (`showAllSquad`); **linhas de reserva são draggable** — arrastar qualquer reserva da tabela para o campo 2D inverte com o titular do slot (`swapBenchToSlot` via `dragTableBenchId`)
+- **Tabela de seleção:** colunas Instruções (barra colorida + role/duty), Nac, Habilidade (estrelas via `currentAbility`), Jogador, Posição, Con (fitness), Pre, Mor (cor por moral), Carga, Desempenho, Últ. 5, Méd; titulares por slot + reservas; botão "Sugestão de seleção" e "Escolha rápida" disparam `autoFillBestXI` (3 passadas: primária → secundária → fallback, score = `currentAbility * (0.4 + 0.6 * prof/20)`); botão "Substituir lesionados" dispara `replaceInjured` (desabilitado se `injuredInXI === 0`, mostra contagem entre parênteses); botão Filter alterna entre titulares e elenco completo (`showAllSquad`); **linhas de reserva são draggable** — arrastar qualquer reserva da tabela para o campo 2D inverte com o titular do slot (`swapBenchToSlot` via `dragTableBenchId`)
 - **Painel "Editar tática":** formação (chips), mentalidade, passe, ritmo (escreve em `team.formation/teamMentality/passingStyle/tempo`)
 - Mapas `ROLE_ABBR` / `DUTY_ABBR` traduzem roles/duties armazenados em `tacticsConfig.playerRoles` para abreviações FM
 - **Aba Set pieces (`SetPiecesPanel`):** painel com 2 colunas (Ataque/Defesa); Ataque: escanteios (cobrança: 1º poste, 2º poste, área, curto, borda — cobrador + alvo/cabeçador), faltas (tiro direto, cruzamento, curto, bola longa — cobrador), laterais (curto, longo, rápido), pênaltis (cobrador); Defesa: escanteios (marcação: individual/zonal/misto + contra-ataque sim/não), faltas (marcação + barreira: pequena/média/grande); selects de jogador mostram atributos relevantes (Cr=Crossing, Cab=Heading, Imp=Jumping, Fl=FreeKicks, Fin=Finishing, Com=Composure); persiste em `tacticsConfig.setPieces` via `updateSetPieces`
@@ -717,7 +740,7 @@ matchBlockMessage (string | null) — mensagem de bloqueio quando jogador lesion
 - 8 tipos de mensagem (Transfer, Lesão, Sugestão, Diretoria, Base, Treino, Financeiro, Notícia)
 - Filtros por tipo; modais funcionais (lesão, diretoria, financeiro)
 - Tipo `news` é apenas informativo (botão "Marcar como Lido"), usado para transferências AI-vs-AI, cláusulas ativadas, empréstimos concluídos, bônus ativados e disputas
-- `BOARD_REPLY_CATEGORIES` em `constants.ts`
+- `BOARD_REPLY_CATEGORIES` em `constants.ts` (obsoleto — não mais importado; respostas agora via `boardReplyOptions` na mensagem)
 
 ### TrainingView (`training/TrainingView.tsx`)
 
@@ -820,10 +843,10 @@ matchBlockMessage (string | null) — mensagem de bloqueio quando jogador lesion
    ├─ Aplica treino semanal (se plano definido)
    ├─ Atualiza finanças (bilheteira, patrocínio, salários)
    ├─ Gera incoming transfers (35% chance)
-   ├─ Gera inbox messages (lesões, recomendações, contexto)
+   ├─ Gera inbox messages (lesões, recomendações, contexto, avisos de contrato 4/2/0 semanas)
    ├─ Processa parcelas vencidas e bônus
    ├─ Atualiza classificação (leagueTable)
-   ├─ processAIWeeklyDecisions() — IA adversária: transferências AI-vs-AI, ajustes táticos, renovações
+   ├─ processAIWeeklyDecisions() — IA adversária: transferências AI-vs-AI, ajustes táticos, renovações, assinatura de agentes livres
    ├─ applyWeeklyMoraleDynamics() — dinâmica de moral para todos os times (6 motores)
    ├─ processScoutMissions() — progresso de olheiros
    ├─ updatePromiseCountdown() + captureWeeklyAttributeSnapshot()
@@ -834,9 +857,10 @@ matchBlockMessage (string | null) — mensagem de bloqueio quando jogador lesion
 ### Transferência
 ```
 1. Mercado: buyPlayer() ou makeOffer() → POST /api/action
-2. Oferta recebida: inbox → acceptIncomingTransfer/reject/defer
-3. Contra-oferta: negotiateCounterOffer()
-4. Parcelas e bônus gerados automaticamente
+2. Oferta recebida: inbox (type='transfer') → acceptIncomingTransfer/reject/defer/negotiateCounterOffer
+3. Contra-oferta: negotiateCounterOffer() → mensagem informativa (type='news') no inbox
+4. Resolução: no advanceWeek, IA aceita/rejeita → mensagem no inbox (type='news')
+5. Parcelas e bônus gerados automaticamente
 ```
 
 ### Save/Load
@@ -881,7 +905,7 @@ Carregar:
 
 | Área | Status | Pendências |
 |------|--------|------------|
-| Testes automatizados | ✅ | Smoke tests (frontend) + errors/schemas/balance tests (backend) — 8 invariantes financeiros |
+| Testes automatizados | ✅ | gameFlows/matchEngine/balance/errors/schemas tests (backend) + winProbability tests (frontend) — 8 invariantes financeiros |
 | Testes de UI | 🟡 | Sem Playwright/Cypress no CI |
 | Liga | 🔲 | 20 times (database real), sem descenso/subida |
 | IA adversária | ✅ | AI Manager ativo: transferências, táticas, renovações, demissões |
@@ -902,8 +926,7 @@ npm run install:all  # instala deps de frontend e backend
 # Frontend (cd frontend)
 npm run dev          # Vite dev server
 npm run build        # tsc + vite build
-npm run test         # Vitest — smoke tests
-npm run test:smoke   # build + testes
+npm run test         # Vitest — winProbability tests
 
 # Backend (cd backend)
 npm run dev          # tsx watch src/server.ts

@@ -11,6 +11,9 @@ import { hydrateSavesFromDisk } from './store/slices/saves.js';
 const app = express();
 const PORT = process.env.PORT ?? 3001;
 
+// E-26: Trust proxy para que req.ip seja o IP real do cliente atrás de reverse proxy.
+app.set('trust proxy', 1);
+
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));
 app.use(requestLogger);

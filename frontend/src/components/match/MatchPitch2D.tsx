@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { Team, Player, MatchEvent } from '../../types/game';
 import { getFullName } from '../../utils/player';
 import { getTeamDiscColor as getTeamColor } from '../../utils/teamColors';
+import { fmtMinute } from '../../utils/matchTime';
 import { MatchEventIcon } from '../ui/MatchEventIcon';
 import './MatchPitch2D.css';
 
@@ -302,12 +303,14 @@ interface MatchPitch2DProps {
   events: MatchEvent[];
   isLive: boolean;
   ballPos?: number; // 0-1 do estado live (0 = gol casa, 1 = gol fora)
+  ballPosY?: number; // 0-1 largura do campo vinda do motor (0 = topo, 1 = base)
+  ballHolderId?: string; // jogador com a bola — recebe destaque
   possessionSide?: 'home' | 'away'; // quem está com a bola
   speed?: number; // 1, 2, 4 — multiplicador de velocidade da animação
 }
 
 export const MatchPitch2D: React.FC<MatchPitch2DProps> = ({
-  homeTeam, awayTeam, homeGoals, awayGoals, minute, possession, events, isLive, ballPos, possessionSide, speed = 1,
+  homeTeam, awayTeam, homeGoals, awayGoals, minute, possession, events, isLive, ballPos, ballPosY, ballHolderId, possessionSide, speed = 1,
 }) => {
   const homePositions = useMemo(() => buildPositions(homeTeam, 'home'), [homeTeam]);
   const awayPositions = useMemo(() => buildPositions(awayTeam, 'away'), [awayTeam]);
@@ -338,14 +341,15 @@ export const MatchPitch2D: React.FC<MatchPitch2DProps> = ({
     if (ballPos !== undefined) {
       // ballPos: 0 = gol casa, 1 = gol fora → x no campo (0-100)
       const targetX = ballPos * 100;
-      // Y aleatório dentro do campo
-      const targetY = 20 + Math.random() * 60;
+      // Y real do motor (largura do campo); fallback aleatório para estados antigos
+      const targetY = ballPosY !== undefined ? ballPosY * 100 : 20 + Math.random() * 60;
       setBall({ x: targetX, y: targetY });
       const homeHasBall = possessionSide === 'home';
       setHomeDyn(computeShiftedPositions(homePositions, 'home', targetX, targetY, homeHasBall));
       setAwayDyn(computeShiftedPositions(awayPositions, 'away', targetX, targetY, !homeHasBall));
       return;
     }
+    // (dependência ballPosY reexecuta este efeito a cada tick do motor)
 
     // Fallback: movimento aleatório original
     const homeBias = (possession || 50) / 100;
@@ -378,7 +382,7 @@ export const MatchPitch2D: React.FC<MatchPitch2DProps> = ({
       setAwayDyn(computeShiftedPositions(awayPositions, 'away', newBallX, newBallY, !homeHasBall));
     }, 700 / speed);
     return () => clearInterval(id);
-  }, [isLive, possession, homePositions, awayPositions, ballPos, possessionSide, speed]);
+  }, [isLive, possession, homePositions, awayPositions, ballPos, ballPosY, possessionSide, speed]);
 
   // Detecta gol e dispara celebração (sem depender de events para não re-executar a cada tick)
   useEffect(() => {
@@ -418,10 +422,11 @@ export const MatchPitch2D: React.FC<MatchPitch2DProps> = ({
   const renderDiscs = (positions: DiscPos[], color: string) =>
     positions.map(d => {
       const isFlashing = flashName && d.player.name === flashName;
+      const hasBall = isLive && ballHolderId === d.player.id;
       return (
         <div
           key={d.player.id}
-          className={`fm-pitch2d__player${isFlashing ? ' fm-pitch2d__player--flash' : ''}`}
+          className={`fm-pitch2d__player${isFlashing ? ' fm-pitch2d__player--flash' : ''}${hasBall ? ' fm-pitch2d__player--ball' : ''}`}
           style={{
             left: `${d.x}%`,
             top: `${d.y}%`,
@@ -446,7 +451,7 @@ export const MatchPitch2D: React.FC<MatchPitch2DProps> = ({
           <span className="fm-pitch2d__score">{homeGoals} - {awayGoals}</span>
           <span className={`fm-pitch2d__clock${isLive ? ' fm-pitch2d__clock--live' : ''}`}>
             {isLive && <span className="fm-pitch2d__pulse" />}
-            {isLive ? `${minute}'` : 'Final'}
+            {isLive ? `${fmtMinute(minute)}'` : 'Final'}
           </span>
         </div>
         <div className="fm-pitch2d__team fm-pitch2d__team--away">

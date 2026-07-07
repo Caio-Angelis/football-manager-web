@@ -147,7 +147,7 @@ export const PlayerDetailPanel: React.FC<PlayerDetailPanelProps> = ({
         </div>
         <div className="fm-player-detail-panel__contract-row">
           <span className="fm-player-detail-panel__contract-label">Salário:</span>
-          <span className="fm-player-detail-panel__contract-value">R$ {(player.salary / 1000).toFixed(1)}K/semana</span>
+          <span className="fm-player-detail-panel__contract-value">R$ {player.salary}K/semana</span>
         </div>
         <div className="fm-player-detail-panel__contract-row">
           <span className="fm-player-detail-panel__contract-label">Fim do Contrato:</span>

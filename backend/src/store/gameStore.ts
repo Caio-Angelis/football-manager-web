@@ -70,6 +70,7 @@ export function createGameStore(): StoreApi<GameStore> {
     mediaPressure: { value: 20, level: 'low' },
     isAdvancing: false,
     matchBlockMessage: null,
+    freeAgents: [],
 
     // --- Slices (actions) ---
     ...createCoreSlice(set, get),

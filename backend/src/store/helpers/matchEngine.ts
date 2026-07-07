@@ -7,6 +7,11 @@ import { calculateMatchPrizeMoney } from './finance';
 // CÁLCULO DE FORÇA DO TIME
 // ============================================================
 
+// C10: Helper para proteger contra atributos undefined/null/NaN
+function attr(value: number | undefined | null, fallback = 10): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
 export function getTacticalBonus(team: Team): number {
   let bonus = 0;
   if (team.tactic === 'attacking') bonus += 0.04;
@@ -47,27 +52,35 @@ export function calculateTeamStrength(team: Team): number {
     if (player.technical) {
       [player.technical.passing, player.technical.technique, player.technical.finishing,
         player.technical.dribbling, player.technical.crossing].forEach(v => {
-        if (v) { sum += v * 4; count++; }
+        if (typeof v === 'number' && Number.isFinite(v)) { sum += v * 4; count++; }
       });
     }
     if (player.mental) {
       [player.mental.vision, player.mental.decisions, player.mental.composure,
         player.mental.anticipation, player.mental.positioning].forEach(v => {
-        if (v) { sum += v * 5; count++; }
+        if (typeof v === 'number' && Number.isFinite(v)) { sum += v * 5; count++; }
       });
     }
     if (player.physical) {
       [player.physical.speed, player.physical.stamina, player.physical.strength,
         player.physical.agility, player.physical.acceleration].forEach(v => {
-        if (v) { sum += v * 3; count++; }
+        if (typeof v === 'number' && Number.isFinite(v)) { sum += v * 3; count++; }
       });
     }
 
-    const playerStrength = (player.currentAbility * 0.6 + (sum / Math.max(count, 1)) * 5.5) * 1.2;
-    totalStrength += playerStrength * (player.form / 100) * (player.fitness / 100) * getMoraleFactor(player);
+    const ca = attr(player.currentAbility, 50);
+    const form = attr(player.form, 50);
+    const fitness = attr(player.fitness, 50);
+    const playerStrength = (ca * 0.6 + (sum / Math.max(count, 1)) * 5.5) * 1.2;
+    totalStrength += playerStrength * (form / 100) * (fitness / 100) * getMoraleFactor(player);
   });
 
-  return (totalStrength / Math.max(starting11.length, 1)) * (1 + getTacticalBonus(team));
+  const result = (totalStrength / Math.max(starting11.length, 1)) * (1 + getTacticalBonus(team));
+  if (!Number.isFinite(result)) {
+    console.warn(`[calculateTeamStrength] NaN detected for team ${team.id} (${team.name}). Using fallback 50.`);
+    return 50;
+  }
+  return result;
 }
 
 export function getPossessionBias(home: Team, away: Team): number {
@@ -114,13 +127,20 @@ function avgDefined(values: (number | undefined)[]): number {
   return count > 0 ? sum / count : 8;
 }
 
+// E-18: Rastreia jogadores expulsos durante a simulação atual.
+let _matchSentOff: Set<string> = new Set();
+
 function startingXI(team: Team): Player[] {
   const ids = team.startingXI;
   if (ids && ids.length > 0) {
     const players = ids.map(id => team.squad.find(p => p.id === id)).filter(Boolean) as Player[];
-    if (players.length > 0) return players;
+    if (players.length > 0) {
+      // E-18: Filtrar jogadores expulsos.
+      const filtered = players.filter(p => !_matchSentOff.has(p.id));
+      if (filtered.length > 0) return filtered;
+    }
   }
-  return team.squad.slice(0, 11);
+  return team.squad.slice(0, 11).filter(p => !_matchSentOff.has(p.id));
 }
 
 // ============================================================
@@ -218,9 +238,10 @@ function teamAttack(team: Team): number {
     weight += w;
   });
   const base = sum / Math.max(weight, 1);
+  // E-32: balanced deve ser neutro (1.0), nao 0.88 igual ao defensive.
   const tacticAttackMult =
     team.tactic === 'attacking' ? 1.12 :
-    team.tactic === 'defensive' ? 0.88 : 0.88;
+    team.tactic === 'defensive' ? 0.88 : 1.0;
   return base * tacticAttackMult * (1 + getTacticalBonus(team) * 0.3) * getTeamMoraleCohesion(team);
 }
 
@@ -236,9 +257,10 @@ function teamDefense(team: Team): number {
     weight += w;
   });
   const base = sum / Math.max(weight, 1);
+  // E-32: balanced deve ser neutro (1.0), nao 0.88.
   const tacticDefenseMult =
     team.tactic === 'attacking' ? 0.85 :
-    team.tactic === 'defensive' ? 1.20 : 0.88;
+    team.tactic === 'defensive' ? 1.20 : 1.0;
   return base * tacticDefenseMult * (1 + getTacticalBonus(team) * 0.2) * getTeamMoraleCohesion(team);
 }
 
@@ -425,6 +447,10 @@ export function calculatePlayerMatchRatings(
       const goals = result.goalDetails.filter(g => g.scorerId === player.id).length;
       const assists = result.goalDetails.filter(g => g.assistId === player.id).length;
 
+      // E-18: Limitar minutesPlayed para jogadores expulsos.
+      const sentOffMinute = result.events.find(e => e.type === 'red' && e.player === player.name)?.minute;
+      const minutesPlayed = sentOffMinute ?? 90;
+
       // Estatísticas cosméticas coerentes com a posição
       const rnd = (min: number, max: number) => min + Math.floor(Math.random() * (max - min + 1));
       const shots = goals + (isFWD ? rnd(0, 4) : isMID ? rnd(0, 2) : isDEF ? rnd(0, 1) : 0);
@@ -480,7 +506,7 @@ export function calculatePlayerMatchRatings(
         passAccuracy,
         tackles,
         interceptions,
-        minutesPlayed: 90,
+        minutesPlayed,
         isStarted: player.squadStatus !== 'Young Talent',
       });
     });
@@ -587,12 +613,13 @@ export function generatePostMatchReport(
   // === PASS BREAKDOWN ===
   let homeSuccessful = 0, homeFailed = 0, awaySuccessful = 0, awayFailed = 0;
   if (actions && actions.length > 0) {
+    // Cada lance de passe representa uma troca curta de 2 passes (mesmo peso do motor)
     for (const a of actions) {
       if (a.type === 'pass') {
         if (a.team === 'home') {
-          if (a.success) homeSuccessful++; else homeFailed++;
+          if (a.success) homeSuccessful += 2; else homeFailed += 2;
         } else {
-          if (a.success) awaySuccessful++; else awayFailed++;
+          if (a.success) awaySuccessful += 2; else awayFailed += 2;
         }
       }
     }
@@ -1088,8 +1115,8 @@ function passSuccessProb(passer: Player, receiver: Player, pressure: number, tea
   const decisions = passer.mental?.decisions ?? 10;
   const firstTouch = receiver.technical?.firstTouch ?? 10;
 
-  // Base 75% + atributos do passador (até +18%) - pressão (até -25%)
-  let prob = 0.75;
+  // Base 80% + atributos do passador (até +18%) - pressão (até -25%)
+  let prob = 0.80;
   prob += (passing - 10) * 0.012;
   prob += (technique - 10) * 0.006;
   prob += (composure - 10) * 0.008;
@@ -1145,7 +1172,12 @@ function dribbleSuccessProb(dribbler: Player, defender: Player, _team: Team): nu
 }
 
 // Probabilidade de sucesso de um chute (em gol)
-function shotSuccessProb(shooter: Player, goalkeeper: Player, distance: number, _team: Team): { onTarget: boolean; goal: boolean } {
+// wide: 0 = centro do gol, 1 = linha lateral (ângulo ruim); fatigue: multiplicador 0-1
+// Retorna também o xG real do lance (probabilidade de gol antes do sorteio)
+function shotSuccessProb(
+  shooter: Player, goalkeeper: Player, distance: number, _team: Team,
+  wide = 0, fatigue = 1,
+): { onTarget: boolean; goal: boolean; xg: number } {
   const finishing = shooter.technical?.finishing ?? 10;
   const technique = shooter.technical?.technique ?? 10;
   const longShots = shooter.technical?.longShots ?? 10;
@@ -1159,7 +1191,7 @@ function shotSuccessProb(shooter: Player, goalkeeper: Player, distance: number, 
   const concentration = goalkeeper.mental?.concentration ?? 10;
 
   // Probabilidade de chutar no alvo
-  let onTargetProb = 0.40;
+  let onTargetProb = 0.28;
   onTargetProb += (finishing - 10) * 0.015;
   onTargetProb += (technique - 10) * 0.008;
   onTargetProb += (composure - 10) * 0.006;
@@ -1169,18 +1201,18 @@ function shotSuccessProb(shooter: Player, goalkeeper: Player, distance: number, 
     onTargetProb += (longShots - 10) * 0.010;
     onTargetProb -= 0.12;
   } else if (distance < 0.25) {
-    onTargetProb += 0.15; // na cara do gol
+    onTargetProb += 0.10; // na cara do gol
   }
   onTargetProb *= ((shooter.form ?? 70) / 100) * 0.5 + 0.5;
   onTargetProb *= getMoraleFactor(shooter);
+  onTargetProb -= wide * 0.10; // ângulo fechado dificulta acertar o alvo
+  onTargetProb *= fatigue;
 
-  const onTarget = Math.random() < clamp(onTargetProb, 0.15, 0.80);
-
-  if (!onTarget) return { onTarget: false, goal: false };
+  const onTargetP = clamp(onTargetProb, 0.12, 0.80);
 
   // Se no alvo, probabilidade de gol (vencer o goleiro)
-  // Calibrado para ~2.7-2.9 gols/jogo no motor passo a passo (regra-partidas)
-  let goalProb = 0.33;
+  // Calibrado para ~2.5-2.9 gols/jogo no motor passo a passo (ver matchEngine.test.ts)
+  let goalProb = 0.19;
   goalProb += (finishing - 10) * 0.012;
   goalProb += (composure - 10) * 0.008;
   goalProb += (offBall - 10) * 0.005;
@@ -1195,9 +1227,18 @@ function shotSuccessProb(shooter: Player, goalkeeper: Player, distance: number, 
 
   goalProb *= ((shooter.form ?? 70) / 100) * 0.5 + 0.5;
   goalProb *= getMoraleFactor(shooter);
+  goalProb -= wide * 0.12; // do bico, quase não há gol
+  goalProb *= fatigue;
 
-  const goal = Math.random() < clamp(goalProb, 0.10, 0.85);
-  return { onTarget: true, goal };
+  const goalP = clamp(goalProb, 0.08, 0.85);
+  // xG = probabilidade real de gol deste lance (alvo × conversão)
+  const xg = Math.round(onTargetP * goalP * 100) / 100;
+
+  const onTarget = Math.random() < onTargetP;
+  if (!onTarget) return { onTarget: false, goal: false, xg };
+
+  const goal = Math.random() < goalP;
+  return { onTarget: true, goal, xg };
 }
 
 // Escolhe um jogador do time com posse, favorecendo os mais avançados quando atacando.
@@ -1409,10 +1450,10 @@ function simulateCornerKick(
     });
 
     if (side === 'home') {
-      newState.stats = { ...newState.stats, homeShots: newState.stats.homeShots + 1 };
+      newState.stats = { ...newState.stats, homeShots: newState.stats.homeShots + 1, homeXG: Math.round((newState.stats.homeXG + shotResult.xg) * 100) / 100 };
       if (shotResult.onTarget) newState.stats.homeShotsOnTarget = newState.stats.homeShotsOnTarget + 1;
     } else {
-      newState.stats = { ...newState.stats, awayShots: newState.stats.awayShots + 1 };
+      newState.stats = { ...newState.stats, awayShots: newState.stats.awayShots + 1, awayXG: Math.round((newState.stats.awayXG + shotResult.xg) * 100) / 100 };
       if (shotResult.onTarget) newState.stats.awayShotsOnTarget = newState.stats.awayShotsOnTarget + 1;
     }
 
@@ -1441,11 +1482,12 @@ function simulateCornerKick(
       newState.ballHolderId = newHolder.id;
       newState.passChain = 0;
     } else {
-      const newHolder = pickPlayerWithBall(defendingTeam, side === 'home' ? 0.1 : 0.9, side !== 'home');
+      // E-17: Inverter constantes — o time que defende reinicia perto do próprio gol.
+      const newHolder = pickPlayerWithBall(defendingTeam, side === 'home' ? 0.9 : 0.1, side !== 'home');
       newState.possession = side === 'home' ? 'away' : 'home';
       newState.ballHolderId = newHolder.id;
       newState.passChain = 0;
-      newState.ballPos = side === 'home' ? 0.1 : 0.9;
+      newState.ballPos = side === 'home' ? 0.9 : 0.1;
     }
   } else {
     // Cruzamento afastado
@@ -1550,11 +1592,12 @@ function simulateFreeKick(
       ballPos,
     });
 
+    const fkXG = Math.round(shotProb * 100) / 100;
     if (side === 'home') {
-      newState.stats = { ...newState.stats, homeShots: newState.stats.homeShots + 1 };
+      newState.stats = { ...newState.stats, homeShots: newState.stats.homeShots + 1, homeXG: Math.round((newState.stats.homeXG + fkXG) * 100) / 100 };
       if (goal) newState.stats.homeShotsOnTarget = newState.stats.homeShotsOnTarget + 1;
     } else {
-      newState.stats = { ...newState.stats, awayShots: newState.stats.awayShots + 1 };
+      newState.stats = { ...newState.stats, awayShots: newState.stats.awayShots + 1, awayXG: Math.round((newState.stats.awayXG + fkXG) * 100) / 100 };
       if (goal) newState.stats.awayShotsOnTarget = newState.stats.awayShotsOnTarget + 1;
     }
 
@@ -1576,11 +1619,12 @@ function simulateFreeKick(
       if (Math.random() < 0.5) {
         events.push({ minute, type: 'save', team: side === 'home' ? 'away' : 'home', description: `${goalkeeper.name} defende a falta!` });
       }
-      const newHolder = pickPlayerWithBall(defendingTeam, side === 'home' ? 0.15 : 0.85, side !== 'home');
+      // E-17: Inverter constantes — o time que defende reinicia perto do próprio gol.
+      const newHolder = pickPlayerWithBall(defendingTeam, side === 'home' ? 0.85 : 0.15, side !== 'home');
       newState.possession = side === 'home' ? 'away' : 'home';
       newState.ballHolderId = newHolder.id;
       newState.passChain = 0;
-      newState.ballPos = side === 'home' ? 0.15 : 0.85;
+      newState.ballPos = side === 'home' ? 0.85 : 0.15;
     }
   } else if (config.freeKicks.delivery === 'cross_into_box' || config.freeKicks.delivery === 'long_ball') {
     // Cruzamento ou bola longa na área
@@ -1721,11 +1765,12 @@ function simulatePenalty(
     ballPos: side === 'home' ? 0.95 : 0.05,
   });
 
+  const penXG = Math.round(goalProb * 100) / 100;
   if (side === 'home') {
-    newState.stats = { ...newState.stats, homeShots: newState.stats.homeShots + 1 };
+    newState.stats = { ...newState.stats, homeShots: newState.stats.homeShots + 1, homeXG: Math.round((newState.stats.homeXG + penXG) * 100) / 100 };
     if (goal) newState.stats.homeShotsOnTarget = newState.stats.homeShotsOnTarget + 1;
   } else {
-    newState.stats = { ...newState.stats, awayShots: newState.stats.awayShots + 1 };
+    newState.stats = { ...newState.stats, awayShots: newState.stats.awayShots + 1, awayXG: Math.round((newState.stats.awayXG + penXG) * 100) / 100 };
     if (goal) newState.stats.awayShotsOnTarget = newState.stats.awayShotsOnTarget + 1;
   }
 
@@ -1744,11 +1789,12 @@ function simulatePenalty(
     newState.passChain = 0;
   } else {
     events.push({ minute, type: 'save', team: side === 'home' ? 'away' : 'home', description: `${goalkeeper.name} defende o pênalti!` });
-    const newHolder = pickPlayerWithBall(defendingTeam, side === 'home' ? 0.15 : 0.85, side !== 'home');
+    // E-17: Inverter constantes — o time que defende reinicia perto do próprio gol.
+    const newHolder = pickPlayerWithBall(defendingTeam, side === 'home' ? 0.85 : 0.15, side !== 'home');
     newState.possession = side === 'home' ? 'away' : 'home';
     newState.ballHolderId = newHolder.id;
     newState.passChain = 0;
-    newState.ballPos = side === 'home' ? 0.15 : 0.85;
+    newState.ballPos = side === 'home' ? 0.85 : 0.15;
   }
 
   return { state: newState, actions, events };
@@ -1803,9 +1849,13 @@ export function initLiveMatchState(homeTeam: Team, awayTeam: Team): LiveMatchSta
   return {
     possession: homeStarts ? 'home' : 'away',
     ballPos: 0.5,
+    ballPosY: 0.5,
     ballHolderId: firstHolder.id,
     passChain: 0,
     pressure: 0.3,
+    momentum: 0,
+    fatigue: {},
+    passTotals: { homeAtt: 0, homeCmp: 0, awayAtt: 0, awayCmp: 0 },
     homeGoals: 0,
     awayGoals: 0,
     stats: {
@@ -1830,14 +1880,63 @@ export function initLiveMatchState(homeTeam: Team, awayTeam: Team): LiveMatchSta
   };
 }
 
-// Simula uma sequência de ações dentro de 1 minuto de jogo
-// Retorna o estado atualizado + novas ações + novos eventos
-export function simulateMinute(
+// ============================================================
+// HELPERS DE REALISMO — fadiga, momentum, largura do campo
+// ============================================================
+
+// Densidade de lances por minuto conforme o ritmo tático das equipes
+function ticksPerMinute(home: Team, away: Team): number {
+  let t = 4.5;
+  for (const team of [home, away]) {
+    if (team.tempo === 'fast') t += 0.75;
+    else if (team.tempo === 'slow') t -= 0.5;
+  }
+  return Math.round(clamp(t, 3, 6));
+}
+
+// Fadiga acumulada reduz a qualidade das ações (0.6 de fadiga = -21%)
+function fatigueMod(state: LiveMatchState, p: Player): number {
+  return 1 - (state.fatigue?.[p.id] ?? 0) * 0.35;
+}
+
+// Acumula fadiga por minuto: pressão alta e ritmo rápido desgastam mais;
+// resistência (stamina) alta desgasta menos. Substituto entra descansado (sem entrada no mapa).
+function nextFatigue(home: Team, away: Team, state: LiveMatchState): Record<string, number> {
+  const f = { ...(state.fatigue ?? {}) };
+  for (const team of [home, away]) {
+    const intensity =
+      (team.pressIntensity === 'high' ? 1.25 : team.pressIntensity === 'low' ? 0.9 : 1.0) *
+      (team.tempo === 'fast' ? 1.15 : team.tempo === 'slow' ? 0.9 : 1.0);
+    for (const p of startingXI(team)) {
+      const stamina = p.physical?.stamina ?? 10;
+      f[p.id] = clamp((f[p.id] ?? 0) + 0.005 * intensity * (1.3 - stamina / 40), 0, 0.6);
+    }
+  }
+  return f;
+}
+
+// Alvo lateral (Y) do ataque conforme a tática; espelhado para o visitante
+function flankTargetY(team: Team, side: 'home' | 'away'): number {
+  let y: number;
+  if (team.useFlank === 'left') y = 0.2;
+  else if (team.useFlank === 'right') y = 0.8;
+  else if (team.attackWidth === 'wide') y = Math.random() < 0.5 ? 0.15 : 0.85;
+  else if (team.attackWidth === 'narrow') y = 0.5;
+  else y = 0.25 + Math.random() * 0.5;
+  return side === 'away' ? 1 - y : y;
+}
+
+// Simula UM lance (passe, drible ou chute) — chamado várias vezes por minuto.
+// Retorna o estado atualizado + novas ações + novos eventos.
+function simulateTick(
   homeTeam: Team,
   awayTeam: Team,
   state: LiveMatchState,
   minute: number,
 ): LiveMatchState {
+  // E-18: Sincronizar jogadores expulsos para filtragem em startingXI.
+  _matchSentOff = new Set([...(state.sentOff?.home ?? []), ...(state.sentOff?.away ?? [])]);
+
   const attackingTeam = state.possession === 'home' ? homeTeam : awayTeam;
   const defendingTeam = state.possession === 'home' ? awayTeam : homeTeam;
   const side = state.possession;
@@ -1849,14 +1948,24 @@ export function simulateMinute(
   // Calcula pressão
   let pressure = calculatePressure(attackingTeam, defendingTeam, currentBallPos);
 
+  // Largura do campo (0 = topo, 1 = base) — define ângulo de chute e jogo de flanco
+  const currentBallY = state.ballPosY ?? 0.5;
+
   // Pega o portador atual da bola
   const holder = attackingTeam.squad.find(p => p.id === state.ballHolderId) ?? attackingTeam.squad[0];
+  const holderFatigue = fatigueMod(state, holder);
+
+  // Momentum do lado atacante (-1..1): time embalado cria mais
+  const mSide = side === 'home' ? (state.momentum ?? 0) : -(state.momentum ?? 0);
 
   // Decide a ação: passe, drible, ou chute
   // Quanto mais perto do gol, maior a chance de chutar
+  // ponytail: valores por tick calibrados em matchEngine.test.ts (~2.7 gols/jogo)
   const attackProgress = side === 'home' ? currentBallPos : 1 - currentBallPos; // 0 = defesa, 1 = gol adversário
-  let shotChance = attackProgress > 0.7 ? 0.20 : attackProgress > 0.5 ? 0.08 : 0.02;
-  let dribbleChance = pressure > 0.5 ? 0.25 : 0.12;
+  let shotChance = (attackProgress > 0.75 ? 0.12 : attackProgress > 0.55 ? 0.035 : 0.004) * (1 + mSide * 0.25);
+  if (state.passChain >= 4) shotChance *= 1.25; // jogada trabalhada gera chance melhor
+  shotChance *= side === 'home' ? 1.10 : 0.97;  // vantagem de mando (torcida)
+  let dribbleChance = pressure > 0.5 ? 0.20 : 0.10;
 
   // Aplica boost de intervenção (gritos/substituição)
   const boost = state.interventionBoost;
@@ -1913,11 +2022,13 @@ export function simulateMinute(
     }
     newState.cards = cards;
     newState.sentOff = sentOff;
+    // E-18: Atualizar filtro de expulsos para as funções de seleção.
+    _matchSentOff = new Set([...sentOff.home, ...sentOff.away]);
   };
 
-  // Faltas esparsas ao longo do minuto (fora das disputas de drible), para dar
-  // volume realista de cartões. Só emite evento quando há cartão.
-  if (Math.random() < 0.12) {
+  // Faltas esparsas (fora das disputas de drible), para dar volume realista
+  // de cartões. Só emite evento quando há cartão. 0.03/tick ≈ 0.12/minuto.
+  if (Math.random() < 0.03) {
     const foulSide2: 'home' | 'away' = Math.random() < 0.5 ? 'home' : 'away';
     const team2 = foulSide2 === 'home' ? homeTeam : awayTeam;
     const outfield = startingXI(team2).filter(p => p.position !== 'GK');
@@ -1926,18 +2037,24 @@ export function simulateMinute(
     }
   }
 
-  // Acumula passes para stats
-  let homePasses = state.stats.homePasses;
-  let awayPasses = state.stats.awayPasses;
+  // Totais de passes (cada tick de passe representa uma troca curta — peso 2)
+  const passTotals = { ...(state.passTotals ?? {
+    homeAtt: state.stats.homePasses,
+    homeCmp: Math.round(state.stats.homePasses * (state.stats.homePassAccuracy || 80) / 100),
+    awayAtt: state.stats.awayPasses,
+    awayCmp: Math.round(state.stats.awayPasses * (state.stats.awayPassAccuracy || 80) / 100),
+  }) };
+  newState.passTotals = passTotals;
 
   if (roll < shotChance) {
     // === CHUTE ===
     const goalkeeper = defendingTeam.squad.find(p => p.position === 'GK') ?? defendingTeam.squad[0];
     const distance = 1 - attackProgress; // 1 = longe do gol, 0 = perto do gol (shotSuccessProb: >0.6 = chute de longe)
-    const result = shotSuccessProb(holder, goalkeeper, distance, attackingTeam);
+    const wide = clamp(Math.abs(currentBallY - 0.5) * 2, 0, 1); // ângulo: da lateral é bem mais difícil
+    const result = shotSuccessProb(holder, goalkeeper, distance, attackingTeam, wide, holderFatigue);
 
-    // xG acumulado
-    const xgContribution = clamp(0.05 + attackProgress * 0.15 + (holder.technical?.finishing ?? 10) / 200, 0.03, 0.45);
+    // xG real do lance (probabilidade de gol calculada, não fórmula arbitrária)
+    const xgContribution = result.xg;
 
     newActions.push({
       minute,
@@ -1967,6 +2084,9 @@ export function simulateMinute(
       if (side === 'home') newState.homeGoals = state.homeGoals + 1;
       else newState.awayGoals = state.awayGoals + 1;
 
+      // Gol vira o momentum fortemente para quem marcou
+      newState.momentum = clamp((state.momentum ?? 0) * 0.4 + (side === 'home' ? 0.45 : -0.45), -1, 1);
+
       // Assistência?
       const assister = Math.random() < 0.62 ? pickAssister(attackingTeam, holder.id) : undefined;
 
@@ -1994,10 +2114,12 @@ export function simulateMinute(
       const newHolder = pickPlayerWithBall(losingTeam, 0.5, side !== 'home');
       newState.possession = side === 'home' ? 'away' : 'home';
       newState.ballPos = 0.5;
+      newState.ballPosY = 0.5;
       newState.ballHolderId = newHolder.id;
       newState.passChain = 0;
     } else if (result.onTarget) {
-      // Defesa do goleiro
+      // Defesa do goleiro — chute perigoso ainda embala o time atacante
+      newState.momentum = clamp((state.momentum ?? 0) + (side === 'home' ? 0.06 : -0.06), -1, 1);
       newEvents.push({
         minute,
         type: 'save',
@@ -2010,12 +2132,14 @@ export function simulateMinute(
         newActions.push(...cornerResult.actions);
         newEvents.push(...cornerResult.events);
         Object.assign(newState, cornerResult.state);
+        newState.ballPosY = 0.35 + Math.random() * 0.3;
       } else {
-        const newHolder = pickPlayerWithBall(defendingTeam, currentBallPos, side !== 'home');
+        // Reposição do goleiro
         newState.possession = side === 'home' ? 'away' : 'home';
-        newState.ballHolderId = newHolder.id;
+        newState.ballHolderId = goalkeeper.id;
         newState.passChain = 0;
         newState.ballPos = side === 'home' ? clamp(currentBallPos - 0.3, 0, 1) : clamp(currentBallPos + 0.3, 0, 1);
+        newState.ballPosY = 0.4 + Math.random() * 0.2;
       }
     } else {
       // Chute para fora
@@ -2025,19 +2149,22 @@ export function simulateMinute(
         newActions.push(...cornerResult.actions);
         newEvents.push(...cornerResult.events);
         Object.assign(newState, cornerResult.state);
+        newState.ballPosY = 0.35 + Math.random() * 0.3;
       } else {
         // Tiro de meta — posse para o time defensor
-        const newHolder = pickPlayerWithBall(defendingTeam, side === 'home' ? 0.1 : 0.9, side !== 'home');
+        // E-17: Inverter constantes — o time que defende reinicia perto do próprio gol.
+        const newHolder = pickPlayerWithBall(defendingTeam, side === 'home' ? 0.9 : 0.1, side !== 'home');
         newState.possession = side === 'home' ? 'away' : 'home';
         newState.ballHolderId = newHolder.id;
         newState.passChain = 0;
-        newState.ballPos = side === 'home' ? 0.1 : 0.9;
+        newState.ballPos = side === 'home' ? 0.9 : 0.1;
+        newState.ballPosY = 0.35 + Math.random() * 0.3;
       }
     }
   } else if (roll < shotChance + dribbleChance) {
     // === DRIBLE ===
     const defender = pickDefender(defendingTeam, currentBallPos, side !== 'home');
-    const success = Math.random() < dribbleSuccessProb(holder, defender, attackingTeam);
+    const success = Math.random() < dribbleSuccessProb(holder, defender, attackingTeam) * holderFatigue;
 
     newActions.push({
       minute,
@@ -2055,7 +2182,8 @@ export function simulateMinute(
     if (success) {
       // Drible bem-sucedido — avança a bola
       const advance = 0.08 + Math.random() * 0.10;
-      newState.ballPos = clamp(currentBallPos + advance * attackDir, 0, 1);
+      newState.ballPos = clamp(currentBallPos + advance * attackDir, 0.02, 0.98);
+      newState.ballPosY = clamp(currentBallY + (Math.random() - 0.5) * 0.16, 0.04, 0.96);
       newState.passChain = state.passChain + 1;
       // Pressão diminui após drible bem-sucedido
       newState.pressure = clamp(pressure - 0.15, 0.1, 0.85);
@@ -2104,13 +2232,16 @@ export function simulateMinute(
     // === PASSE ===
     // Escolhe receptor (não pode ser o próprio passador, não pode ser GK a menos que seja recuo)
     const receiver = pickPlayerWithBall(attackingTeam, currentBallPos, side === 'home', holder.id);
-    const success = Math.random() < passSuccessProb(holder, receiver, pressure, attackingTeam);
+    const success = Math.random() < passSuccessProb(holder, receiver, pressure, attackingTeam) * holderFatigue;
 
-    // Atualiza stats de passes
+    // ponytail: cada tick de passe representa uma troca curta de 2 passes — dá volume
+    // realista às estatísticas (~250-350 passes/time) sem inflar o feed de lances
     if (side === 'home') {
-      homePasses++;
+      passTotals.homeAtt += 2;
+      if (success) passTotals.homeCmp += 2;
     } else {
-      awayPasses++;
+      passTotals.awayAtt += 2;
+      if (success) passTotals.awayCmp += 2;
     }
 
     newActions.push({
@@ -2128,15 +2259,22 @@ export function simulateMinute(
 
     if (success) {
       // Passe bem-sucedido — bola vai para o receptor, avança um pouco
-      const advance = 0.04 + Math.random() * 0.08;
+      let advance = 0.04 + Math.random() * 0.08;
+      // Transição rápida: contra-ataque nos primeiros passes após recuperar a bola
+      if (attackingTeam.afterGainingPossession === 'counterAttack' && state.passChain <= 2) advance *= 1.7;
+      if (attackingTeam.passingStyle === 'direct') advance *= 1.2;
+      if (attackingTeam.tempo === 'slow') advance *= 0.85;
       // Receptor pode estar mais à frente ou mais atrás
       const receiverPosBias = (Math.random() - 0.35) * 0.10; // tendência a avançar
-      newState.ballPos = clamp(currentBallPos + (advance + receiverPosBias) * attackDir, 0, 1);
+      newState.ballPos = clamp(currentBallPos + (advance + receiverPosBias) * attackDir, 0.02, 0.98);
+      // Largura: a bola deriva rumo ao flanco preferido da tática
+      const targetY = flankTargetY(attackingTeam, side);
+      newState.ballPosY = clamp(currentBallY + (targetY - currentBallY) * 0.3 + (Math.random() - 0.5) * 0.12, 0.04, 0.96);
       newState.ballHolderId = receiver.id;
       newState.passChain = state.passChain + 1;
 
-      // Cruzamento se a bola está na ponta e o receptor é da ponta
-      if (attackProgress > 0.6 && Math.random() < 0.15) {
+      // Cruzamento se a bola está aberta na ponta, no terço final
+      if (attackProgress > 0.6 && Math.abs(newState.ballPosY - 0.5) > 0.24 && Math.random() < 0.30) {
         const crosser = holder;
         const targetFwd = startingXI(attackingTeam).find(p => p.position === 'FWD') ?? receiver;
         const crossSuccess = Math.random() < ((crosser.technical?.crossing ?? 10) / 25);
@@ -2154,7 +2292,8 @@ export function simulateMinute(
         });
         if (crossSuccess) {
           newState.ballHolderId = targetFwd.id;
-          newState.ballPos = clamp(newState.ballPos + 0.10 * attackDir, 0, 1);
+          newState.ballPos = clamp(newState.ballPos + 0.10 * attackDir, 0.02, 0.98);
+          newState.ballPosY = 0.42 + Math.random() * 0.16; // cruzamento cai na área central
           newState.passChain = state.passChain + 2;
         } else {
           // Zaga afasta — interceptação
@@ -2203,7 +2342,8 @@ export function simulateMinute(
       }
       newState.passChain = 0;
       // Bola pode se mover um pouco
-      newState.ballPos = clamp(currentBallPos + (Math.random() - 0.5) * 0.20, 0, 1);
+      newState.ballPos = clamp(currentBallPos + (Math.random() - 0.5) * 0.20, 0.02, 0.98);
+      newState.ballPosY = clamp(currentBallY + (Math.random() - 0.5) * 0.20, 0.04, 0.96);
     }
   }
 
@@ -2223,25 +2363,21 @@ export function simulateMinute(
     };
   }
 
-  // Atualiza passes e precisão
-  if (side === 'home') {
-    const homeSuccessful = state.actions.filter(a => a.team === 'home' && a.type === 'pass' && a.success).length + newActions.filter(a => a.team === 'home' && a.type === 'pass' && a.success).length;
-    newState.stats.homePasses = homePasses;
-    newState.stats.homePassAccuracy = homePasses > 0 ? Math.round((homeSuccessful / homePasses) * 100) : 0;
-  } else {
-    const awaySuccessful = state.actions.filter(a => a.team === 'away' && a.type === 'pass' && a.success).length + newActions.filter(a => a.team === 'away' && a.type === 'pass' && a.success).length;
-    newState.stats.awayPasses = awayPasses;
-    newState.stats.awayPassAccuracy = awayPasses > 0 ? Math.round((awaySuccessful / awayPasses) * 100) : 0;
-  }
+  // Atualiza passes e precisão a partir dos totais acumulados
+  newState.stats.homePasses = passTotals.homeAtt;
+  newState.stats.awayPasses = passTotals.awayAtt;
+  newState.stats.homePassAccuracy = passTotals.homeAtt > 0 ? Math.round((passTotals.homeCmp / passTotals.homeAtt) * 100) : 0;
+  newState.stats.awayPassAccuracy = passTotals.awayAtt > 0 ? Math.round((passTotals.awayCmp / passTotals.awayAtt) * 100) : 0;
 
-  // Laterais ocasionais (throw-ins) — antes de combinar para que a ação seja persistida
-  if (Math.random() < 0.05) {
+  // Laterais ocasionais (throw-ins) — 0.015/tick ≈ 0.07/minuto
+  if (Math.random() < 0.015) {
     const throwSide = Math.random() < 0.5 ? 'home' : 'away';
     const throwTeam = throwSide === 'home' ? homeTeam : awayTeam;
     const throwConfig = getSetPiecesConfig(throwTeam);
     const xi = startingXI(throwTeam);
     const throwTaker = xi.find(p => p.id === throwConfig.throwIns.takerId)
       ?? xi.find(p => p.position === 'DEF' || p.position === 'MID') ?? xi[0];
+    const throwPos = 0.3 + Math.random() * 0.4;
     newActions.push({
       minute,
       type: 'throwIn',
@@ -2250,11 +2386,13 @@ export function simulateMinute(
       playerName: throwTaker.name,
       success: true,
       description: `${throwTaker.name} cobra o lateral (${throwConfig.throwIns.style})`,
-      ballPos: 0.3 + Math.random() * 0.4,
+      ballPos: throwPos,
     });
     newState.possession = throwSide;
     newState.ballHolderId = throwTaker.id;
     newState.passChain = 0;
+    newState.ballPos = throwPos;
+    newState.ballPosY = Math.random() < 0.5 ? 0.04 : 0.96; // bola sai pela linha lateral
   }
 
   // Combina ações e eventos
@@ -2262,6 +2400,46 @@ export function simulateMinute(
   newState.events = [...state.events, ...newEvents];
 
   return newState;
+}
+
+// Simula 1 minuto de jogo: vários lances (ticks) conforme o ritmo tático,
+// com fadiga acumulada, momentum e acréscimos ao fim do tempo regulamentar.
+export function simulateMinute(
+  homeTeam: Team,
+  awayTeam: Team,
+  state: LiveMatchState,
+  minute: number,
+): LiveMatchState {
+  let st = state;
+  // E-18: startingXI filtra expulsos via _matchSentOff — sincroniza antes da fadiga
+  _matchSentOff = new Set([...(state.sentOff?.home ?? []), ...(state.sentOff?.away ?? [])]);
+
+  // Recomeço do 2º tempo: bola volta ao centro
+  if (minute === 46) {
+    const homeKicks = Math.random() < 0.5;
+    const kickTeam = homeKicks ? homeTeam : awayTeam;
+    const holder = pickPlayerWithBall(kickTeam, 0.5, homeKicks);
+    st = { ...st, possession: homeKicks ? 'home' : 'away', ballPos: 0.5, ballPosY: 0.5, ballHolderId: holder.id, passChain: 0 };
+  }
+
+  // Fadiga acumula uma vez por minuto
+  st = { ...st, fatigue: nextFatigue(homeTeam, awayTeam, st) };
+
+  const ticks = ticksPerMinute(homeTeam, awayTeam);
+  for (let t = 0; t < ticks; t++) {
+    st = simulateTick(homeTeam, awayTeam, st, minute);
+    // Momentum decai naturalmente rumo ao equilíbrio
+    st.momentum = clamp((st.momentum ?? 0) * 0.99, -1, 1);
+  }
+
+  // Acréscimos do 2º tempo: definidos aos 89' com base nos eventos que pararam o jogo
+  if (minute >= 89 && st.addedTime === undefined) {
+    const stoppages = st.events.filter(e =>
+      e.minute > 45 && (e.type === 'goal' || e.type === 'red' || e.type === 'substitution')).length;
+    st = { ...st, addedTime: Math.min(6, Math.max(1, Math.round(1 + stoppages * 0.5 + Math.random() * 2))) };
+  }
+
+  return st;
 }
 
 // Simula uma partida completa (para AI vs AI e auto-finalizar)
@@ -2277,7 +2455,8 @@ export function simulateFullMatch(homeTeam: Team, awayTeam: Team, homeBoost = 0,
     state.interventionBoost = { team: 'away', type: 'boost', untilMinute: 90 };
   }
 
-  for (let minute = 1; minute <= 90; minute++) {
+  // 90 minutos + acréscimos (addedTime é definido pelo próprio motor aos 89')
+  for (let minute = 1; minute <= 90 + (state.addedTime ?? 0); minute++) {
     state = simulateMinute(homeTeam, awayTeam, state, minute);
   }
 
@@ -2298,6 +2477,9 @@ export function simulateFullMatch(homeTeam: Team, awayTeam: Team, homeBoost = 0,
     stats,
     goalDetails: state.goalDetails,
   };
+
+  // E-18: Limpar sentOff para que calculatePlayerMatchRatings inclua expulsos (com minutesPlayed reduzido).
+  _matchSentOff = new Set();
 
   const withRatings = calculatePlayerMatchRatings(homeTeam, awayTeam, result);
   const postMatchReport = generatePostMatchReport(homeTeam, awayTeam, result, state.actions);

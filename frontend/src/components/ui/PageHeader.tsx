@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowRight } from 'lucide-react';
 import { useGameStore } from '../../store/gameStore';
+import { getActiveRoom } from '../../api/client';
 import { TeamCrest } from './TeamCrest';
 
 export interface PageHeaderAction {
@@ -62,10 +63,13 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           <div className="fms-date__main">Temporada {currentSeason}</div>
           <div className="fms-date__sub">Semana {currentWeek}</div>
         </div>
-        <button className="fms-continue" onClick={advanceWeek} disabled={isAdvancing || continueDisabled}>
-          {isAdvancing ? 'Processando...' : 'Continuar'}
-          <ArrowRight size={15} />
-        </button>
+        {/* E-16: Esconder botão Continuar no modo online (avanço é coordenado por ready-check) */}
+        {!getActiveRoom() && (
+          <button className="fms-continue" onClick={advanceWeek} disabled={isAdvancing || continueDisabled}>
+            {isAdvancing ? 'Processando...' : 'Continuar'}
+            <ArrowRight size={15} />
+          </button>
+        )}
       </div>
     </header>
   );

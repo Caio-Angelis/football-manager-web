@@ -1,11 +1,7 @@
 import React, { useEffect } from 'react';
+import type { ToastData } from '../../types/game';
 
-export interface ToastData {
-  id: string;
-  message: string;
-  type: 'success' | 'warning' | 'error' | 'info';
-  timestamp: number;
-}
+export type { ToastData };
 
 interface ToastProps {
   toast: ToastData;

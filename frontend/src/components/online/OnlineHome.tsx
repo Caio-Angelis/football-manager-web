@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createRoom, joinRoom } from '../../api/client';
+import { createRoom, joinRoom, getRoom, rememberRoom, forgetRoom, getRememberedRoom } from '../../api/client';
 import { Button } from '../ui/Button';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import './online.css';
@@ -13,6 +13,16 @@ export const OnlineHome: React.FC = () => {
   const [code, setCode] = React.useState('');
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [rejoin, setRejoin] = React.useState<string | null>(null); // sala p/ reentrar (Fase 9)
+
+  // Reentrada: se ainda sou membro da última sala, oferece "voltar" (Fase 9).
+  React.useEffect(() => {
+    const last = getRememberedRoom();
+    if (!last) return;
+    getRoom(last)
+      .then(({ room }) => setRejoin(room.players.some(p => p.isYou) ? last : (forgetRoom(), null)))
+      .catch(() => forgetRoom());
+  }, []);
 
   const saveNick = () => localStorage.setItem(NICK_KEY, nickname.trim());
 
@@ -22,6 +32,7 @@ export const OnlineHome: React.FC = () => {
     try {
       saveNick();
       const { code: newCode } = await createRoom(nickname.trim());
+      rememberRoom(newCode);
       navigate(`/online/sala/${newCode}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro ao criar sala.');
@@ -38,6 +49,7 @@ export const OnlineHome: React.FC = () => {
       saveNick();
       const target = code.trim().toUpperCase();
       await joinRoom(target, nickname.trim());
+      rememberRoom(target);
       navigate(`/online/sala/${target}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro ao entrar na sala.');
@@ -60,6 +72,13 @@ export const OnlineHome: React.FC = () => {
           <p className="fmo__lede">
             Crie uma sala e compartilhe o código, ou entre na sala de um amigo.
           </p>
+
+          {rejoin && (
+            <div className="fmo-rejoin">
+              <span>Você está numa sala em andamento: <strong>{rejoin}</strong></span>
+              <Button onClick={() => navigate(`/online/sala/${rejoin}`)}>Voltar para a sala</Button>
+            </div>
+          )}
 
           <div className="fmo-field">
             <label htmlFor="fmo-nick" className="fmo-label">Seu apelido</label>

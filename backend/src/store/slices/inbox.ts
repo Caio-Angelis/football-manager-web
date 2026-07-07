@@ -98,41 +98,104 @@ export const createInboxSlice = (set: Set, get: Get) => ({
   },
 
   // ============================================================
-  // ITEM 9.8.3 - DIRETORIA: RESPONDER
+  // ITEM 9.8.3 - DIRETORIA: RESPONDER COM OPÇÕES
   // ============================================================
 
-  handleBoardReply: (messageId: string, response: string, category: BoardReply['category']) => {
+  handleBoardReply: (messageId: string, optionId: string) => {
     const state = get();
     const message = state.inbox.find(m => m.id === messageId);
     if (!message) return;
 
-    // Calcular efeito na satisfação baseado na categoria e na resposta
-    let satisfactionChange = 0;
-    if (response.length > 50) satisfactionChange += 5;
-    if (response.length > 200) satisfactionChange += 10;
-    if (category === 'performance') satisfactionChange += 8;
-    if (category === 'budget') satisfactionChange -= 3;
-    if (category === 'expectation') satisfactionChange += 5;
+    const option = message.boardReplyOptions?.find(o => o.id === optionId);
+    if (!option) return;
 
-    // Gerar resposta baseada na categoria
-    let subject = message.subject;
-    if (category === 'budget') subject = `Re: ${message.subject} - Orçamento`;
-    if (category === 'performance') subject = `Re: ${message.subject} - Desempenho`;
+    const effects = option.effects;
+    const userTeamId = state.selectedTeam;
+    const teamIdx = state.teams.findIndex(t => t.id === userTeamId);
+
+    // Apply budget change
+    let updatedTeams = state.teams;
+    if (effects.budgetChange && teamIdx !== -1) {
+      updatedTeams = [...state.teams];
+      updatedTeams[teamIdx] = {
+        ...updatedTeams[teamIdx],
+        budget: Math.max(0, updatedTeams[teamIdx].budget + (effects.budgetChange || 0)),
+      };
+    }
+
+    // Apply transfer budget change (also affects team budget)
+    if (effects.transferBudgetChange && teamIdx !== -1) {
+      updatedTeams = [...updatedTeams];
+      updatedTeams[teamIdx] = {
+        ...updatedTeams[teamIdx],
+        budget: Math.max(0, updatedTeams[teamIdx].budget + (effects.transferBudgetChange || 0)),
+      };
+    }
+
+    // Apply morale change to all squad players of user team
+    if (effects.moraleChange && teamIdx !== -1) {
+      const moraleDelta = effects.moraleChange;
+      updatedTeams = [...updatedTeams];
+      updatedTeams[teamIdx] = {
+        ...updatedTeams[teamIdx],
+        squad: updatedTeams[teamIdx].squad.map(p => ({
+          ...p,
+          morale: Math.max(0, Math.min(100, p.morale + moraleDelta)),
+        })),
+      };
+    }
+
+    // Apply fan mood change
+    let updatedFanMood = state.fanMood;
+    if (effects.fanMoodChange) {
+      updatedFanMood = {
+        ...state.fanMood,
+        value: Math.max(0, Math.min(100, state.fanMood.value + (effects.fanMoodChange || 0))),
+        trend: (effects.fanMoodChange || 0) > 0 ? 'rising' : (effects.fanMoodChange || 0) < 0 ? 'falling' : state.fanMood.trend,
+      };
+    }
+
+    // Add board promise if specified
+    let updatedBoardPromises = [] as { goal: string; deadline: number; fulfilled: boolean }[];
+    if (effects.addBoardPromise && teamIdx !== -1) {
+      updatedTeams = [...updatedTeams];
+      updatedTeams[teamIdx] = {
+        ...updatedTeams[teamIdx],
+        boardPromises: [
+          ...updatedTeams[teamIdx].boardPromises,
+          { goal: effects.addBoardPromise.goal, deadline: effects.addBoardPromise.deadline, fulfilled: false },
+        ],
+      };
+    }
+
+    // Determine category from option id prefix
+    const category: BoardReply['category'] = optionId.startsWith('expect') ? 'expectation'
+      : optionId.startsWith('comm') ? 'general'
+      : optionId.startsWith('meeting') ? 'performance'
+      : optionId.startsWith('eval') ? 'performance'
+      : 'general';
 
     const boardReply: BoardReply = {
       messageId,
-      subject,
-      response,
+      subject: message.subject,
+      optionId,
+      optionLabel: option.label,
       timestamp: Date.now(),
       sent: true,
-      satisfactionChange,
+      satisfactionChange: effects.satisfactionChange,
+      budgetChange: effects.budgetChange,
+      moraleChange: effects.moraleChange,
+      transferBudgetChange: effects.transferBudgetChange,
+      fanMoodChange: effects.fanMoodChange,
       category,
     };
 
     set({
       inbox: state.inbox.map(m => m.id === messageId ? { ...m, boardReply, read: true } : m),
       boardReplies: [...state.boardReplies, boardReply],
-      boardSatisfaction: Math.max(-100, Math.min(100, state.boardSatisfaction + satisfactionChange)),
+      boardSatisfaction: Math.max(-100, Math.min(100, state.boardSatisfaction + effects.satisfactionChange)),
+      teams: updatedTeams,
+      fanMood: updatedFanMood,
     });
   },
 });

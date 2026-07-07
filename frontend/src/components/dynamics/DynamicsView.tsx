@@ -67,14 +67,11 @@ export const DynamicsView: React.FC = () => {
   const navigate = useNavigate();
   const team = teams.find(t => t.id === selectedTeam);
 
-  if (!team) {
-    return <div className="fm-empty">Selecione um time para ver dinâmicas</div>;
-  }
-
+  // E-22: Hooks devem ser chamados incondicionalmente (regra dos Hooks).
   const { sortState, toggleSort } = useSortable<DynamicsSortKey>('name', 'asc');
 
   const sortedSquad = useMemo(() => {
-    const list = [...team.squad];
+    const list = [...(team?.squad ?? [])];
     list.sort((a, b) => {
       let cmp: number;
       const sa = getSatisfaction(a);
@@ -93,7 +90,11 @@ export const DynamicsView: React.FC = () => {
       return sortState.direction === 'asc' ? cmp : -cmp;
     });
     return list;
-  }, [team.squad, sortState]);
+  }, [team?.squad, sortState]);
+
+  if (!team) {
+    return <div className="fm-empty">Selecione um time para ver dinâmicas</div>;
+  }
 
   const leaders = team.squad.filter(p => Number(p.mental?.leadership ?? 0) >= 15);
   const influential = team.squad.filter(p => {

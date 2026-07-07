@@ -179,9 +179,15 @@ export interface Player {
   // Famosidade para scouting
   fame: number;             // 1-100
 
+  // Reputação do jogador (1-100) — reflete reconhecimento no futebol mundial
+  reputation: number;       // 1-100
+
   // Estatísticas da temporada atual
   seasonGoals: number;      // gols na temporada atual
   seasonAssists: number;    // assistências na temporada atual
+
+  // Agente livre (contrato expirado, sem clube)
+  freeAgent?: boolean;
 }
 
 // Re-export de tipos de lesão usados pelo Player

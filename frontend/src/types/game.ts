@@ -6,6 +6,13 @@
 
 export type AttributeValue = number | string | null;
 
+export interface ToastData {
+  id: string;
+  message: string;
+  type: 'success' | 'warning' | 'error' | 'info';
+  timestamp: number;
+}
+
 export interface PlayerAttribute {
   // Técnicos
   heading: AttributeValue;
@@ -181,9 +188,15 @@ export interface Player {
   // Famosidade para scouting
   fame: number;             // 1-100
 
+  // Reputação do jogador (1-100) — reflete reconhecimento no futebol mundial
+  reputation: number;       // 1-100
+
   // Estatísticas da temporada atual
   seasonGoals: number;      // gols na temporada atual
   seasonAssists: number;    // assistências na temporada atual
+
+  // Agente livre (contrato expirado, sem clube)
+  freeAgent?: boolean;
 }
 
 // ============================================================
@@ -330,6 +343,11 @@ export interface LiveMatchState {
   interventionBoost?: { team: 'home' | 'away'; type: string; untilMinute: number };
   cards?: Record<string, number>;
   sentOff?: { home: string[]; away: string[] };
+  ballPosY?: number;      // 0-1 largura do campo (0 = topo, 1 = base)
+  momentum?: number;      // -1..1, positivo = casa embalada
+  fatigue?: Record<string, number>;
+  addedTime?: number;     // acréscimos do 2º tempo (jogo termina em 90 + addedTime)
+  passTotals?: { homeAtt: number; homeCmp: number; awayAtt: number; awayCmp: number };
 }
 
 // ============================================================
@@ -775,14 +793,34 @@ export interface FinancialReport {
 // RESPOSTA À DIRETORIA (Item 9.8.3)
 // ============================================================
 
+export interface BoardReplyEffect {
+  satisfactionChange: number;
+  budgetChange?: number;
+  moraleChange?: number;
+  transferBudgetChange?: number;
+  fanMoodChange?: number;
+  addBoardPromise?: { goal: string; deadline: number };
+}
+
+export interface BoardReplyOption {
+  id: string;
+  label: string;
+  description: string;
+  effects: BoardReplyEffect;
+}
+
 export interface BoardReply {
   messageId: string;
   subject: string;
-  response: string;
+  optionId: string;
+  optionLabel: string;
   timestamp: number;
   sent: boolean;
-  // Efeito na satisfação da diretoria (-100 a 100)
   satisfactionChange: number;
+  budgetChange?: number;
+  moraleChange?: number;
+  transferBudgetChange?: number;
+  fanMoodChange?: number;
   category: 'budget' | 'transfer' | 'expectation' | 'performance' | 'general';
 }
 
@@ -798,6 +836,7 @@ export interface InboxMessage {
   relatedTeamId?: string;
   // Item 9.8.3 - Diretoria: Responder
   boardReply?: BoardReply;
+  boardReplyOptions?: BoardReplyOption[];
 }
 
 // ============================================================
@@ -1268,6 +1307,10 @@ export interface GameState {
   mediaPressure: MediaPressure;
   isAdvancing: boolean;
   matchBlockMessage: string | null;
+  // Agentes livres (jogadores sem clube após expiração de contrato)
+  freeAgents: Player[];
+  // Toasts globais (C4)
+  toasts: ToastData[];
 }
 
 export interface GameActions {
@@ -1282,6 +1325,7 @@ export interface GameActions {
   completeYouthIntake: () => void;
   updateTeam: (teamId: string, updater: (team: Team) => Team) => void;
   buyPlayer: (playerId: string, sellerTeamId: string) => boolean;
+  signFreeAgent: (playerId: string) => boolean;
   makeOffer: (playerId: string, sellerTeamId: string, offerPrice: number, negotiationRound?: number) => Promise<NegotiationResult>;
   acceptOffer: (playerId: string, sellerTeamId: string, offerPrice: number, agreedSalary: number) => Promise<boolean>;
   negotiatePlayerContract: (playerId: string, sellerTeamId: string, offeredSalary: number, negotiationRound: number) => Promise<ContractNegotiationResult>;
@@ -1292,14 +1336,14 @@ export interface GameActions {
   rejectDeferredTransfer: (playerId: string) => void;
   assignScout: (playerId?: string) => boolean;
   setTrainingPlan: (plan: WeeklyTrainingPlan) => void;
-  applyWeeklyTraining: () => void;
+  applyWeeklyTraining: (targetGroup?: 'all' | 'attackers' | 'midfielders' | 'defenders' | 'custom', customPlayerIds?: string[]) => void;
   handleInboxAction: (messageId: string, actionLabel: string) => void;
   applyMatchIntervention: (matchIndex: number, type: 'substitution' | 'shout') => void;
   substitutePlayer: (matchIndex: number, outId: string, inId: string) => void;
   applyShout: (matchIndex: number, shout: 'encourage' | 'demand' | 'praise' | 'calm') => void;
   negotiateCounterOffer: (playerId: string) => boolean;
   // Métodos para cláusulas parceladas e bónus
-  payInstallment: (installmentId: string) => boolean;
+  payInstallment: (installmentId: string) => Promise<boolean>;
   checkBonuses: (playerId?: string) => void;
   claimBonus: (bonusId: string) => void;
   generateInstallmentClause: (totalAmount: number, count: number) => InstallmentClause;
@@ -1310,7 +1354,7 @@ export interface GameActions {
   // Item 9.8.2 - Lesão: Ver Relatório
   getInjuryReport: (playerId: string) => InjuryReport | null;
   // Item 9.8.3 - Diretoria: Responder
-  handleBoardReply: (messageId: string, response: string, category: BoardReply['category']) => void;
+  handleBoardReply: (messageId: string, optionId: string) => void;
   // Item 9.8.4 - Financeiro: Ver Relatório
   getFinancialReport: () => FinancialReport | null;
   generateFinancialReport: () => FinancialReport | null;
@@ -1364,7 +1408,7 @@ export interface GameActions {
   setLeaguePosition: (position: number) => void;
   // Sistema de Saves
   saveGame: (slotNumber: 1 | 2) => Promise<void>;
-  loadGame: (slotNumber: 1 | 2) => void;
+  loadGame: (slotNumber: 1 | 2) => Promise<void>;
   deleteSave: (slotNumber: 1 | 2) => void;
   getSaveSlots: () => SaveSlotMetadata[];
   // P6.1 — Academia de Jovens
@@ -1402,7 +1446,7 @@ export interface GameActions {
   // Sistema de Coletiva de Imprensa
   generatePreMatchPressConference: (matchIndex: number) => Promise<PressConference | null>;
   generatePostMatchPressConference: (matchIndex: number) => Promise<PressConference | null>;
-  answerPressQuestion: (conferenceId: string, questionId: string, tone: PressResponseTone, text: string) => void;
+  answerPressQuestion: (conferenceId: string, questionId: string, tone: PressResponseTone, text: string) => Promise<void>;
   skipPressConference: (conferenceId: string) => void;
   applyPressConferenceEffects: (conferenceId: string) => void;
   processWeeklyPressDecay: () => void;
@@ -1410,6 +1454,9 @@ export interface GameActions {
   getPressConferenceHistory: () => PressConference[];
   // Resumo de fim de temporada
   startNextSeason: () => void;
+  // Toasts (C4)
+  pushToast: (message: string, type: ToastData['type']) => void;
+  dismissToast: (id: string) => void;
 }
 
 export type GameStore = GameState & GameActions;

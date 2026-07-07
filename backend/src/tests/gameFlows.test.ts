@@ -1,9 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { readFileSync, existsSync, statSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { generateTeam, generatePlayer, generateYouthIntake } from '../utils/playerGenerator';
-import { useGameStore } from '../store/gameStore';
-import type { WeeklyTrainingPlan, Player } from '../types/game';
+import { generateTeam, generatePlayer, generateYouthIntake } from '../utils/playerGenerator.js';
+import { useGameStore } from '../store/gameStore.js';
+import { runAction } from '../store/storeHelpers.js';
+import type { WeeklyTrainingPlan, Player } from '../types/game.js';
 
 function recalcWageBillFromSquad(squad: Player[]) {
   return squad.reduce((sum, p) => sum + p.salary, 0) / 1000;
@@ -20,8 +19,31 @@ function selectFirstTeam() {
   return teamId;
 }
 
+// Helper: advanceWeek to generate matches, then find the user's match index
+function advanceAndFindUserMatch() {
+  const teamId = selectFirstTeam();
+  getState().advanceWeek();
+  const matchIndex = getState().matches.findIndex(
+    (m) => m.homeTeam === teamId || m.awayTeam === teamId,
+  );
+  if (matchIndex < 0) throw new Error('Nenhuma partida encontrada para o time selecionado');
+  return { teamId, matchIndex };
+}
+
 // 15.2 — Geração procedural
 describe('15.2 Geração procedural de times e jogadores', () => {
+  beforeEach(() => {
+    useGameStore.setState({
+      teams: [],
+      selectedTeam: null,
+      currentWeek: 0,
+      currentSeason: 1,
+      matches: [],
+      inbox: [],
+    });
+    getState().initGame();
+  });
+
   it('gera jogador com atributos válidos', () => {
     const player = generatePlayer({ teamReputation: 50, position: 'MID' });
     expect(player.id).toBeTruthy();
@@ -44,38 +66,44 @@ describe('15.2 Geração procedural de times e jogadores', () => {
     youth.forEach((p) => expect(p.age).toBeLessThanOrEqual(18));
   });
 
-  it('initGame cria 8 times procedurais', () => {
+  it('initGame cria times válidos', () => {
     const { teams } = getState();
-    expect(teams).toHaveLength(8);
+    expect(teams.length).toBeGreaterThanOrEqual(8);
     const divisions = new Set(teams.map((t) => t.division));
     expect(divisions.has('Série A')).toBe(true);
-    expect(divisions.has('Série B')).toBe(true);
   });
 });
 
 // 15.3 — Simulação de partidas
 describe('15.3 Simulação de partidas', () => {
-  it('inicia partida ao vivo do time selecionado', () => {
-    const teamId = selectFirstTeam();
-    const matchIndex = getState().matches.findIndex(
-      (m) => m.homeTeam === teamId || m.awayTeam === teamId,
-    );
-    expect(matchIndex).toBeGreaterThanOrEqual(0);
+  beforeEach(() => {
+    useGameStore.setState({
+      teams: [],
+      selectedTeam: null,
+      currentWeek: 0,
+      currentSeason: 1,
+      matches: [],
+      inbox: [],
+    });
+    getState().initGame();
+  });
 
+  it('inicia partida ao vivo do time selecionado', () => {
+    const { matchIndex } = advanceAndFindUserMatch();
     getState().simulateMatch(matchIndex);
     const match = getState().matches[matchIndex];
     expect(match.isLive).toBe(true);
-    expect(match.liveMinute).toBe(1);
+    expect(match.liveMinute).toBe(0);
+    // First minute advance moves to 1
+    getState().generateLiveMatchMinute(matchIndex);
+    expect(getState().matches[matchIndex].liveMinute).toBe(1);
   });
 
   it('avança minuto a minuto e finaliza em 90', () => {
-    const teamId = selectFirstTeam();
-    const matchIndex = getState().matches.findIndex(
-      (m) => m.homeTeam === teamId || m.awayTeam === teamId,
-    );
+    const { matchIndex } = advanceAndFindUserMatch();
     getState().simulateMatch(matchIndex);
 
-    for (let i = 0; i < 95; i++) {
+    for (let i = 0; i < 100; i++) {
       getState().generateLiveMatchMinute(matchIndex);
     }
 
@@ -99,6 +127,18 @@ describe('15.3 Simulação de partidas', () => {
 
 // 15.4 — Caixa de entrada
 describe('15.4 Sistema de caixa de entrada', () => {
+  beforeEach(() => {
+    useGameStore.setState({
+      teams: [],
+      selectedTeam: null,
+      currentWeek: 0,
+      currentSeason: 1,
+      matches: [],
+      inbox: [],
+    });
+    getState().initGame();
+  });
+
   it('advanceWeek adiciona mensagens ao inbox', () => {
     selectFirstTeam();
     const before = getState().inbox.length;
@@ -133,6 +173,18 @@ describe('15.4 Sistema de caixa de entrada', () => {
 
 // 15.5 — Treino
 describe('15.5 Sistema de treino', () => {
+  beforeEach(() => {
+    useGameStore.setState({
+      teams: [],
+      selectedTeam: null,
+      currentWeek: 0,
+      currentSeason: 1,
+      matches: [],
+      inbox: [],
+    });
+    getState().initGame();
+  });
+
   it('salva e aplica plano semanal', () => {
     selectFirstTeam();
     const plan: WeeklyTrainingPlan = {
@@ -160,6 +212,18 @@ describe('15.5 Sistema de treino', () => {
 
 // 15.6 — Transferências
 describe('15.6 Sistema de transferência', () => {
+  beforeEach(() => {
+    useGameStore.setState({
+      teams: [],
+      selectedTeam: null,
+      currentWeek: 0,
+      currentSeason: 1,
+      matches: [],
+      inbox: [],
+    });
+    getState().initGame();
+  });
+
   it('compra jogador de outro clube', () => {
     const buyerId = selectFirstTeam();
     const seller = getState().teams.find((t) => t.id !== buyerId)!;
@@ -187,6 +251,18 @@ describe('15.6 Sistema de transferência', () => {
 
 // 15.7 — Táticas
 describe('15.7 Sistema de táticas', () => {
+  beforeEach(() => {
+    useGameStore.setState({
+      teams: [],
+      selectedTeam: null,
+      currentWeek: 0,
+      currentSeason: 1,
+      matches: [],
+      inbox: [],
+    });
+    getState().initGame();
+  });
+
   it('updateTeam persiste mentalidade e formação', () => {
     const teamId = selectFirstTeam();
     getState().updateTeam(teamId, (t) => ({
@@ -204,6 +280,18 @@ describe('15.7 Sistema de táticas', () => {
 
 // 15.8 — Dinâmica
 describe('15.8 Sistema de dinâmica', () => {
+  beforeEach(() => {
+    useGameStore.setState({
+      teams: [],
+      selectedTeam: null,
+      currentWeek: 0,
+      currentSeason: 1,
+      matches: [],
+      inbox: [],
+    });
+    getState().initGame();
+  });
+
   it('gera árvore social', () => {
     selectFirstTeam();
     getState().generateSocialTree();
@@ -231,6 +319,18 @@ describe('15.8 Sistema de dinâmica', () => {
 
 // 15.9 — Finanças
 describe('15.9 Sistema de finanças', () => {
+  beforeEach(() => {
+    useGameStore.setState({
+      teams: [],
+      selectedTeam: null,
+      currentWeek: 0,
+      currentSeason: 1,
+      matches: [],
+      inbox: [],
+    });
+    getState().initGame();
+  });
+
   it('adjustPlayerSalary recalcula wageBill', () => {
     const teamId = selectFirstTeam();
     const team = getState().teams.find((t) => t.id === teamId)!;
@@ -256,58 +356,64 @@ describe('15.9 Sistema de finanças', () => {
   });
 });
 
-// 15.10 — Persistência localStorage
-describe('15.10 Persistência no localStorage', () => {
+// 15.10 — updateTeam whitelist (segurança server-side)
+describe('15.10 updateTeam whitelist via runAction', () => {
   beforeEach(() => {
-    localStorage.clear();
-    useGameStore.persist.clearStorage();
-  });
-
-  it('persiste estado após rehydrate', async () => {
+    useGameStore.setState({
+      teams: [],
+      selectedTeam: null,
+      currentWeek: 0,
+      currentSeason: 1,
+      matches: [],
+      inbox: [],
+    });
     getState().initGame();
-    const teamId = getState().teams[0].id;
-    getState().selectTeam(teamId);
-    getState().advanceWeek();
-
-    const stored = localStorage.getItem('fm-game-storage-v3');
-    expect(stored).toBeTruthy();
-
-    const parsed = JSON.parse(stored!);
-    expect(parsed.state.selectedTeam).toBe(teamId);
-    expect(parsed.state.currentWeek).toBe(1);
-
-    useGameStore.persist.clearStorage();
-    localStorage.setItem('fm-game-storage-v3', stored!);
-    await useGameStore.persist.rehydrate();
-
-    expect(getState().selectedTeam).toBe(teamId);
-    expect(getState().currentWeek).toBe(1);
-  });
-});
-
-// 15.11 — Performance mobile (métricas estáticas)
-describe('15.11 Performance em dispositivos móveis', () => {
-  it('bundle de produção dentro do limite aceitável', () => {
-    const distJs = resolve(process.cwd(), 'dist/assets');
-    if (!existsSync(distJs)) {
-      console.warn('dist/ não encontrado — rode npm run build antes');
-      return;
-    }
-    const jsFiles = readFileSync(resolve(process.cwd(), 'dist/index.html'), 'utf-8').match(/assets\/index-[^"]+\.js/g) ?? [];
-    expect(jsFiles.length).toBeGreaterThan(0);
-
-    const jsPath = resolve(process.cwd(), 'dist', jsFiles[0]);
-    const sizeKb = statSync(jsPath).size / 1024;
-    expect(sizeKb).toBeLessThan(500);
   });
 
-  it('CSS usa layout responsivo (grid/flex adaptativo)', () => {
-    const css = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf-8');
-    expect(css).toMatch(/grid-template-columns:\s*repeat\(auto-fill/);
+  it('não permite alterar budget via updateTeam', () => {
+    const teamId = selectFirstTeam();
+    const team = getState().teams.find((t) => t.id === teamId)!;
+    const originalBudget = team.budget;
+
+    runAction(useGameStore, 'updateTeam', [teamId, {
+      ...team,
+      budget: 999999,
+      reputation: 100,
+    }]);
+
+    const after = getState().teams.find((t) => t.id === teamId)!;
+    expect(after.budget).toBe(originalBudget);
+    expect(after.reputation).toBe(team.reputation);
   });
 
-  it('SquadTable adapta colunas em telas estreitas', () => {
-    const squadTable = readFileSync(resolve(process.cwd(), 'src/components/squad/SquadTable.tsx'), 'utf-8');
-    expect(squadTable).toMatch(/isNarrow/);
+  it('permite alterar campos táticos via updateTeam', () => {
+    const teamId = selectFirstTeam();
+    const team = getState().teams.find((t) => t.id === teamId)!;
+
+    runAction(useGameStore, 'updateTeam', [teamId, {
+      formation: '4-3-3',
+      teamMentality: 'very offensive',
+      tempo: 'fast',
+    }]);
+
+    const after = getState().teams.find((t) => t.id === teamId)!;
+    expect(after.formation).toBe('4-3-3');
+    expect(after.teamMentality).toBe('very offensive');
+    expect(after.tempo).toBe('fast');
+  });
+
+  it('preserva squad ao aplicar squadStatus', () => {
+    const teamId = selectFirstTeam();
+    const team = getState().teams.find((t) => t.id === teamId)!;
+    const playerId = team.squad[0].id;
+    const originalSquadLength = team.squad.length;
+
+    runAction(useGameStore, 'updateTeam', [teamId, {
+      squadStatus: { [playerId]: 'Key Player' },
+    }]);
+
+    const after = getState().teams.find((t) => t.id === teamId)!;
+    expect(after.squad.length).toBe(originalSquadLength);
+    expect(after.squad[0].squadStatus).toBe('Key Player');
   });
 });

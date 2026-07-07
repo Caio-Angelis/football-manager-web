@@ -15,20 +15,21 @@ export function calculateLeagueStandings(
       teamId: team.id,
       teamName: team.name,
       position: 0,
-      played: 0,
-      wins: 0,
-      draws: 0,
-      losses: 0,
-      goalsFor: 0,
-      goalsAgainst: 0,
-      goalDifference: 0,
-      points: 0,
+      played: team.played,
+      wins: team.won,
+      draws: team.drawn,
+      losses: team.lost,
+      goalsFor: team.goalsFor,
+      goalsAgainst: team.goalsAgainst,
+      goalDifference: team.goalsFor - team.goalsAgainst,
+      points: team.points,
       form: [],
       zone: 'safe',
     };
     teamFormMap[team.id] = [];
   });
 
+  // Form (last 5 results) still derived from matches — only used for display.
   matches.forEach(match => {
     if (!match.completed) return;
 
@@ -37,34 +38,13 @@ export function calculateLeagueStandings(
 
     if (!home || !away) return;
 
-    home.played += 1;
-    away.played += 1;
-
-    home.goalsFor += match.homeGoals;
-    home.goalsAgainst += match.awayGoals;
-    away.goalsFor += match.awayGoals;
-    away.goalsAgainst += match.homeGoals;
-
-    home.goalDifference = home.goalsFor - home.goalsAgainst;
-    away.goalDifference = away.goalsFor - away.goalsAgainst;
-
     if (match.homeGoals > match.awayGoals) {
-      home.wins += 1;
-      home.points += 3;
-      away.losses += 1;
       teamFormMap[match.homeTeam].push('W');
       teamFormMap[match.awayTeam].push('L');
     } else if (match.homeGoals < match.awayGoals) {
-      away.wins += 1;
-      away.points += 3;
-      home.losses += 1;
       teamFormMap[match.awayTeam].push('W');
       teamFormMap[match.homeTeam].push('L');
     } else {
-      home.draws += 1;
-      away.draws += 1;
-      home.points += 1;
-      away.points += 1;
       teamFormMap[match.homeTeam].push('D');
       teamFormMap[match.awayTeam].push('D');
     }

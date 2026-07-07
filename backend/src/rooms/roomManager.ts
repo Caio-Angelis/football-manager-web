@@ -7,6 +7,7 @@
 
 import { createGameStore, type GameStoreApi } from '../store/gameStore.js';
 import { extractState } from '../store/storeHelpers.js';
+import { processWeeklyScopedFeatures } from '../store/slices/core.js';
 import { recalcWageBill } from '../store/helpers/transfer.js';
 import { getFullName } from '../utils/playerName.js';
 import type { GameState, WeeklyTrainingPlan, Team, InboxMessage } from '../types/game.js';
@@ -59,6 +60,9 @@ export const SCOPED_KEYS: (keyof GameState)[] = [
   'boardReplies', 'boardSatisfaction', 'financialReports',
   'recommendations', 'preventionSessions', 'degradedConditions',
   'fanMood', 'mediaPressure', 'biddingWars', 'activeLoans',
+  'reserveTeam', 'youthAcademy', 'youthIntakeCompleted',
+  'pressConferences', 'transferAgreements', 'injuryHistory',
+  'fatigueLog', 'completedTransfers', 'socialTree',
 ];
 
 function snapshotScope(store: GameStoreApi): Partial<GameState> {
@@ -174,6 +178,13 @@ export function joinRoom(code: string, playerId: string, nickname: string): Room
 export function touch(room: Room, playerId: string): void {
   const p = getPlayer(room, playerId);
   if (p) { p.connected = true; p.lastSeen = Date.now(); }
+}
+
+/** Dono encerra a sala: remove do Map. Os demais recebem 404 no próximo polling (Fase 9). */
+export function closeRoom(room: Room, playerId: string): RoomOpResult {
+  if (room.ownerId !== playerId) return { ok: false, status: 403, message: 'Apenas o dono pode encerrar a sala' };
+  rooms.delete(room.code);
+  return { ok: true };
 }
 
 // ============================================================
@@ -397,6 +408,9 @@ export function projectState(room: Room, myTeamId: string | null): GameState {
   const state = extractState(room.store); // atributos de rivais já mascarados
   if (myTeamId && Array.isArray(state.teams)) {
     state.teams = state.teams.map(t => (t.id === myTeamId ? t : stripRivalTeam(t)));
+  } else if (Array.isArray(state.teams)) {
+    // E-27: Sem time (drafting) — mascarar TODOS os times para evitar vazamento.
+    state.teams = state.teams.map(t => stripRivalTeam(t));
   }
   return state;
 }
@@ -418,16 +432,20 @@ export function focusTeam(room: Room, playerId: string): void {
 /** Marca (ou alterna) o "pronto" do jogador para a rodada. */
 export function setReady(room: Room, playerId: string, ready?: boolean): RoomOpResult {
   if (room.status !== 'playing') return { ok: false, status: 409, message: 'O jogo não está em andamento' };
+  // E-29: Exigir boolean explícito para evitar toggle por double-click.
+  if (ready === undefined) return { ok: false, status: 400, message: 'ready deve ser true ou false' };
   const rp = getPlayer(room, playerId);
   if (!rp?.teamId) return { ok: false, status: 403, message: 'Você não está jogando nesta sala' };
-  rp.ready = ready ?? !rp.ready;
+  rp.ready = ready;
   return { ok: true };
 }
 
 /** Todos os jogadores com time estão prontos? (desconectado conta como pronto — Fase 9) */
 export function allPlayersReady(room: Room): boolean {
+  const now = Date.now();
   const playing = room.players.filter(p => p.teamId);
-  return playing.length > 0 && playing.every(p => p.ready || !p.connected);
+  // E-28: Calcular conectividade derivada de lastSeen em vez de flag.
+  return playing.length > 0 && playing.every(p => p.ready || (now - p.lastSeen > STALE_PLAYER_MS));
 }
 
 /**
@@ -451,12 +469,57 @@ export function advanceRoomWeek(room: Room): void {
   // processados por-time dentro do advanceWeek.
   loadScope(room, hostTeamId);
   room.store.getState().selectTeam(hostTeamId);
-  room.store.getState().advanceWeek(humanTeamIds, trainingByTeam);
+  // E-20: Capturar semana antes do avanço para verificar se incrementou.
+  const weekBefore = room.store.getState().currentWeek;
+  // E-10: advanceWeek retorna mapa de inbox por time humano para distribuição.
+  const inboxByTeam = room.store.getState().advanceWeek(humanTeamIds, trainingByTeam) as Record<string, InboxMessage[]> | undefined;
   saveScope(room, hostTeamId);
 
-  for (const p of room.players) p.ready = false;
-  // Fim de temporada encerra a sala (MVP: sem multi-temporada online).
+  // C6: Processar features single-track (parcelas, bônus, scout, torcida)
+  // para cada humano NÃO-host. O advanceWeek principal só processa o escopo
+  // do host; os outros humanos precisam que seu escopo seja carregado e
+  // processado separadamente.
+  const newWeek = room.store.getState().currentWeek;
+  if (newWeek > weekBefore) {
+    const currentTeams = room.store.getState().teams;
+    for (const hid of humanTeamIds) {
+      if (hid === hostTeamId) continue;
+      loadScope(room, hid);
+      room.store.getState().selectTeam(hid);
+      const result = processWeeklyScopedFeatures(
+        room.store.getState as () => any,
+        room.store.setState.bind(room.store) as any,
+        hid,
+        newWeek,
+        currentTeams,
+      );
+      // Distribuir mensagens geradas para o inbox do humano
+      for (const msg of result.inboxMessages) {
+        pushInbox(room, hid, msg);
+      }
+      saveScope(room, hid);
+    }
+    // Restaurar escopo do host no store
+    loadScope(room, hostTeamId);
+    room.store.getState().selectTeam(hostTeamId);
+  }
+
+  // E-10: Distribuir mensagens privadas (lesões, contratos, recomendações) para cada humano.
+  if (inboxByTeam) {
+    for (const [teamId, messages] of Object.entries(inboxByTeam)) {
+      if (teamId === hostTeamId) continue; // host já recebeu via finalInbox
+      for (const msg of messages) {
+        pushInbox(room, teamId, msg);
+      }
+    }
+  }
+
+  // E-20: Só zerar ready flags se a semana realmente avançou.
   const s = room.store.getState();
+  if (s.currentWeek > weekBefore) {
+    for (const p of room.players) p.ready = false;
+  }
+  // Fim de temporada encerra a sala (MVP: sem multi-temporada online).
   if (s.seasonSummary || s.gameOver) room.status = 'finished';
 }
 
@@ -473,7 +536,8 @@ export function toPublicRoom(room: Room, requesterId: string): PublicRoom {
       nickname: p.nickname,
       teamId: p.teamId,
       ready: p.ready,
-      connected: p.connected,
+      // E-28: Conectividade derivada de lastSeen.
+      connected: (Date.now() - p.lastSeen) < STALE_PLAYER_MS,
       isOwner: p.playerId === room.ownerId,
       isYou: p.playerId === requesterId,
     })),
@@ -517,17 +581,17 @@ function offersView(room: Room, myTeamId: string | null): OfferView[] {
 const CLEANUP_INTERVAL_MS = 5 * 60_000;
 const ROOM_TTL_MS = 6 * 60 * 60_000;      // sala viva por até 6h
 const STALE_PLAYER_MS = 60_000;           // sem heartbeat há 1min = desconectado
+const ROOM_GRACE_MS = 15 * 60_000;        // E-28: carência antes de apagar sala com todos ausentes
 
 const cleanup = setInterval(() => {
   const now = Date.now();
   for (const [code, room] of rooms) {
-    // Marca jogadores sem heartbeat recente como desconectados.
-    for (const p of room.players) {
-      if (now - p.lastSeen > STALE_PLAYER_MS) p.connected = false;
-    }
-    const everyoneGone = room.players.every(p => !p.connected);
+    // E-28: Conectividade derivada de lastSeen — não precisa setar flag aqui.
+    const everyoneGone = room.players.every(p => (now - p.lastSeen) > STALE_PLAYER_MS);
+    const lastActive = Math.max(...room.players.map(p => p.lastSeen));
     const expired = now - room.createdAt > ROOM_TTL_MS;
-    if (expired || everyoneGone) rooms.delete(code);
+    // Só apagar se todos estão ausentes há mais de ROOM_GRACE_MS, ou se expirou.
+    if (expired || (everyoneGone && (now - lastActive) > ROOM_GRACE_MS)) rooms.delete(code);
   }
 }, CLEANUP_INTERVAL_MS);
 cleanup.unref?.(); // não segura o processo vivo (ex.: em testes)

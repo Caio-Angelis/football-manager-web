@@ -2,8 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../../store/gameStore';
 import { Button } from '../ui/Button';
-import type { InboxMessage, InjuryReport, BoardReply, FinancialReport } from '../../types/game';
-import { BOARD_REPLY_CATEGORIES } from './constants';
+import type { InboxMessage, InjuryReport, BoardReplyOption, FinancialReport } from '../../types/game';
 import {
   Globe, Users, ArrowLeftRight, HeartPulse, Lightbulb, Briefcase, Sprout,
   Dumbbell, Wallet, Newspaper, Mail, type LucideIcon,
@@ -588,8 +587,7 @@ export const InboxView: React.FC = () => {
   // Item 9.8.3 - Diretoria: Responder
   const [showBoardReply, setShowBoardReply] = React.useState(false);
   const [boardReplyMessage, setBoardReplyMessage] = React.useState<InboxMessage | null>(null);
-  const [replyText, setReplyText] = React.useState('');
-  const [replyCategory, setReplyCategory] = React.useState<BoardReply['category']>('general');
+  const [selectedOptionId, setSelectedOptionId] = React.useState<string | null>(null);
   // Item 9.8.4 - Financeiro: Ver Relatório
   const [showFinancialReport, setShowFinancialReport] = React.useState(false);
   const [financialReport, setFinancialReport] = React.useState<FinancialReport | null>(null);
@@ -643,7 +641,7 @@ export const InboxView: React.FC = () => {
     if (action.label === 'Responder' && message.type === 'board') {
       setBoardReplyMessage(message);
       setShowBoardReply(true);
-      setReplyText('');
+      setSelectedOptionId(null);
       if (!message.read) {
         handleInboxAction(message.id, 'Marcar como Lido');
       }
@@ -684,15 +682,23 @@ export const InboxView: React.FC = () => {
     setTimeout(() => setActionFeedback(null), 3000);
   };
 
-  // Item 9.8.3 - Enviar resposta da diretoria
+  // Item 9.8.3 - Enviar resposta da diretoria com opção selecionada
   const handleBoardReplySubmit = () => {
-    if (!boardReplyMessage || !replyText.trim()) return;
-    handleBoardReply(boardReplyMessage.id, replyText.trim(), replyCategory);
-    setActionFeedback(`Resposta à diretoria enviada (categoria: ${BOARD_REPLY_CATEGORIES.find(c => c.id === replyCategory)?.label})`);
-    setTimeout(() => setActionFeedback(null), 4000);
+    if (!boardReplyMessage || !selectedOptionId) return;
+    const option = boardReplyMessage.boardReplyOptions?.find(o => o.id === selectedOptionId);
+    if (!option) return;
+    handleBoardReply(boardReplyMessage.id, selectedOptionId);
+    const effectsDesc: string[] = [];
+    if (option.effects.satisfactionChange) effectsDesc.push(`Satisfação ${option.effects.satisfactionChange > 0 ? '+' : ''}${option.effects.satisfactionChange}`);
+    if (option.effects.budgetChange) effectsDesc.push(`Orçamento ${option.effects.budgetChange > 0 ? '+' : ''}${option.effects.budgetChange}M`);
+    if (option.effects.moraleChange) effectsDesc.push(`Moral ${option.effects.moraleChange > 0 ? '+' : ''}${option.effects.moraleChange}`);
+    if (option.effects.fanMoodChange) effectsDesc.push(`Torcida ${option.effects.fanMoodChange > 0 ? '+' : ''}${option.effects.fanMoodChange}`);
+    if (option.effects.transferBudgetChange) effectsDesc.push(`Verba transferências +${option.effects.transferBudgetChange}M`);
+    setActionFeedback(`Resposta enviada: "${option.label}"${effectsDesc.length > 0 ? ' | Efeitos: ' + effectsDesc.join(', ') : ''}`);
+    setTimeout(() => setActionFeedback(null), 5000);
     setShowBoardReply(false);
     setBoardReplyMessage(null);
-    setReplyText('');
+    setSelectedOptionId(null);
   };
 
   return (
@@ -849,36 +855,51 @@ export const InboxView: React.FC = () => {
                 </div>
 
                 <div className="fm-board-reply__reply-section">
-                  <h3 className="fm-board-reply__section-title">Sua Resposta</h3>
-
-                  <label className="fm-board-reply__label">
-                    <strong>Categoria da resposta:</strong>
-                    <select
-                      id="board-reply-category"
-                      name="board-reply-category"
-                      className="fm-board-reply__select"
-                      value={replyCategory}
-                      onChange={(e) => setReplyCategory(e.target.value as BoardReply['category'])}
-                    >
-                      {BOARD_REPLY_CATEGORIES.map((cat) => (
-                        <option key={cat.id} value={cat.id}>{cat.label}</option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <textarea
-                    id="board-reply-text"
-                    name="board-reply-text"
-                    className="fm-board-reply__textarea"
-                    placeholder="Escreva sua resposta aqui..."
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
-                    rows={8}
-                    maxLength={500}
-                  />
-                  <div className="fm-board-reply__char-count">
-                    {replyText.length}/500 caracteres
-                  </div>
+                  <h3 className="fm-board-reply__section-title">Escolha sua Resposta</h3>
+                  {boardReplyMessage.boardReplyOptions && boardReplyMessage.boardReplyOptions.length > 0 ? (
+                    <div className="fm-board-reply__options">
+                      {boardReplyMessage.boardReplyOptions.map((opt: BoardReplyOption) => {
+                        const isSelected = selectedOptionId === opt.id;
+                        const effects = opt.effects;
+                        const effectBadges: { text: string; positive: boolean }[] = [];
+                        if (effects.satisfactionChange) effectBadges.push({ text: `Satisfação ${effects.satisfactionChange > 0 ? '+' : ''}${effects.satisfactionChange}`, positive: effects.satisfactionChange > 0 });
+                        if (effects.budgetChange) effectBadges.push({ text: `Orçamento ${effects.budgetChange > 0 ? '+' : ''}${effects.budgetChange}M`, positive: effects.budgetChange > 0 });
+                        if (effects.moraleChange) effectBadges.push({ text: `Moral ${effects.moraleChange > 0 ? '+' : ''}${effects.moraleChange}`, positive: effects.moraleChange > 0 });
+                        if (effects.fanMoodChange) effectBadges.push({ text: `Torcida ${effects.fanMoodChange > 0 ? '+' : ''}${effects.fanMoodChange}`, positive: effects.fanMoodChange > 0 });
+                        if (effects.transferBudgetChange) effectBadges.push({ text: `Verba +${effects.transferBudgetChange}M`, positive: true });
+                        if (effects.addBoardPromise) effectBadges.push({ text: `Promessa: ${effects.addBoardPromise.goal}`, positive: false });
+                        return (
+                          <div
+                            key={opt.id}
+                            className={`fm-board-reply__option ${isSelected ? 'fm-board-reply__option--selected' : ''}`}
+                            onClick={() => setSelectedOptionId(opt.id)}
+                          >
+                            <div className="fm-board-reply__option-header">
+                              <span className="fm-board-reply__option-radio">
+                                {isSelected && '●'}
+                              </span>
+                              <span className="fm-board-reply__option-label">{opt.label}</span>
+                            </div>
+                            <p className="fm-board-reply__option-desc">{opt.description}</p>
+                            {effectBadges.length > 0 && (
+                              <div className="fm-board-reply__option-effects">
+                                {effectBadges.map((badge, i) => (
+                                  <span
+                                    key={i}
+                                    className={`fm-board-reply__effect-badge ${badge.positive ? 'fm-board-reply__effect-badge--positive' : 'fm-board-reply__effect-badge--negative'}`}
+                                  >
+                                    {badge.text}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="fm-board-reply__no-options">Esta mensagem não possui opções de resposta.</p>
+                  )}
                 </div>
 
                 <div className="fm-board-reply__satisfaction-preview">
@@ -909,7 +930,7 @@ export const InboxView: React.FC = () => {
               <Button
                 variant="primary"
                 onClick={handleBoardReplySubmit}
-                disabled={!replyText.trim()}
+                disabled={!selectedOptionId}
               >
                 Enviar Resposta
               </Button>

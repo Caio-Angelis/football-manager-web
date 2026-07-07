@@ -140,6 +140,8 @@ export const createScoutingSlice = (set: Set, get: Get) => ({
 
   completeYouthIntake: () => {
     const state = get();
+    // E-15: Checar se o intake já foi feito nesta temporada.
+    if (state.youthIntakeCompleted) return;
     const team = state.teams.find(t => t.id === state.selectedTeam);
     if (!team) return;
 

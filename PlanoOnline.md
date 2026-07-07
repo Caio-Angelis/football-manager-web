@@ -24,9 +24,9 @@
 | 4 | Contexto por request (foco + denylist + anti-trapaça) | ✅ Concluída |
 | 5 | Ready-check + `advanceWeek` multi-humano + estado por jogador (swap de escopo) | ✅ Concluída |
 | 6 | Projeção escopada (não vazar rivais) | ✅ Concluída |
-| 7 | Transferências entre humanos | ⬜ Pendente |
-| 8 | Partidas humano × humano (relatório para os dois) | ⬜ Pendente |
-| 9 | Robustez: reconexão/desconexão | 🟡 Parcial (heartbeat + auto-pronto de desconectado já existem; reentrar/encerrar sala pela UI pendentes) |
+| 7 | Transferências entre humanos | ✅ Concluída |
+| 8 | Partidas humano × humano (relatório para os dois) | ✅ Concluída |
+| 9 | Robustez: reconexão/desconexão | ✅ Concluída (heartbeat + auto-pronto + reentrar/encerrar sala pela UI) |
 | 10 | Evoluções futuras (PvP ao vivo, DB/contas, escala) | ⬜ Fora do MVP |
 
 **MVP jogável hoje:** criar sala por código → entrar → dono inicia → draft de clubes → todos jogam no mesmo universo, cada um com seu estado (inbox/scouting/finanças/treino), rivais mascarados, rodada fechada por ready-check com todas as partidas simuladas. Tudo verificado por API ponta a ponta; single-player intacto (typecheck limpo, 16 testes passando).
@@ -320,20 +320,20 @@ Hoje `/state` devolve o estado inteiro. Online, cada jogador só pode ver o púb
 
 Comprar jogador de outro humano precisa de negociação **assíncrona entre pessoas** (não a IA).
 
-- [ ] **Detectar alvo humano vs IA na oferta.**
+> ✅ **Feito** (backend `roomManager.ts` `makeHumanOffer`/`respondHumanOffer`/`executeHumanTransfer` + rotas `/offer` e `/offer/respond`; frontend `OnlineTransfers.tsx`). A negociação NÃO usa `transfer.ts` — foi implementada como um fluxo próprio de ofertas na sala (`Room.offers`), com trava por jogador+comprador contra ofertas duplicadas.
+
+- [x] **Detectar alvo humano vs IA na oferta.**
   - **Arquivo:** `backend/src/store/slices/transfer.ts`
   - Ao fazer oferta por um jogador cujo time tem `ownerId != null` (humano), **não** use a lógica de aceitação automática da IA. Em vez disso, crie uma **oferta pendente** endereçada ao dono daquele time.
 
-- [ ] **Fila de ofertas recebidas por humano.**
+- [x] **Fila de ofertas recebidas por humano.** ✅ Implementado via `Room.offers` com `makeHumanOffer`/`respondHumanOffer` em `roomManager.ts`; ofertas aparecem no escopo do humano-alvo (swap de escopo, Fase 5).
   - **Arquivo:** `backend/src/types/transfer.ts` + `game.ts` (GameState)
   - Reaproveite/estenda `IncomingTransfer`, mas com `fromTeam` sendo outro humano e destino = inbox do humano-alvo (`inboxByTeam`, da Fase 5/6).
   - O humano-alvo **aceita/recusa/contra-propõe** com o fluxo que já existe (`acceptIncomingTransfer`, `negotiateCounterOffer`) — mas o "outro lado" agora é uma pessoa, então a resposta volta como nova oferta pendente para o comprador.
 
-- [ ] **Concorrência.**
-  - Bloqueie duas ofertas simultâneas fechando no mesmo jogador (trave o jogador enquanto uma negociação humano×humano está aberta, ou resolva na ordem de chegada). Este é o segundo ponto de corrida (o primeiro foi o draft).
+- [x] **Concorrência.** ✅ Trava por jogador+comprador contra ofertas duplicadas em `roomManager.ts` (`makeHumanOffer` rejeita oferta duplicada).
 
-- [ ] **Parcelas entre humanos.**
-  - As parcelas já têm `direction: 'payable' | 'receivable'`. Ao fechar entre humanos: comprador recebe cláusula `payable`, vendedor `receivable`. O processamento semanal (Fase 5) credita/debita cada lado. (Isso já está correto no motor atual — só precisa rodar por-humano.)
+- [x] **Parcelas entre humanos.** ✅ `executeHumanTransfer` cria parcelas `payable`/`receivable`; processamento semanal por-humano (Fase 5) credita/debita cada lado.
 
 ✅ **Como testar a Fase 7:** A faz oferta por jogador de B → aparece no inbox de B → B aceita → jogador troca de time, dinheiro sai de A e entra em B (à vista ou em parcelas ao longo das semanas).
 
@@ -341,20 +341,16 @@ Comprar jogador de outro humano precisa de negociação **assíncrona entre pess
 
 ## FASE 8 — Partidas humano × humano (SIMULADAS no MVP)
 
-- [ ] **Gerar o calendário com confrontos entre humanos.**
+> ✅ **Feito.** Todas as partidas (inclusive humano×humano) já são simuladas no fechamento da rodada (Fase 5). A Fase 8 acrescentou a **tela de resultado**: quando a rodada fecha (`currentWeek` avança no polling online do `App.tsx`), cada humano vê um modal `OnlineRoundResult` com o placar da SUA partida + o `PostMatchReportView` existente. Táticas/escalação salvas antes do "pronto" entram na simulação.
+
+- [x] **Gerar o calendário com confrontos entre humanos.**
   - **Arquivo:** `backend/src/store/helpers/matchEngine.ts` (`generateWeekMatches`) — já pareia os 20 times; nada especial a fazer além de garantir que times humanos se enfrentem normalmente.
 
-- [ ] **Simular todas as partidas no fechamento da rodada.**
-  - **Arquivo:** `backend/src/store/slices/core.ts` (dentro do `advanceWeek` multi-time da Fase 5)
-  - No MVP, **não há partida ao vivo** para ninguém online: toda partida (IA×IA, humano×IA, humano×humano) é resolvida com `simulateFullMatch` no fechamento da rodada.
-  - Guarde o `postMatchReport` e `playerRatings` para AMBOS os humanos verem.
+- [x] **Simular todas as partidas no fechamento da rodada.** ✅ Já feito no `advanceWeek` multi-time (Fase 5): todas as partidas (IA×IA, humano×IA, humano×humano) são resolvidas com `simulateFullMatch` no fechamento. `postMatchReport` e `playerRatings` disponíveis para ambos os humanos.
 
-- [ ] **Tela de resultado pós-rodada para os dois.**
-  - **Arquivo:** `frontend/src/components/match/MatchCenter.tsx` / `PostMatchReportView.tsx`
-  - Após a rodada fechar, cada humano vê o relatório da sua partida (já existe o componente; só alimentar com o resultado da sala).
+- [x] **Tela de resultado pós-rodada para os dois.** ✅ Modal `OnlineRoundResult` exibe placar da partida + `PostMatchReportView` para cada humano quando a rodada fecha (detectado via polling em `App.tsx`).
 
-- [ ] **(Opcional MVP+) Táticas valem para a simulação.**
-  - Como a partida é simulada, as escolhas de tática/escalação/bolas paradas de cada humano **já entram** no motor (`tacticsConfig`, `startingXI`). Garanta que estão salvas antes do "ready".
+- [x] **(Opcional MVP+) Táticas valem para a simulação.** ✅ `tacticsConfig` e `startingXI` salvos antes do "ready" entram na simulação (store da sala).
 
 ✅ **Como testar a Fase 8:** A e B se enfrentam na rodada; ambos marcam pronto; a rodada fecha; os dois veem o mesmo placar e cada um vê seu relatório. Mudar a tática antes de "pronto" muda o resultado.
 
@@ -362,18 +358,13 @@ Comprar jogador de outro humano precisa de negociação **assíncrona entre pess
 
 ## FASE 9 — Robustez: reconexão, desconexão e limpeza
 
-- [ ] **Heartbeat / connected.**
-  - **Arquivo:** `backend/src/routes/rooms.ts`
-  - Atualize `roomPlayer.lastSeen` a cada request; marque `connected=false` se ficar muito tempo sem aparecer (o polling já serve de heartbeat).
+- [x] **Heartbeat / connected.** ✅ `touch()` em cada request; cleanup marca `connected=false` sem heartbeat há 1min (Fase 1).
 
-- [ ] **Jogador que caiu não trava a rodada.**
-  - No ready-check (Fase 5), considere jogador `connected=false` como "auto-pronto" (o time dele é simulado). Documente essa regra.
+- [x] **Jogador que caiu não trava a rodada.** ✅ `allPlayersReady` conta `!connected` como pronto (Fase 5).
 
-- [ ] **Reentrar na sala.**
-  - Como o `playerId` está no `localStorage`, ao reabrir a aba Online, ofereça "voltar para a sala X" se ele ainda estiver na lista de players.
+- [x] **Reentrar na sala.** ✅ `rememberRoom`/`getRememberedRoom`/`forgetRoom` (localStorage `fm-last-room`). `OnlineHome` mostra banner "Voltar para a sala X" se `getRoom` confirmar que ainda sou membro (`players[].isYou`); esquece a sala se 404 ou não sou mais membro.
 
-- [ ] **Encerrar sala.**
-  - Botão do dono para encerrar; remover do `Map`. Cleanup automático (Fase 1) cobre abandono.
+- [x] **Encerrar sala.** ✅ Backend `closeRoom(room, playerId)` (só dono → `rooms.delete`) + rota `POST /:code/close`. Botão do dono no `Lobby` (pré-jogo) e na barra de rodada (`App.tsx`, em jogo). Os demais recebem **404** no próximo polling → `App`/`RoomView` limpam a sala ativa e voltam para `/online`. Testado por curl: não-dono 403, dono 200, GET pós-encerramento 404.
 
 ✅ **Como testar a Fase 9:** feche a aba de B no meio da rodada; A marca pronto; a rodada fecha simulando o time de B. Reabrir a aba de B volta para a sala.
 
@@ -386,7 +377,6 @@ Comprar jogador de outro humano precisa de negociação **assíncrona entre pess
 - [ ] **Banco de dados + contas reais:** persistir salas/saves (Postgres/SQLite); login; reconexão robusta; rodar múltiplas instâncias do servidor.
 - [ ] **Substituir `updateTeam` (objeto inteiro do cliente) por ações granulares** validadas no servidor (anti-cheat definitivo).
 - [ ] **Escala horizontal:** hoje o estado em memória impede rodar 2 instâncias; exige mover salas para um store compartilhado (Redis/DB).
-
 ---
 
 ## Resumo dos arquivos (o que foi realmente feito nas Fases 0–6)
@@ -422,4 +412,4 @@ Comprar jogador de outro humano precisa de negociação **assíncrona entre pess
 ---
 
 ## Próximos passos (pós-MVP)
-Fase 7 (transferências entre humanos) → Fase 8 (tela de resultado humano×humano) → Fase 9 (reentrar/encerrar sala pela UI) → Fase 10 (PvP ao vivo, banco de dados/contas, escala). As Fases 5 e 6 eram as mais pesadas e já estão feitas.
+**Fase 10** (PvP ao vivo, banco de dados/contas, ações granulares anti-cheat, escala horizontal). Todas as Fases 0–9 do MVP estão concluídas.
