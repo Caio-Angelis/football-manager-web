@@ -60,6 +60,8 @@ export interface LiveMatchState {
   fatigue?: Record<string, number>;               // playerId -> fadiga 0-0.6 acumulada na partida
   addedTime?: number;     // acréscimos do 2º tempo (jogo termina em 90 + addedTime)
   passTotals?: { homeAtt: number; homeCmp: number; awayAtt: number; awayCmp: number };
+  seed?: number;          // seed do PRNG determinístico (replay) — undefined = não-determinístico
+  rngState?: number;      // estado atual do PRNG (para pausar/retomar simulação)
 }
 
 // ============================================================

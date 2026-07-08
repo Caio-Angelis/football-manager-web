@@ -4,6 +4,27 @@ import type { Team, Match, MatchEvent, MatchStats, PlayerMatchRating, Player, Ma
 import { calculateMatchPrizeMoney } from './finance';
 
 // ============================================================
+// PRNG DETERMINÍSTICA — mulberry32 (replay, testes, online seguro)
+// ============================================================
+
+export type Rng = () => number;
+
+export function mulberry32(seed: number): Rng & { state: () => number } {
+  let a = seed >>> 0;
+  const rng = (() => {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }) as Rng & { state: () => number };
+  rng.state = () => a;
+  return rng;
+}
+
+// RNG ativa do motor — substitui Math.random() em toda a simulação de partida
+let _matchRng: Rng = Math.random;
+
+// ============================================================
 // CÁLCULO DE FORÇA DO TIME
 // ============================================================
 
@@ -271,7 +292,7 @@ function poissonSample(lambda: number): number {
   const L = Math.exp(-lambda);
   let k = 0;
   let p = 1;
-  do { k++; p *= Math.random(); } while (p > L);
+  do { k++; p *= _matchRng(); } while (p > L);
   return Math.min(k - 1, 10);
 }
 
@@ -279,7 +300,7 @@ function poissonSample(lambda: number): number {
 function weightedPick<T>(items: T[], weights: number[]): T | undefined {
   const total = weights.reduce((s, w) => s + w, 0);
   if (total <= 0 || items.length === 0) return items[0];
-  let r = Math.random() * total;
+  let r = _matchRng() * total;
   for (let i = 0; i < items.length; i++) {
     r -= weights[i];
     if (r <= 0) return items[i];
@@ -314,7 +335,12 @@ function pickAssister(team: Team, scorerId?: string): Team['squad'][number] | un
 // MOTOR DE PARTIDA — modelo de gols esperados (xG) + Poisson
 // ============================================================
 
-export function simulateMatchResult(homeTeam: Team, awayTeam: Team, homeBoost = 0, awayBoost = 0): MatchResult {
+export function simulateMatchResult(homeTeam: Team, awayTeam: Team, homeBoost = 0, awayBoost = 0, seed?: number): MatchResult {
+  if (seed !== undefined) {
+    _matchRng = mulberry32(seed);
+  } else {
+    _matchRng = Math.random;
+  }
   const HOME_ADVANTAGE = 1.12;
   const BASE_GOALS = 2.2;
 
@@ -340,9 +366,9 @@ export function simulateMatchResult(homeTeam: Team, awayTeam: Team, homeBoost = 
   const goalDetails: GoalDetail[] = [];
   const buildGoals = (team: Team, count: number, side: 'home' | 'away') => {
     for (let i = 0; i < count; i++) {
-      const minute = 1 + Math.floor(Math.random() * 90);
+      const minute = 1 + Math.floor(_matchRng() * 90);
       const scorer = pickScorer(team);
-      const assister = Math.random() < 0.62 ? pickAssister(team, scorer?.id) : undefined;
+      const assister = _matchRng() < 0.62 ? pickAssister(team, scorer?.id) : undefined;
       goalDetails.push({
         team: side,
         minute,
@@ -358,12 +384,12 @@ export function simulateMatchResult(homeTeam: Team, awayTeam: Team, homeBoost = 
 
   // Estatísticas coerentes derivadas dos lambdas e gols
   const homePossession = clamp(getPossessionBias(homeTeam, awayTeam), 0.30, 0.70);
-  const homeShotsOnTarget = homeGoals + Math.round(homeLambda * (0.7 + Math.random() * 0.9));
-  const awayShotsOnTarget = awayGoals + Math.round(awayLambda * (0.7 + Math.random() * 0.9));
-  const homeShots = homeShotsOnTarget + Math.round(homeLambda * 2 + Math.random() * 5);
-  const awayShots = awayShotsOnTarget + Math.round(awayLambda * 2 + Math.random() * 5);
-  const homePasses = Math.round(homePossession * (360 + Math.random() * 160));
-  const awayPasses = Math.round((1 - homePossession) * (360 + Math.random() * 160));
+  const homeShotsOnTarget = homeGoals + Math.round(homeLambda * (0.7 + _matchRng() * 0.9));
+  const awayShotsOnTarget = awayGoals + Math.round(awayLambda * (0.7 + _matchRng() * 0.9));
+  const homeShots = homeShotsOnTarget + Math.round(homeLambda * 2 + _matchRng() * 5);
+  const awayShots = awayShotsOnTarget + Math.round(awayLambda * 2 + _matchRng() * 5);
+  const homePasses = Math.round(homePossession * (360 + _matchRng() * 160));
+  const awayPasses = Math.round((1 - homePossession) * (360 + _matchRng() * 160));
 
   // Construção da linha do tempo de eventos
   const events: MatchEvent[] = [];
@@ -384,27 +410,27 @@ export function simulateMatchResult(homeTeam: Team, awayTeam: Team, homeBoost = 
   const homeSaves = Math.max(0, homeShotsOnTarget - homeGoals);
   const awaySaves = Math.max(0, awayShotsOnTarget - awayGoals);
   for (let i = 0; i < homeSaves; i++) {
-    events.push({ minute: 1 + Math.floor(Math.random() * 90), type: 'save', team: 'away', description: 'Boa defesa do guarda-redes!' });
+    events.push({ minute: 1 + Math.floor(_matchRng() * 90), type: 'save', team: 'away', description: 'Boa defesa do guarda-redes!' });
   }
   for (let i = 0; i < awaySaves; i++) {
-    events.push({ minute: 1 + Math.floor(Math.random() * 90), type: 'save', team: 'home', description: 'Boa defesa do guarda-redes!' });
+    events.push({ minute: 1 + Math.floor(_matchRng() * 90), type: 'save', team: 'home', description: 'Boa defesa do guarda-redes!' });
   }
 
   // Escanteios e faltas para enriquecer a narrativa
   const corners = Math.round((homeShots + awayShots) / 4);
   for (let i = 0; i < corners; i++) {
-    events.push({ minute: 1 + Math.floor(Math.random() * 90), type: 'corner', team: Math.random() < homePossession ? 'home' : 'away', description: 'Escanteio' });
+    events.push({ minute: 1 + Math.floor(_matchRng() * 90), type: 'corner', team: _matchRng() < homePossession ? 'home' : 'away', description: 'Escanteio' });
   }
-  const fouls = 6 + Math.floor(Math.random() * 9);
+  const fouls = 6 + Math.floor(_matchRng() * 9);
   for (let i = 0; i < fouls; i++) {
-    events.push({ minute: 1 + Math.floor(Math.random() * 90), type: 'foul', team: Math.random() < 0.5 ? 'home' : 'away', description: 'Falta' });
+    events.push({ minute: 1 + Math.floor(_matchRng() * 90), type: 'foul', team: _matchRng() < 0.5 ? 'home' : 'away', description: 'Falta' });
   }
 
   events.sort((a, b) => a.minute - b.minute);
 
   const stats: MatchStats = {
-    homeXG: Math.round((homeGoals * 0.65 + homeShotsOnTarget * 0.22 + Math.random() * 0.3) * 100) / 100,
-    awayXG: Math.round((awayGoals * 0.65 + awayShotsOnTarget * 0.22 + Math.random() * 0.3) * 100) / 100,
+    homeXG: Math.round((homeGoals * 0.65 + homeShotsOnTarget * 0.22 + _matchRng() * 0.3) * 100) / 100,
+    awayXG: Math.round((awayGoals * 0.65 + awayShotsOnTarget * 0.22 + _matchRng() * 0.3) * 100) / 100,
     homePossession: Math.round(homePossession * 100),
     awayPossession: 100 - Math.round(homePossession * 100),
     homeShots,
@@ -413,8 +439,8 @@ export function simulateMatchResult(homeTeam: Team, awayTeam: Team, homeBoost = 
     awayShotsOnTarget,
     homePasses,
     awayPasses,
-    homePassAccuracy: Math.round(72 + Math.random() * 18),
-    awayPassAccuracy: Math.round(72 + Math.random() * 18),
+    homePassAccuracy: Math.round(72 + _matchRng() * 18),
+    awayPassAccuracy: Math.round(72 + _matchRng() * 18),
   };
 
   return { homeGoals, awayGoals, events, stats, goalDetails };
@@ -452,12 +478,12 @@ export function calculatePlayerMatchRatings(
       const minutesPlayed = sentOffMinute ?? 90;
 
       // Estatísticas cosméticas coerentes com a posição
-      const rnd = (min: number, max: number) => min + Math.floor(Math.random() * (max - min + 1));
+      const rnd = (min: number, max: number) => min + Math.floor(_matchRng() * (max - min + 1));
       const shots = goals + (isFWD ? rnd(0, 4) : isMID ? rnd(0, 2) : isDEF ? rnd(0, 1) : 0);
-      const shotsOnTarget = Math.min(shots, goals + (shots > goals && Math.random() < 0.5 ? 1 : 0));
+      const shotsOnTarget = Math.min(shots, goals + (shots > goals && _matchRng() < 0.5 ? 1 : 0));
       const passes = isMID ? rnd(45, 85) : isDEF ? rnd(35, 70) : isGK ? rnd(15, 38) : rnd(22, 55);
       const passingAttr = player.technical?.passing ?? 10;
-      const passAccuracy = clamp(Math.round(60 + (passingAttr - 10) * 1.6 + (Math.random() * 12 - 4)), 55, 96);
+      const passAccuracy = clamp(Math.round(60 + (passingAttr - 10) * 1.6 + (_matchRng() * 12 - 4)), 55, 96);
       const tackles = isDEF ? rnd(2, 7) : isMID ? rnd(1, 5) : isGK ? 0 : rnd(0, 2);
       const interceptions = isDEF ? rnd(1, 5) : isMID ? rnd(0, 3) : rnd(0, 1);
 
@@ -485,7 +511,7 @@ export function calculatePlayerMatchRatings(
       rating += ((player.form ?? 70) - 70) * 0.006;
       rating += ((player.fitness ?? 90) - 85) * 0.004;
       rating += ((player.morale ?? 50) - 50) * 0.008;
-      rating += (Math.random() - 0.5) * 0.5;
+      rating += (_matchRng() - 0.5) * 0.5;
 
       // Teto de qualidade baseado no CA (exceção para grandes atuações)
       const ceiling = 6.5 + (player.currentAbility / 200) * 3.5;
@@ -537,7 +563,7 @@ const ZONE_DEFS: { label: string; third: 'defensive' | 'middle' | 'attacking'; f
 ];
 
 function distributeFlank(team: Team): number {
-  const r = Math.random();
+  const r = _matchRng();
   if (team.useFlank === 'left') return r < 0.50 ? 0 : r < 0.80 ? 1 : 2;
   if (team.useFlank === 'right') return r < 0.50 ? 2 : r < 0.80 ? 1 : 0;
   if (team.attackWidth === 'narrow') return r < 0.60 ? 1 : r < 0.80 ? 0 : 2;
@@ -585,7 +611,7 @@ export function generatePostMatchReport(
     const awayAttBias = stats.awayPossession / 100;
     for (let i = 0; i < 9; i++) {
       const third = Math.floor(i / 3);
-      const base = 10 + Math.random() * 15;
+      const base = 10 + _matchRng() * 15;
       homeZones[i] = Math.round(base * (third === 2 ? homeAttBias : third === 0 ? 1 - homeAttBias : 1));
       awayZones[i] = Math.round(base * (third === 0 ? awayAttBias : third === 2 ? 1 - awayAttBias : 1));
     }
@@ -1234,10 +1260,10 @@ function shotSuccessProb(
   // xG = probabilidade real de gol deste lance (alvo × conversão)
   const xg = Math.round(onTargetP * goalP * 100) / 100;
 
-  const onTarget = Math.random() < onTargetP;
+  const onTarget = _matchRng() < onTargetP;
   if (!onTarget) return { onTarget: false, goal: false, xg };
 
-  const goal = Math.random() < goalP;
+  const goal = _matchRng() < goalP;
   return { onTarget: true, goal, xg };
 }
 
@@ -1430,11 +1456,11 @@ function simulateCornerKick(
   events.push({ minute, type: 'corner', team: side, player: taker.name, description: `Escanteio cobrado por ${taker.name}` });
   actions.push({
     minute, type: 'cornerKick', team: side, playerId: taker.id, playerName: taker.name,
-    success: Math.random() < chanceProb,
+    success: _matchRng() < chanceProb,
     description: `${taker.name} cobra o escanteio (${config.corners.delivery.replace(/_/g, ' ')})`, ballPos,
   });
 
-  if (Math.random() < chanceProb) {
+  if (_matchRng() < chanceProb) {
     // Chance criada — cabeceada do alvo
     const shotResult = shotSuccessProb(target, goalkeeper, 0.3, attackingTeam);
 
@@ -1498,20 +1524,20 @@ function simulateCornerKick(
       description: `${clearer.name} afasta o escanteio`, ballPos,
     });
 
-    if (defConfig.defensiveCorners.counterAttack && Math.random() < 0.6) {
+    if (defConfig.defensiveCorners.counterAttack && _matchRng() < 0.6) {
       const counterPlayer = pickPlayerWithBall(defendingTeam, side === 'home' ? 0.3 : 0.7, side !== 'home');
       newState.possession = side === 'home' ? 'away' : 'home';
       newState.ballHolderId = counterPlayer.id;
       newState.passChain = 0;
-      newState.ballPos = clamp(ballPos + (Math.random() - 0.3) * 0.3, 0, 1);
+      newState.ballPos = clamp(ballPos + (_matchRng() - 0.3) * 0.3, 0, 1);
     } else {
-      const homeWins = Math.random() < 0.5;
+      const homeWins = _matchRng() < 0.5;
       const winningTeam = homeWins ? defendingTeam : attackingTeam;
       const winner = pickPlayerWithBall(winningTeam, ballPos, homeWins ? side !== 'home' : side === 'home');
       newState.possession = homeWins ? (side === 'home' ? 'away' : 'home') : side;
       newState.ballHolderId = winner.id;
       newState.passChain = 0;
-      newState.ballPos = clamp(ballPos + (Math.random() - 0.5) * 0.2, 0, 1);
+      newState.ballPos = clamp(ballPos + (_matchRng() - 0.5) * 0.2, 0, 1);
     }
   }
 
@@ -1583,7 +1609,7 @@ function simulateFreeKick(
     shotProb *= (1 - distance * 0.3);
     shotProb = clamp(shotProb, 0.03, 0.40);
 
-    const goal = Math.random() < shotProb;
+    const goal = _matchRng() < shotProb;
 
     actions.push({
       minute, type: 'shot', team: side, playerId: taker.id, playerName: taker.name,
@@ -1616,7 +1642,7 @@ function simulateFreeKick(
       newState.passChain = 0;
     } else {
       // Defesa ou para fora
-      if (Math.random() < 0.5) {
+      if (_matchRng() < 0.5) {
         events.push({ minute, type: 'save', team: side === 'home' ? 'away' : 'home', description: `${goalkeeper.name} defende a falta!` });
       }
       // E-17: Inverter constantes — o time que defende reinicia perto do próprio gol.
@@ -1639,7 +1665,7 @@ function simulateFreeKick(
     crossProb -= ((goalkeeper.goalkeeping?.commandOfArea ?? 10) + (goalkeeper.goalkeeping?.aerialReach ?? 10)) / 2 / 20 * 0.06;
     crossProb = clamp(crossProb, 0.03, 0.35);
 
-    const success = Math.random() < crossProb;
+    const success = _matchRng() < crossProb;
 
     actions.push({
       minute, type: 'cross', team: side, playerId: taker.id, playerName: taker.name,
@@ -1694,12 +1720,12 @@ function simulateFreeKick(
       newState.possession = side === 'home' ? 'away' : 'home';
       newState.ballHolderId = clearer.id;
       newState.passChain = 0;
-      newState.ballPos = clamp(ballPos + (Math.random() - 0.5) * 0.2, 0, 1);
+      newState.ballPos = clamp(ballPos + (_matchRng() - 0.5) * 0.2, 0, 1);
     }
   } else {
     // Short — passe curto para criar chance
     const receiver = pickPlayerWithBall(attackingTeam, ballPos, side === 'home', taker.id);
-    const passSuccess = Math.random() < 0.75;
+    const passSuccess = _matchRng() < 0.75;
     actions.push({
       minute, type: 'pass', team: side, playerId: taker.id, playerName: taker.name,
       success: passSuccess,
@@ -1753,7 +1779,7 @@ function simulatePenalty(
   goalProb -= (oneOnOne / 20) * 0.04;
   goalProb = clamp(goalProb, 0.55, 0.92);
 
-  const goal = Math.random() < goalProb;
+  const goal = _matchRng() < goalProb;
   const actions: MatchAction[] = [];
   const events: MatchEvent[] = [];
   let newState = { ...state };
@@ -1838,9 +1864,11 @@ function setPieceStrength(team: Team): { attack: number; defense: number } {
 }
 
 // Inicializa o estado da partida ao vivo
-export function initLiveMatchState(homeTeam: Team, awayTeam: Team): LiveMatchState {
+export function initLiveMatchState(homeTeam: Team, awayTeam: Team, seed?: number): LiveMatchState {
+  const rng = seed !== undefined ? mulberry32(seed) : null;
+  _matchRng = rng ?? Math.random;
   const possessionBias = getPossessionBias(homeTeam, awayTeam);
-  const homeStarts = Math.random() < possessionBias;
+  const homeStarts = _matchRng() < possessionBias;
 
   // Escolhe o primeiro portador da bola
   const startingTeam = homeStarts ? homeTeam : awayTeam;
@@ -1877,6 +1905,7 @@ export function initLiveMatchState(homeTeam: Team, awayTeam: Team): LiveMatchSta
     goalDetails: [],
     cards: {},
     sentOff: { home: [], away: [] },
+    ...(rng ? { seed, rngState: rng.state() } : {}),
   };
 }
 
@@ -1920,9 +1949,9 @@ function flankTargetY(team: Team, side: 'home' | 'away'): number {
   let y: number;
   if (team.useFlank === 'left') y = 0.2;
   else if (team.useFlank === 'right') y = 0.8;
-  else if (team.attackWidth === 'wide') y = Math.random() < 0.5 ? 0.15 : 0.85;
+  else if (team.attackWidth === 'wide') y = _matchRng() < 0.5 ? 0.15 : 0.85;
   else if (team.attackWidth === 'narrow') y = 0.5;
-  else y = 0.25 + Math.random() * 0.5;
+  else y = 0.25 + _matchRng() * 0.5;
   return side === 'away' ? 1 - y : y;
 }
 
@@ -1992,7 +2021,7 @@ function simulateTick(
     pressure = clamp(pressure * (1 + attDown * 0.06) * (1 - defDown * 0.05), 0.1, 0.95);
   }
 
-  const roll = Math.random();
+  const roll = _matchRng();
   const newActions: MatchAction[] = [];
   const newEvents: MatchEvent[] = [];
   const newState: LiveMatchState = { ...state, pressure };
@@ -2006,7 +2035,7 @@ function simulateTick(
       away: [...(newState.sentOff?.away ?? [])],
     };
     if (sentOff[foulSide].includes(offender.id)) return;
-    const cardRoll = Math.random();
+    const cardRoll = _matchRng();
     if (cardRoll < 0.012) {
       sentOff[foulSide].push(offender.id);
       newEvents.push({ minute, type: 'red', team: foulSide, player: offender.name, description: `VERMELHO direto para ${offender.name}! ${teamName} com um a menos` });
@@ -2028,12 +2057,12 @@ function simulateTick(
 
   // Faltas esparsas (fora das disputas de drible), para dar volume realista
   // de cartões. Só emite evento quando há cartão. 0.03/tick ≈ 0.12/minuto.
-  if (Math.random() < 0.03) {
-    const foulSide2: 'home' | 'away' = Math.random() < 0.5 ? 'home' : 'away';
+  if (_matchRng() < 0.03) {
+    const foulSide2: 'home' | 'away' = _matchRng() < 0.5 ? 'home' : 'away';
     const team2 = foulSide2 === 'home' ? homeTeam : awayTeam;
     const outfield = startingXI(team2).filter(p => p.position !== 'GK');
     if (outfield.length > 0) {
-      bookOffender(outfield[Math.floor(Math.random() * outfield.length)], foulSide2, team2.name);
+      bookOffender(outfield[Math.floor(_matchRng() * outfield.length)], foulSide2, team2.name);
     }
   }
 
@@ -2088,7 +2117,7 @@ function simulateTick(
       newState.momentum = clamp((state.momentum ?? 0) * 0.4 + (side === 'home' ? 0.45 : -0.45), -1, 1);
 
       // Assistência?
-      const assister = Math.random() < 0.62 ? pickAssister(attackingTeam, holder.id) : undefined;
+      const assister = _matchRng() < 0.62 ? pickAssister(attackingTeam, holder.id) : undefined;
 
       newEvents.push({
         minute,
@@ -2127,29 +2156,29 @@ function simulateTick(
         description: `Boa defesa de ${goalkeeper.name}!`,
       });
       // 20% chance de escanteio após defesa (goleiro espalma para fora)
-      if (Math.random() < 0.20) {
+      if (_matchRng() < 0.20) {
         const cornerResult = simulateCornerKick(attackingTeam, defendingTeam, newState, minute, side, currentBallPos);
         newActions.push(...cornerResult.actions);
         newEvents.push(...cornerResult.events);
         Object.assign(newState, cornerResult.state);
-        newState.ballPosY = 0.35 + Math.random() * 0.3;
+        newState.ballPosY = 0.35 + _matchRng() * 0.3;
       } else {
         // Reposição do goleiro
         newState.possession = side === 'home' ? 'away' : 'home';
         newState.ballHolderId = goalkeeper.id;
         newState.passChain = 0;
         newState.ballPos = side === 'home' ? clamp(currentBallPos - 0.3, 0, 1) : clamp(currentBallPos + 0.3, 0, 1);
-        newState.ballPosY = 0.4 + Math.random() * 0.2;
+        newState.ballPosY = 0.4 + _matchRng() * 0.2;
       }
     } else {
       // Chute para fora
-      if (attackProgress > 0.6 && Math.random() < 0.35) {
+      if (attackProgress > 0.6 && _matchRng() < 0.35) {
         // Escanteio para o time atacante
         const cornerResult = simulateCornerKick(attackingTeam, defendingTeam, newState, minute, side, currentBallPos);
         newActions.push(...cornerResult.actions);
         newEvents.push(...cornerResult.events);
         Object.assign(newState, cornerResult.state);
-        newState.ballPosY = 0.35 + Math.random() * 0.3;
+        newState.ballPosY = 0.35 + _matchRng() * 0.3;
       } else {
         // Tiro de meta — posse para o time defensor
         // E-17: Inverter constantes — o time que defende reinicia perto do próprio gol.
@@ -2158,13 +2187,13 @@ function simulateTick(
         newState.ballHolderId = newHolder.id;
         newState.passChain = 0;
         newState.ballPos = side === 'home' ? 0.9 : 0.1;
-        newState.ballPosY = 0.35 + Math.random() * 0.3;
+        newState.ballPosY = 0.35 + _matchRng() * 0.3;
       }
     }
   } else if (roll < shotChance + dribbleChance) {
     // === DRIBLE ===
     const defender = pickDefender(defendingTeam, currentBallPos, side !== 'home');
-    const success = Math.random() < dribbleSuccessProb(holder, defender, attackingTeam) * holderFatigue;
+    const success = _matchRng() < dribbleSuccessProb(holder, defender, attackingTeam) * holderFatigue;
 
     newActions.push({
       minute,
@@ -2181,16 +2210,16 @@ function simulateTick(
 
     if (success) {
       // Drible bem-sucedido — avança a bola
-      const advance = 0.08 + Math.random() * 0.10;
+      const advance = 0.08 + _matchRng() * 0.10;
       newState.ballPos = clamp(currentBallPos + advance * attackDir, 0.02, 0.98);
-      newState.ballPosY = clamp(currentBallY + (Math.random() - 0.5) * 0.16, 0.04, 0.96);
+      newState.ballPosY = clamp(currentBallY + (_matchRng() - 0.5) * 0.16, 0.04, 0.96);
       newState.passChain = state.passChain + 1;
       // Pressão diminui após drible bem-sucedido
       newState.pressure = clamp(pressure - 0.15, 0.1, 0.85);
     } else {
       // Desarme — posse para o adversário
       // Possível falta
-      if (Math.random() < 0.25) {
+      if (_matchRng() < 0.25) {
         newEvents.push({
           minute,
           type: 'foul',
@@ -2201,7 +2230,7 @@ function simulateTick(
         // Cartão pela falta no drible (amarelo acumula, 2º = vermelho)
         bookOffender(defender, side === 'home' ? 'away' : 'home', defendingTeam.name);
         // Verifica se a falta é em posição perigosa
-        if (attackProgress > 0.9 && Math.random() < 0.08) {
+        if (attackProgress > 0.9 && _matchRng() < 0.08) {
           // Pênalti!
           newEvents.push({ minute, type: 'foul', team: side, description: 'Pênalti marcado!' });
           const penaltyResult = simulatePenalty(attackingTeam, defendingTeam, newState, minute, side);
@@ -2225,14 +2254,14 @@ function simulateTick(
         newState.ballHolderId = defender.id;
         newState.passChain = 0;
         // Bola pode ir para qualquer direção
-        newState.ballPos = clamp(currentBallPos + (Math.random() - 0.5) * 0.15, 0, 1);
+        newState.ballPos = clamp(currentBallPos + (_matchRng() - 0.5) * 0.15, 0, 1);
       }
     }
   } else {
     // === PASSE ===
     // Escolhe receptor (não pode ser o próprio passador, não pode ser GK a menos que seja recuo)
     const receiver = pickPlayerWithBall(attackingTeam, currentBallPos, side === 'home', holder.id);
-    const success = Math.random() < passSuccessProb(holder, receiver, pressure, attackingTeam) * holderFatigue;
+    const success = _matchRng() < passSuccessProb(holder, receiver, pressure, attackingTeam) * holderFatigue;
 
     // ponytail: cada tick de passe representa uma troca curta de 2 passes — dá volume
     // realista às estatísticas (~250-350 passes/time) sem inflar o feed de lances
@@ -2259,25 +2288,25 @@ function simulateTick(
 
     if (success) {
       // Passe bem-sucedido — bola vai para o receptor, avança um pouco
-      let advance = 0.04 + Math.random() * 0.08;
+      let advance = 0.04 + _matchRng() * 0.08;
       // Transição rápida: contra-ataque nos primeiros passes após recuperar a bola
       if (attackingTeam.afterGainingPossession === 'counterAttack' && state.passChain <= 2) advance *= 1.7;
       if (attackingTeam.passingStyle === 'direct') advance *= 1.2;
       if (attackingTeam.tempo === 'slow') advance *= 0.85;
       // Receptor pode estar mais à frente ou mais atrás
-      const receiverPosBias = (Math.random() - 0.35) * 0.10; // tendência a avançar
+      const receiverPosBias = (_matchRng() - 0.35) * 0.10; // tendência a avançar
       newState.ballPos = clamp(currentBallPos + (advance + receiverPosBias) * attackDir, 0.02, 0.98);
       // Largura: a bola deriva rumo ao flanco preferido da tática
       const targetY = flankTargetY(attackingTeam, side);
-      newState.ballPosY = clamp(currentBallY + (targetY - currentBallY) * 0.3 + (Math.random() - 0.5) * 0.12, 0.04, 0.96);
+      newState.ballPosY = clamp(currentBallY + (targetY - currentBallY) * 0.3 + (_matchRng() - 0.5) * 0.12, 0.04, 0.96);
       newState.ballHolderId = receiver.id;
       newState.passChain = state.passChain + 1;
 
       // Cruzamento se a bola está aberta na ponta, no terço final
-      if (attackProgress > 0.6 && Math.abs(newState.ballPosY - 0.5) > 0.24 && Math.random() < 0.30) {
+      if (attackProgress > 0.6 && Math.abs(newState.ballPosY - 0.5) > 0.24 && _matchRng() < 0.30) {
         const crosser = holder;
         const targetFwd = startingXI(attackingTeam).find(p => p.position === 'FWD') ?? receiver;
-        const crossSuccess = Math.random() < ((crosser.technical?.crossing ?? 10) / 25);
+        const crossSuccess = _matchRng() < ((crosser.technical?.crossing ?? 10) / 25);
         newActions.push({
           minute,
           type: 'cross',
@@ -2293,7 +2322,7 @@ function simulateTick(
         if (crossSuccess) {
           newState.ballHolderId = targetFwd.id;
           newState.ballPos = clamp(newState.ballPos + 0.10 * attackDir, 0.02, 0.98);
-          newState.ballPosY = 0.42 + Math.random() * 0.16; // cruzamento cai na área central
+          newState.ballPosY = 0.42 + _matchRng() * 0.16; // cruzamento cai na área central
           newState.passChain = state.passChain + 2;
         } else {
           // Zaga afasta — interceptação
@@ -2307,7 +2336,7 @@ function simulateTick(
     } else {
       // Passe errado — interceptação ou bola perdida
       const defender = pickDefender(defendingTeam, currentBallPos, side !== 'home');
-      const interception = Math.random() < 0.55;
+      const interception = _matchRng() < 0.55;
 
       if (interception) {
         newActions.push({
@@ -2324,7 +2353,7 @@ function simulateTick(
         newState.ballHolderId = defender.id;
       } else {
         // Bola solta — disputa
-        const homeWins = Math.random() < 0.5;
+        const homeWins = _matchRng() < 0.5;
         const winningTeam = homeWins ? homeTeam : awayTeam;
         const winner = pickPlayerWithBall(winningTeam, currentBallPos, homeWins);
         newActions.push({
@@ -2342,8 +2371,8 @@ function simulateTick(
       }
       newState.passChain = 0;
       // Bola pode se mover um pouco
-      newState.ballPos = clamp(currentBallPos + (Math.random() - 0.5) * 0.20, 0.02, 0.98);
-      newState.ballPosY = clamp(currentBallY + (Math.random() - 0.5) * 0.20, 0.04, 0.96);
+      newState.ballPos = clamp(currentBallPos + (_matchRng() - 0.5) * 0.20, 0.02, 0.98);
+      newState.ballPosY = clamp(currentBallY + (_matchRng() - 0.5) * 0.20, 0.04, 0.96);
     }
   }
 
@@ -2370,14 +2399,14 @@ function simulateTick(
   newState.stats.awayPassAccuracy = passTotals.awayAtt > 0 ? Math.round((passTotals.awayCmp / passTotals.awayAtt) * 100) : 0;
 
   // Laterais ocasionais (throw-ins) — 0.015/tick ≈ 0.07/minuto
-  if (Math.random() < 0.015) {
-    const throwSide = Math.random() < 0.5 ? 'home' : 'away';
+  if (_matchRng() < 0.015) {
+    const throwSide = _matchRng() < 0.5 ? 'home' : 'away';
     const throwTeam = throwSide === 'home' ? homeTeam : awayTeam;
     const throwConfig = getSetPiecesConfig(throwTeam);
     const xi = startingXI(throwTeam);
     const throwTaker = xi.find(p => p.id === throwConfig.throwIns.takerId)
       ?? xi.find(p => p.position === 'DEF' || p.position === 'MID') ?? xi[0];
-    const throwPos = 0.3 + Math.random() * 0.4;
+    const throwPos = 0.3 + _matchRng() * 0.4;
     newActions.push({
       minute,
       type: 'throwIn',
@@ -2392,7 +2421,7 @@ function simulateTick(
     newState.ballHolderId = throwTaker.id;
     newState.passChain = 0;
     newState.ballPos = throwPos;
-    newState.ballPosY = Math.random() < 0.5 ? 0.04 : 0.96; // bola sai pela linha lateral
+    newState.ballPosY = _matchRng() < 0.5 ? 0.04 : 0.96; // bola sai pela linha lateral
   }
 
   // Combina ações e eventos
@@ -2410,13 +2439,25 @@ export function simulateMinute(
   state: LiveMatchState,
   minute: number,
 ): LiveMatchState {
+  // Restaura PRNG do estado da partida para continuação determinística
+  if (state.seed !== undefined && state.rngState !== undefined) {
+    const rng = mulberry32(state.rngState);
+    _matchRng = rng;
+  } else if (state.seed !== undefined) {
+    const rng = mulberry32(state.seed);
+    _matchRng = rng;
+  } else {
+    _matchRng = Math.random;
+  }
+  const _rng = _matchRng as Rng & { state: () => number };
+
   let st = state;
   // E-18: startingXI filtra expulsos via _matchSentOff — sincroniza antes da fadiga
   _matchSentOff = new Set([...(state.sentOff?.home ?? []), ...(state.sentOff?.away ?? [])]);
 
   // Recomeço do 2º tempo: bola volta ao centro
   if (minute === 46) {
-    const homeKicks = Math.random() < 0.5;
+    const homeKicks = _matchRng() < 0.5;
     const kickTeam = homeKicks ? homeTeam : awayTeam;
     const holder = pickPlayerWithBall(kickTeam, 0.5, homeKicks);
     st = { ...st, possession: homeKicks ? 'home' : 'away', ballPos: 0.5, ballPosY: 0.5, ballHolderId: holder.id, passChain: 0 };
@@ -2436,16 +2477,20 @@ export function simulateMinute(
   if (minute >= 89 && st.addedTime === undefined) {
     const stoppages = st.events.filter(e =>
       e.minute > 45 && (e.type === 'goal' || e.type === 'red' || e.type === 'substitution')).length;
-    st = { ...st, addedTime: Math.min(6, Math.max(1, Math.round(1 + stoppages * 0.5 + Math.random() * 2))) };
+    st = { ...st, addedTime: Math.min(6, Math.max(1, Math.round(1 + stoppages * 0.5 + _matchRng() * 2))) };
   }
 
+  // Salva estado do PRNG para próxima chamada
+  if (typeof _rng.state === 'function') {
+    st = { ...st, rngState: _rng.state() };
+  }
   return st;
 }
 
 // Simula uma partida completa (para AI vs AI e auto-finalizar)
 // Roda 90 minutos de simulação passo a passo
-export function simulateFullMatch(homeTeam: Team, awayTeam: Team, homeBoost = 0, awayBoost = 0): MatchResult & { playerRatings: PlayerMatchRating[]; bestPlayer?: string; postMatchReport?: PostMatchReport } {
-  let state = initLiveMatchState(homeTeam, awayTeam);
+export function simulateFullMatch(homeTeam: Team, awayTeam: Team, homeBoost = 0, awayBoost = 0, seed?: number): MatchResult & { playerRatings: PlayerMatchRating[]; bestPlayer?: string; postMatchReport?: PostMatchReport } {
+  let state = initLiveMatchState(homeTeam, awayTeam, seed);
 
   // Aplica boosts de intervenção
   if (homeBoost > 0) {
@@ -2480,6 +2525,13 @@ export function simulateFullMatch(homeTeam: Team, awayTeam: Team, homeBoost = 0,
 
   // E-18: Limpar sentOff para que calculatePlayerMatchRatings inclua expulsos (com minutesPlayed reduzido).
   _matchSentOff = new Set();
+
+  // Restaura PRNG do estado final para ratings e relatório determinísticos
+  if (state.seed !== undefined && state.rngState !== undefined) {
+    _matchRng = mulberry32(state.rngState);
+  } else if (state.seed !== undefined) {
+    _matchRng = mulberry32(state.seed);
+  }
 
   const withRatings = calculatePlayerMatchRatings(homeTeam, awayTeam, result);
   const postMatchReport = generatePostMatchReport(homeTeam, awayTeam, result, state.actions);

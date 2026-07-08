@@ -456,6 +456,16 @@ freeAgents (Player[]) — jogadores sem clube após expiração de contrato
 
 ### Motor de Partida (`helpers/matchEngine.ts`)
 
+**PRNG Determinística (mulberry32)**
+- Todas as chamadas de `Math.random()` no motor foram substituídas por `_matchRng()` — uma referência de função mutável
+- `mulberry32(seed)` gera uma PRNG determinística com método `.state()` para salvar/retomar o estado
+- `LiveMatchState` tem campos opcionais `seed` e `rngState` — quando presentes, a simulação é 100% determinística (replay)
+- Quando `seed` é `undefined`, `_matchRng = Math.random` (comportamento não-determinístico, backward-compatible)
+- `simulateMinute()` restaura o PRNG de `state.rngState` no início e salva o estado atualizado no final
+- `initLiveMatchState(home, away, seed?)` e `simulateFullMatch(home, away, boosts, seed?)` aceitam seed opcional
+- `simulateMatchResult(home, away, boosts, seed?)` também aceita seed opcional
+- Habilita: replay de partida (mesma seed → mesmo jogo), testes determinísticos, online seguro (servidor autoritário, cliente reproduz)
+
 **`getTacticalBonus()`**
 - Bônus táticos: `attacking` +4%, `defensive` +8% (base)
 - Mentalidade ofensiva +5%, defensiva +4%
@@ -482,8 +492,8 @@ freeAgents (Player[]) — jogadores sem clube após expiração de contrato
 - **Estatísticas coerentes** (chutes, no alvo, posse, passes, xG) derivadas dos lambdas e gols
 - Retorna `MatchResult` com `goalDetails[]` (scorerId, assistId, minute) além de events e stats
 
-**`simulateFullMatch()`** — Simulação completa passo a passo (90 minutos)
-- Inicializa estado via `initLiveMatchState()` e roda `simulateMinute()` 90 vezes
+**`simulateFullMatch(homeTeam, awayTeam, homeBoost?, awayBoost?, seed?)`** — Simulação completa passo a passo (90 minutos)
+- Inicializa estado via `initLiveMatchState(home, away, seed)` e roda `simulateMinute()` 90 vezes
 - Cada minuto gera ações individuais (passe, drible, chute, desarme, interceptação) com `LiveMatchState`
 - Aplica boosts de intervenção se houver
 - Constrói `MatchResult` final + `calculatePlayerMatchRatings()` + `generatePostMatchReport()`
@@ -497,8 +507,9 @@ freeAgents (Player[]) — jogadores sem clube após expiração de contrato
 - **Bolas paradas integradas:** escanteios após defesa do goleiro (20%) ou chute para fora (35% se no ataque); faltas em posição perigosa (>65% ataque) disparam `simulateFreeKick`; pênaltis (8% chance se falta na área); laterais ocasionais (5%)
 - Usa `SetPiecesConfig` do time para determinar cobrador, tipo de cobrança, alvo, marcação defensiva, barreira, contra-ataque
 - Atributos relevantes: `crossing`, `heading`, `jumping`, `freeKicks`, `finishing`, `composure`, `commandOfArea`, `aerialReach`, `reflexes`, `marking`
-- Atualiza `LiveMatchState` (ballPos, events, stats, goalDetails, actions)
+- Atualiza `LiveMatchState` (ballPos, events, stats, goalDetails, actions, rngState)
 - Usado tanto em partidas ao vivo (revelação progressiva) quanto em `simulateFullMatch()`
+- PRNG determinística: restaura de `state.rngState` no início, salva no final — habilita replay e online seguro
 
 **`generatePostMatchReport()`** — Análise tática pós-jogo
 - **Mapa de calor:** 9 zonas (3×3) por time, intensidade 0-1 baseada em contagem de ações
