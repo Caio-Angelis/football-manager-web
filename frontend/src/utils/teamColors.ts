@@ -1,5 +1,32 @@
 export type TeamTier = 'elite' | 'strong' | 'average' | 'developing';
 
+const TEAM_BADGES: Record<string, string> = {
+  'Atlético Mineiro': '/badges/atletico_mineiro.png',
+  'Bahia': '/badges/bahia.png',
+  'Botafogo': '/badges/botafogo.png',
+  'Ceará': '/badges/ceara.png',
+  'Corinthians': '/badges/corinthians.png',
+  'Cruzeiro': '/badges/cruzeiro.png',
+  'Flamengo': '/badges/flamengo.png',
+  'Fluminense': '/badges/fluminense.png',
+  'Fortaleza': '/badges/fortaleza.png',
+  'Grêmio': '/badges/gremio.png',
+  'Internacional': '/badges/internacional.png',
+  'Juventude': '/badges/juventude.png',
+  'Mirassol': '/badges/mirassol.png',
+  'Palmeiras': '/badges/palmeiras.png',
+  'Red Bull Bragantino': '/badges/bragantino.png',
+  'Santos': '/badges/santos.png',
+  'São Paulo': '/badges/sao_paulo.png',
+  'Sport Recife': '/badges/sport_recife.png',
+  'Vasco da Gama': '/badges/vasco_da_gama.png',
+  'Vitória': '/badges/vitoria.png',
+};
+
+export function getTeamBadge(name: string): string | undefined {
+  return TEAM_BADGES[name];
+}
+
 const HUES = [215, 145, 25, 340, 195, 265];
 
 export const TIER_ACCENT: Record<TeamTier, string> = {
