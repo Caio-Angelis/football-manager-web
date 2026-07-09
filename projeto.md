@@ -51,6 +51,20 @@ A página inicial do jogo (rota `/dashboard`) é um **painel de comando** que co
 
 ## Sistema de Partidas
 
+### Motor de Partida v2 — Migração Strangler (Fase 0 implementada)
+
+O motor v2 está sendo construído atrás de uma flag (`MATCH_ENGINE=v2`), com o v1 intacto e ativo por padrão. A migração segue 3 pilares inegociáveis:
+
+- **Pilar A (flag):** `backend/src/store/helpers/engineFlag.ts` — constante única `isV2`. `simulateFullMatch`, `simulateMinute`, `initLiveMatchState` delegam para `*V1`/`*V2`. V1 é byte-a-byte idêntico; V2 é stub que delega para V1 até as fases futuras implementarem o motor event-based.
+- **Pilar B (performance):** Orçamentos explícitos em `engineInvariants.ts`: `PERF_BUDGET_MATCH_MS=50ms`, `PERF_BUDGET_ROUND_MS=1000ms`. Baseline atual: ~10ms/partida, ~80ms/rodada. Harness `headless_v1v2.ts` mede e reporta.
+- **Pilar C (IA):** Setups de referência em `engineSetups.ts`: `REF_COESO` (deveres equilibrados, cobertura) vs `REF_INCOERENTE` (todos em attack, 2 playmakers na mesma zona). Gap de força 130%, alvo de upset ≥25%.
+
+**Invariantes travados** (em `engineInvariants.ts`): gols/jogo 2.5-2.9, homeWin 45-48%, empates 24-28%, pontos do campeão 75-88, gols de bola parada 25-30%, gols de contra-ataque >10%, upset rate 25-35%.
+
+**Harness comparativo:** `headless_v1v2.ts` roda 50 confrontos com seeds fixas nos dois motores + 100 sims de upset. `run_batch.py --v1v2` roda 30× e agrega médias + variância.
+
+**Blueprint completo:** `PlanoMatchEngine.md` (design) + `PlanoMatchEngine-CHECKLIST.md` (fases 0-11) + `matchEngineV2.spec.ts` (TDD executável).
+
 ### Partida do Usuário vs. Partidas da IA
 
 - **Partidas do usuário:** Ficam **pendentes** a cada rodada. O usuário pode jogá-las ao vivo no Centro de Partidas, com visualização 2D em tempo real (campo com discos representando os 22 jogadores, bola animada, placar ao vivo). Se o usuário avançar a semana sem jogar, a partida é **auto-finalizada** na próxima rodada usando o motor de simulação.
@@ -141,6 +155,24 @@ A análise é gerada sob demanda via `getPreMatchAnalysis(matchIndex)` e exibida
 
 - **Substituições:** Máximo de 5 por partida por time.
 - **Gritos (boost):** O usuário pode dar instruções que aplicam um bônus temporário ao seu time — mais chance de chutar e driblar, menos pressão sentida. O time adversário com boost exerce mais pressão.
+
+### Substituições Automáticas da IA
+
+A IA faz substituições automáticas durante a partida, dando vida tática ao jogo e fazendo o banco importar. O sistema opera a partir do minuto 58, com no máximo 5 subs por time.
+
+**Critérios de substituição (por prioridade):**
+
+1. **Fadiga alta (prioridade 3):** Jogador com fadiga acumulada > 0.42 (degradação de ~15% no desempenho) é substituído. Probabilidade de execução: 35% por minuto.
+2. **Amarelo + fadiga (prioridade 2):** Jogador amarelado com fadiga > 0.25 é substituído para evitar expulsão. Probabilidade: 20%.
+3. **Tática (prioridade 1):** Nos minutos 60, 68 e 76, se perdendo por 2+ gols, a IA troca o DEF mais fraco por um FWD (busca o empate/gol). Se ganhando por 2+ gols, troca o FWD mais fraco por um DEF (protege o resultado). Probabilidade: 50%.
+
+**Seleção do substituto:** O sistema escolhe o jogador do banco com maior `currentAbility`, preferindo a mesma posição do substituído. Jogadores lesionados ou expulsos não podem entrar.
+
+**Integração:**
+- `simulateFullMatch` (AI vs AI): ambos os lados gerenciados
+- `generateLiveMatchMinute` (partida ao vivo do usuário): apenas o lado adversário é gerenciado
+- `finishMatch` (auto-finalizar): apenas o lado adversário
+- O substituto entra descansado (fadiga 0) e passa a acumular fadiga normalmente
 
 ### Avaliação de Jogadores por Partida
 
@@ -635,8 +667,13 @@ Toda lesão é gerada pela função centralizada `generateInjuryForPlayer` (em `
 
 **Fontes de lesão:**
 - **Treino físico:** Chance baseada em proneness, carga e fitness. Usa `generateInjuryForPlayer` com source `training`.
-- **Roll semanal (advanceWeek):** Chance de 2% base + `risk × 0.08%` por jogador não lesionado. Usa `generateInjuryForPlayer` com source `random`. Gera mensagem no inbox com tipo, severidade e dias.
-- **Inbox não gera mais lesões aleatórias:** O case `injury` foi removido de `generateInboxMessage`. Lesões agora são geradas apenas pelo sistema de risco.
+- **Durante a partida (matchEngine):** Lesões geradas em tempo real durante a simulação, com source `match`. Dois gatilhos:
+  - **Falta dura:** Após cada falta (esparsa ou em drible), rola chance de lesão na vítima. Base 3%, modificada por: tática `aggressive` (+4%), `tempo: fast` (+1%), fadiga da vítima > 0.35 (+2%), > 0.45 (+3%), `injuryProneness` > 5 (+1%/ponto acima de 5).
+  - **Fadiga acumulada:** A cada minuto, cada jogador em campo com fadiga > 0.35 rola chance de lesão. Base 0.01%, +0.02% se fadiga > 0.45, +0.01% se `tempo: fast`, +0.005%/ponto de `injuryProneness` acima de 5. (~0.2 lesões/partida em média)
+  - Jogadores lesionados são removidos do XI via `_matchInjured`, substituídos pela IA imediatamente (prioridade máxima, ignora minuto mínimo), e a lesão é aplicada ao squad pós-partida via `applyMatchInjuries`.
+  - Mensagens de inbox são geradas para o time do usuário com tipo, severidade e dias.
+- **Roll semanal (advanceWeek):** Chance reduzida de 0.5% base + `risk × 0.03%` por jogador não lesionado (era 2% + 0.08%). Usa `generateInjuryForPlayer` com source `random`. Gera mensagem no inbox com tipo, severidade e dias.
+- **Inbox não gera mais lesões aleatórias:** O case `injury` foi removido de `generateInboxMessage`. Lesões agora são geradas apenas pelo sistema de risco e pelo motor de partida.
 
 ### Cura Semanal (Centralizada)
 
@@ -914,6 +951,59 @@ As mensagens podem ter ações associadas (aceitar oferta, responder à diretori
   - 4 cenários de mensagem: Expectativas de Temporada, Comunicado da Diretoria, Reunião com a Diretoria, Avaliação de Desempenho
   - Cada cenário tem 4 opções de resposta com efeitos distintos (ex: ambicioso +15 satisfação, crítico -18 satisfação)
   - O frontend mostra badges de efeito (positivo/negativo) para cada opção antes de selecionar
+
+---
+
+## Modo Online Multiplayer
+
+O jogo suporta partidas multiplayer online onde múltiplos jogadores humanos assumem clubes diferentes no mesmo universo de jogo. O modo é gerenciado por salas em memória no backend.
+
+### Salas
+
+- **Criação:** Qualquer jogador pode criar uma sala, gerando um código de 6 caracteres (sem 0/O/1/I para evitar confusão). O criador é o **dono** da sala.
+- **Entrada:** Jogadores entram com o código. O backend identifica cada jogador por um UUID estável (header `x-player-id`), gerado no frontend e persistido em `localStorage`.
+- **Estados da sala:** `lobby` → `drafting` → `playing` → `finished`.
+- **Encerramento:** O dono pode encerrar a sala a qualquer momento (`closeRoom`). O frontend detecta o 404 e redireciona para a tela online.
+
+### Draft de Clubes
+
+- O dono inicia o jogo (`start`), que chama `initGame()` no store da sala e abre o draft.
+- Cada jogador escolhe um clube (`pick`). Times já escolhidos por outros jogadores ficam bloqueados.
+- O dono confirma o início (`begin`) quando todos escolheram — a sala entra em status `playing`.
+
+### Universo Isolado por Sala
+
+- Cada sala tem seu próprio `GameStoreApi` (Zustand) — um universo de jogo completamente isolado.
+- **Estado por-jogador (`SCOPED_KEYS`):** Certas chaves do `GameState` são específicas de cada jogador humano (inbox, transfers, finanças, scouting, shortlist, etc.). Antes de executar uma action, o backend carrega o escopo do jogador no store (`loadScope`); após executar, persiste de volta (`saveScope`). Isso permite que os slices existentes operem sem alteração.
+- **Actions permitidas:** A maioria das actions do single-player funciona online (táticas, treino, transferências AI, etc.).
+- **Actions proibidas:** `advanceWeek`, `initGame`, `saveGame`, `simulateMatch`, `substitutePlayer`, `applyShout` — o avanço de rodada é coordenado pelo ready-check; partidas são auto-simuladas.
+- **Aquisição de jogadores de times humanos bloqueada:** `buyPlayer`, `makeOffer`, `activateReleaseClause`, `loanPlayer`, `negotiatePlayerContract` — quando o `sellerTeamId` pertence a um time humano, a action é bloqueada. Para contratar de outro humano, usar o sistema de negociações.
+
+### Ready-Check por Rodada
+
+- Cada jogador marca "Estou pronto" (`setReady`) quando termina suas ações.
+- Quando **todos** os jogadores com time estão prontos, o backend avança a rodada automaticamente (`advanceRoomWeek`): simula partidas, processa IA, incrementa `currentWeek`.
+- O frontend detecta a mudança de `currentWeek` via polling e re-sincroniza o estado.
+
+### Negociações Humano×Humano
+
+- Um jogador pode fazer uma oferta por um jogador de outro humano (`makeHumanOffer`).
+- O vendedor pode: **aceitar** (transfere o jogador), **rejeitar** (encerra), **contra-ofertar** (nova proposta com counterPrice), ou **withdraw** (comprador desiste).
+- Cada oferta tem um histórico de propostas e respostas.
+- A UI (`OnlineTransfers`) mostra todas as ofertas relevantes (como comprador ou vendedor) com indicador de "sua vez".
+
+### Polling
+
+- O frontend usa `useRoomPolling` (hook) para sondar o estado da sala a cada 2-8 segundos (backoff exponencial).
+- Inclui heartbeat, reconexão automática e detecção de sala encerrada (404).
+- Quando `currentWeek` muda, o hook busca o estado completo do jogo (`/api/rooms/:code/state`) e atualiza o store.
+
+### Limitações Atuais
+
+- **Sem persistência:** Salas existem apenas em memória; reiniciar o servidor encerra todas as salas.
+- **Sem WebSocket:** Comunicação via polling HTTP (2-8s).
+- **Sem espectador:** Apenas jogadores ativos podem ver o estado.
+- **Sem chat:** Não há chat entre jogadores.
 
 ---
 
@@ -1212,7 +1302,7 @@ cd backend && python run_batch.py
 **Anomalias remanescentes:**
 - Balanced ainda vence 55.6% (>50% gatilho) — penalidade de 0.88 aplicada mas não suficiente
 - Sport Recife rebaixado em 66.7% das temporadas — problema de squad, não tático
-- Gols/partida em 1.40 — abaixo do esperado 2.0-3.0, resistente a mudanças em BASE_GOALS
+- Gols/partida em 1.40 — abaixo do esperado 2.0-3.0, resistente a mudanças em BASE_GOALS (resolvido parcialmente: BASE_GOALS calibrado de 2.2 → 1.20 para alinhar Poisson com tick engine)
 
 **Arquivos alterados no balanceamento:**
 - `matchEngine.ts`: Multiplicadores de tática, BASE_GOALS, expoente do ratio attack/defense, cap do poissonSample
@@ -1236,6 +1326,13 @@ Rodar: `cd backend && npx vitest run src/tests/balance.test.ts`
 O arquivo `backend/src/tests/gameFlows.test.ts` contém 19 testes de smoke que cobrem os principais fluxos de jogo (seções 15.2-15.9 da especificação): geração procedural de times/jogadores, simulação de partidas ao vivo, caixa de entrada, treino, transferências, táticas, dinâmica social e finanças. Esses testes rodam contra o store do backend (Zustand vanilla) de forma síncrona, sem necessidade de servidor.
 
 Rodar: `cd backend && npx vitest run src/tests/gameFlows.test.ts`
+
+O arquivo `backend/src/tests/predictionCalibration.test.ts` contém 2 testes que verificam o alinhamento entre o modelo Poisson (`simulateMatchResult`) e o motor passo a passo (`simulateFullMatch`):
+
+1. **Poisson avg goals within ±0.6 of tick engine:** diferença média de gols < 0.6 (observado: ~0.15)
+2. **Poisson W/D/L percentages within ±12pp of tick engine:** diferença nas probabilidades de vitória/empate/derrota < 12 pontos percentuais
+
+Rodar: `cd backend && npx vitest run src/tests/predictionCalibration.test.ts`
 
 O frontend mantém apenas `winProbability.test.ts` (testes do modelo de probabilidade de vitória Poisson), que roda sem backend.
 

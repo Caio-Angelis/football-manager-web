@@ -1,8 +1,8 @@
-import type { GameStore, MatchEvent, MatchStats } from '../../types/game';
+import type { GameStore, MatchEvent, MatchStats, InboxMessage } from '../../types/game';
 import {
   simulateMinute, initLiveMatchState,
-  calculatePlayerMatchRatings, applyMatchResultToTeams,
-  generatePostMatchReport,
+  calculatePlayerMatchRatings, applyMatchResultToTeams, applyMatchInjuries,
+  generatePostMatchReport, performAISubs,
 } from '../helpers/matchEngine';
 import { calculateLeagueStandings } from '../helpers/league';
 import { generatePreMatchAnalysis } from '../helpers/preMatchAnalysis';
@@ -71,7 +71,28 @@ export const createMatchSlice = (set: Set, get: Get) => ({
     const minute = Math.min(fullTime, match.liveMinute + 1);
 
     // Simula 1 minuto de jogo passo a passo (cada passe, drible, chute)
-    const newLiveState = simulateMinute(homeTeam, awayTeam, match.liveMatchState, minute);
+    let newLiveState = simulateMinute(homeTeam, awayTeam, match.liveMatchState, minute);
+
+    // Substituições automáticas da IA (apenas o lado que não é o do usuário)
+    const aiSides: ('home' | 'away')[] = state.selectedTeam
+      ? [match.homeTeam === state.selectedTeam ? 'away' : 'home']
+      : ['home', 'away'];
+    const subResult = performAISubs(homeTeam, awayTeam, newLiveState, minute, aiSides);
+    newLiveState = subResult.state;
+
+    // Persistir XI atualizado se a IA fez substituições
+    let updatedTeams = state.teams;
+    let htForRatings = homeTeam;
+    let atForRatings = awayTeam;
+    if (subResult.homeTeam !== homeTeam || subResult.awayTeam !== awayTeam) {
+      htForRatings = subResult.homeTeam;
+      atForRatings = subResult.awayTeam;
+      updatedTeams = state.teams.map(t => {
+        if (t.id === match.homeTeam && subResult.homeTeam !== homeTeam) return subResult.homeTeam;
+        if (t.id === match.awayTeam && subResult.awayTeam !== awayTeam) return subResult.awayTeam;
+        return t;
+      });
+    }
 
     const updatedMatches = [...state.matches];
 
@@ -91,8 +112,8 @@ export const createMatchSlice = (set: Set, get: Get) => ({
         stats,
         goalDetails: newLiveState.goalDetails,
       };
-      const withRatings = calculatePlayerMatchRatings(homeTeam, awayTeam, result);
-      const postMatchReport = generatePostMatchReport(homeTeam, awayTeam, result, newLiveState.actions);
+      const withRatings = calculatePlayerMatchRatings(htForRatings, atForRatings, result);
+      const postMatchReport = generatePostMatchReport(htForRatings, atForRatings, result, newLiveState.actions);
 
       updatedMatches[matchIndex] = {
         ...match,
@@ -112,9 +133,39 @@ export const createMatchSlice = (set: Set, get: Get) => ({
         postMatchReport,
       };
 
-      const updatedTeams = applyMatchResultToTeams(state.teams, match.homeTeam, match.awayTeam, result);
-      const leagueStandings = calculateLeagueStandings(updatedTeams, updatedMatches, state.currentWeek);
-      set({ matches: updatedMatches, teams: updatedTeams, leagueTable: leagueStandings });
+      const teamsWithInjuries = applyMatchInjuries(updatedTeams, match.homeTeam, match.awayTeam, newLiveState.matchInjuries ?? [], state.currentWeek);
+      const finalTeams = applyMatchResultToTeams(teamsWithInjuries, match.homeTeam, match.awayTeam, result);
+
+      // Generate injury inbox messages for the user's team
+      const injuryMessages: InboxMessage[] = [];
+      if (state.selectedTeam) {
+        const userSide: 'home' | 'away' = match.homeTeam === state.selectedTeam ? 'home' : 'away';
+        for (const mi of newLiveState.matchInjuries ?? []) {
+          if (mi.side !== userSide) continue;
+          const userTeam = finalTeams.find(t => t.id === state.selectedTeam);
+          const player = userTeam?.squad.find(p => p.id === mi.playerId);
+          if (player?.injury?.active) {
+            injuryMessages.push({
+              id: `match_injury_${Date.now()}_${mi.playerId}`,
+              type: 'injury',
+              subject: `🏥 Lesão na partida — ${getFullName(player)}`,
+              body: `${getFullName(player)} sofreu uma lesão (${player.injury.type}) durante a partida. Afastamento estimado: ${player.injury.daysRemaining} dias.`,
+              timestamp: Date.now(),
+              read: false,
+              priority: player.injury.severity === 'severe' ? 'high' : player.injury.severity === 'moderate' ? 'medium' : 'low',
+              relatedPlayerId: mi.playerId,
+            });
+          }
+        }
+      }
+
+      const leagueStandings = calculateLeagueStandings(finalTeams, updatedMatches, state.currentWeek);
+      set({
+        matches: updatedMatches,
+        teams: finalTeams,
+        leagueTable: leagueStandings,
+        ...(injuryMessages.length > 0 ? { inbox: [...(state.inbox || []), ...injuryMessages].slice(0, 100) } : {}),
+      });
       return;
     }
 
@@ -129,7 +180,7 @@ export const createMatchSlice = (set: Set, get: Get) => ({
       liveMatchState: newLiveState,
     };
 
-    set({ matches: updatedMatches });
+    set({ matches: updatedMatches, teams: updatedTeams });
   },
 
   applyMatchIntervention: (matchIndex: number, type: 'substitution' | 'shout') => {
@@ -313,14 +364,22 @@ export const createMatchSlice = (set: Set, get: Get) => ({
     if (!match.liveMatchState) return;
 
     // Simula os minutos restantes até 90 (passo a passo)
-    const homeTeam = state.teams.find(t => t.id === match.homeTeam);
-    const awayTeam = state.teams.find(t => t.id === match.awayTeam);
+    let homeTeam = state.teams.find(t => t.id === match.homeTeam);
+    let awayTeam = state.teams.find(t => t.id === match.awayTeam);
     if (!homeTeam || !awayTeam) return;
     let liveState = match.liveMatchState;
+
+    const aiSides: ('home' | 'away')[] = state.selectedTeam
+      ? [match.homeTeam === state.selectedTeam ? 'away' : 'home']
+      : ['home', 'away'];
 
     // 90 + acréscimos (o motor define addedTime aos 89')
     for (let m = match.liveMinute + 1; m <= 90 + (liveState.addedTime ?? 0); m++) {
       liveState = simulateMinute(homeTeam, awayTeam, liveState, m);
+      const subResult = performAISubs(homeTeam, awayTeam, liveState, m, aiSides);
+      homeTeam = subResult.homeTeam;
+      awayTeam = subResult.awayTeam;
+      liveState = subResult.state;
     }
 
     const events = liveState.events.sort((a, b) => a.minute - b.minute);
@@ -359,9 +418,47 @@ export const createMatchSlice = (set: Set, get: Get) => ({
       postMatchReport,
     };
 
-    const updatedTeams = applyMatchResultToTeams(state.teams, match.homeTeam, match.awayTeam, result);
+    // Persistir XI atualizado se a IA fez substituições
+    const teamsAfterSubs = (homeTeam !== state.teams.find(t => t.id === match.homeTeam) || awayTeam !== state.teams.find(t => t.id === match.awayTeam))
+      ? state.teams.map(t => {
+          if (t.id === match.homeTeam) return homeTeam;
+          if (t.id === match.awayTeam) return awayTeam;
+          return t;
+        })
+      : state.teams;
+    const teamsWithInjuries = applyMatchInjuries(teamsAfterSubs, match.homeTeam, match.awayTeam, liveState.matchInjuries ?? [], state.currentWeek);
+    const updatedTeams = applyMatchResultToTeams(teamsWithInjuries, match.homeTeam, match.awayTeam, result);
+
+    // Generate injury inbox messages for the user's team
+    const injuryMessages: InboxMessage[] = [];
+    if (state.selectedTeam) {
+      const userSide: 'home' | 'away' = match.homeTeam === state.selectedTeam ? 'home' : 'away';
+      for (const mi of liveState.matchInjuries ?? []) {
+        if (mi.side !== userSide) continue;
+        const userTeam = updatedTeams.find(t => t.id === state.selectedTeam);
+        const player = userTeam?.squad.find(p => p.id === mi.playerId);
+        if (player?.injury?.active) {
+          injuryMessages.push({
+            id: `match_injury_${Date.now()}_${mi.playerId}`,
+            type: 'injury',
+            subject: `🏥 Lesão na partida — ${getFullName(player)}`,
+            body: `${getFullName(player)} sofreu uma lesão (${player.injury.type}) durante a partida. Afastamento estimado: ${player.injury.daysRemaining} dias.`,
+            timestamp: Date.now(),
+            read: false,
+            priority: player.injury.severity === 'severe' ? 'high' : player.injury.severity === 'moderate' ? 'medium' : 'low',
+            relatedPlayerId: mi.playerId,
+          });
+        }
+      }
+    }
+
     const leagueStandings = calculateLeagueStandings(updatedTeams, updatedMatches, state.currentWeek);
-    set({ matches: updatedMatches, teams: updatedTeams, leagueTable: leagueStandings });
+    set({
+      matches: updatedMatches,
+      teams: updatedTeams,
+      leagueTable: leagueStandings,
+      ...(injuryMessages.length > 0 ? { inbox: [...(state.inbox || []), ...injuryMessages].slice(0, 100) } : {}),
+    });
   },
 
   getPreMatchAnalysis: (matchIndex: number) => {

@@ -2,6 +2,37 @@
 
 import type { Team, Match, MatchEvent, MatchStats, PlayerMatchRating, Player, MatchAction, LiveMatchState, HeatMapZone, TacticalInsight, AssistantAdvice, PostMatchReport, SetPiecesConfig } from '../../types/game';
 import { calculateMatchPrizeMoney } from './finance';
+import { generateInjuryForPlayer } from './injury';
+import { isV2 } from './engineFlag';
+import { simulateTickV2, resetPhaseState } from './phases';
+
+// Re-export de símbolos da Fase 1 (roles.ts) — o spec TDD procura por effectiveStrength em matchEngine.ts
+export { effectiveStrength, positionFamiliarity, ROLE_WEIGHTS, FORMATION_LAYOUT } from './roles';
+export type { SlotCoord, AttrKey, RoleWeightMap } from './roles';
+
+// Re-export de símbolos da Fase 2 (zones.ts)
+export { ballToZone, computeZoneOccupancy, occupantsInZone, resolveDuel, pickZoneDefender, computeOverloadMod, resetDuelLog, logDuel, getDuelLog, duelStatsByPlayer } from './zones';
+export type { ZoneId, ZoneThird, ZoneFlank, ZoneOccupant, DuelResult, DuelTracker } from './zones';
+
+// Re-export de símbolos da Fase 3 (phases.ts)
+export { determinePhase, calculateXG, simulateTickV2, resetPhaseState } from './phases';
+
+// Re-export de símbolos da Fase 5 (instructions.ts)
+export { relationalModifier, v2TacticalModifier, mentalityRiskShift, effectiveDuty, mentalityActionMod, deriveActiveInstruction } from './instructions';
+export type { RelationalMatchup } from './instructions';
+
+// Re-export de símbolos da Fase 6 (dynamicState.ts)
+export { fatigueProductionMod, combinedSwing, homeAdvantageMod, awayDisadvantageMod } from './dynamicState';
+
+// Re-export de símbolos da Fase 7 (setPiecesV2.ts)
+export { simulateCornerV2, simulateFreeKickV2, simulatePenaltyV2, foulChanceFromDuel, cardChanceFromFoul, reorganizeAfterRedCard } from './setPiecesV2';
+
+// Re-export de símbolos da Fase 8 (aiManagerV2.ts)
+export { evaluateSetupCoherence, buildCoherentSetup, counterTactic, gameManagementAdjust, aiSubstitutionDecisionV2, aiDecisionQuality, aiPreMatchSetup, aiInMatchAdjust } from './aiManagerV2';
+
+// Re-export de símbolos da Fase 10 (postMatchReportV2.ts)
+export { summarizeDuelsByZone, generateDuelInsights, summarizeChancesByOrigin, generateAssistantAdviceV2 } from './postMatchReportV2';
+export type { ZoneDuelSummary, ChanceOriginSummary } from './postMatchReportV2';
 
 // ============================================================
 // PRNG DETERMINÍSTICA — mulberry32 (replay, testes, online seguro)
@@ -150,6 +181,7 @@ function avgDefined(values: (number | undefined)[]): number {
 
 // E-18: Rastreia jogadores expulsos durante a simulação atual.
 let _matchSentOff: Set<string> = new Set();
+let _matchInjured: Set<string> = new Set();
 
 function startingXI(team: Team): Player[] {
   const ids = team.startingXI;
@@ -157,11 +189,11 @@ function startingXI(team: Team): Player[] {
     const players = ids.map(id => team.squad.find(p => p.id === id)).filter(Boolean) as Player[];
     if (players.length > 0) {
       // E-18: Filtrar jogadores expulsos.
-      const filtered = players.filter(p => !_matchSentOff.has(p.id));
+      const filtered = players.filter(p => !_matchSentOff.has(p.id) && !_matchInjured.has(p.id));
       if (filtered.length > 0) return filtered;
     }
   }
-  return team.squad.slice(0, 11).filter(p => !_matchSentOff.has(p.id));
+  return team.squad.slice(0, 11).filter(p => !_matchSentOff.has(p.id) && !_matchInjured.has(p.id));
 }
 
 // ============================================================
@@ -342,7 +374,10 @@ export function simulateMatchResult(homeTeam: Team, awayTeam: Team, homeBoost = 
     _matchRng = Math.random;
   }
   const HOME_ADVANTAGE = 1.12;
-  const BASE_GOALS = 2.2;
+  // Calibrado contra o tick engine (simulateFullMatch) que produz ~2.85 gols/jogo.
+  // Medido empiricamente: BASE_GOALS=2.2 → 4.88 gols; ratio 2.85/4.88 ≈ 0.58 → 1.28.
+  // Ajustado iterativamente para 1.20 após runs de calibração (ver predictionCalibration.test.ts).
+  const BASE_GOALS = 1.20;
 
   const homeAtt = teamAttack(homeTeam) * (1 + homeBoost);
   const awayAtt = teamAttack(awayTeam) * (1 + awayBoost);
@@ -1046,6 +1081,35 @@ export function generateWeekMatches(teams: Team[], week: number): Match[] {
   }
 
   return matches;
+}
+
+// Aplica lesões geradas durante a partida aos jogadores no squad do time
+export function applyMatchInjuries(
+  teams: Team[],
+  homeId: string,
+  awayId: string,
+  matchInjuries: { playerId: string; side: 'home' | 'away' }[],
+  currentWeek: number,
+): Team[] {
+  if (!matchInjuries || matchInjuries.length === 0) return teams;
+  const updated = [...teams];
+  const homeIdx = updated.findIndex(t => t.id === homeId);
+  const awayIdx = updated.findIndex(t => t.id === awayId);
+
+  for (const mi of matchInjuries) {
+    const teamIdx = mi.side === 'home' ? homeIdx : awayIdx;
+    if (teamIdx === -1) continue;
+    const team = { ...updated[teamIdx] };
+    const playerIdx = team.squad.findIndex(p => p.id === mi.playerId);
+    if (playerIdx === -1) continue;
+    const player = team.squad[playerIdx];
+    if (player.injury?.active) continue;
+    const injuredPlayer = generateInjuryForPlayer(player, 'match', team.facilitiesLevel, team.staffLevel, currentWeek);
+    team.squad = [...team.squad];
+    team.squad[playerIdx] = injuredPlayer;
+    updated[teamIdx] = team;
+  }
+  return updated;
 }
 
 export function applyMatchResultToTeams(
@@ -1863,10 +1927,12 @@ function setPieceStrength(team: Team): { attack: number; defense: number } {
   return { attack, defense };
 }
 
-// Inicializa o estado da partida ao vivo
-export function initLiveMatchState(homeTeam: Team, awayTeam: Team, seed?: number): LiveMatchState {
+// Inicializa o estado da partida ao vivo — v1 (implementação original)
+export function initLiveMatchStateV1(homeTeam: Team, awayTeam: Team, seed?: number): LiveMatchState {
   const rng = seed !== undefined ? mulberry32(seed) : null;
   _matchRng = rng ?? Math.random;
+  _matchSentOff = new Set();
+  _matchInjured = new Set();
   const possessionBias = getPossessionBias(homeTeam, awayTeam);
   const homeStarts = _matchRng() < possessionBias;
 
@@ -1905,8 +1971,21 @@ export function initLiveMatchState(homeTeam: Team, awayTeam: Team, seed?: number
     goalDetails: [],
     cards: {},
     sentOff: { home: [], away: [] },
+    matchInjuries: [],
     ...(rng ? { seed, rngState: rng.state() } : {}),
   };
+}
+
+// Inicializa o estado da partida ao vivo — v2 (stub: delega para v1 até fases futuras)
+export function initLiveMatchStateV2(homeTeam: Team, awayTeam: Team, seed?: number): LiveMatchState {
+  return initLiveMatchStateV1(homeTeam, awayTeam, seed);
+}
+
+// Wrapper público — delega para v1 ou v2 conforme flag MATCH_ENGINE
+export function initLiveMatchState(homeTeam: Team, awayTeam: Team, seed?: number): LiveMatchState {
+  return isV2
+    ? initLiveMatchStateV2(homeTeam, awayTeam, seed)
+    : initLiveMatchStateV1(homeTeam, awayTeam, seed);
 }
 
 // ============================================================
@@ -1955,6 +2034,56 @@ function flankTargetY(team: Team, side: 'home' | 'away'): number {
   return side === 'away' ? 1 - y : y;
 }
 
+// ============================================================
+// LESÕES DURANTE A PARTIDA — faltas duras, fadiga, tática agressiva
+// ============================================================
+
+// Probabilidade de lesão por falta dura (3% base)
+// Tática aggressive (+4%), tempo fast (+1%), fadiga alta (+2-5%), proneness (>5: +1%/ponto)
+function foulInjuryChance(foulingTeam: Team, victimFatigue: number, victimProneness: number): number {
+  let chance = 0.03;
+  if (foulingTeam.tacklingStyle === 'aggressive' || (!foulingTeam.tacklingStyle && foulingTeam.aggressiveTackling)) chance += 0.04;
+  if (foulingTeam.tempo === 'fast') chance += 0.01;
+  if (victimFatigue > 0.35) chance += 0.02;
+  if (victimFatigue > 0.45) chance += 0.03;
+  if (victimProneness > 5) chance += (victimProneness - 5) * 0.01;
+  return chance;
+}
+
+// Probabilidade de lesão por fadiga acumulada (por jogador por minuto)
+// Só verifica se fadiga > 0.35; tempo fast (+0.01%), proneness > 5 (+0.005%/ponto)
+// Base ~0.01% — com 22 jogadores × 90 min ≈ 0.2 lesões/partida
+function fatigueInjuryChance(playerFatigue: number, teamTempo: string | undefined, proneness: number): number {
+  if (playerFatigue <= 0.35) return 0;
+  let chance = 0.0001;
+  if (playerFatigue > 0.45) chance += 0.0002;
+  if (teamTempo === 'fast') chance += 0.0001;
+  if (proneness > 5) chance += (proneness - 5) * 0.00005;
+  return chance;
+}
+
+// Registra lesão na partida: adiciona ao matchInjuries, _matchInjured e emite evento
+function triggerMatchInjury(
+  victim: Player,
+  side: 'home' | 'away',
+  minute: number,
+  state: LiveMatchState,
+  foulerName?: string,
+): { event: MatchEvent; state: LiveMatchState } {
+  _matchInjured.add(victim.id);
+  const matchInjuries = [...(state.matchInjuries ?? []), { playerId: victim.id, side }];
+  const event: MatchEvent = {
+    minute,
+    type: 'injury',
+    team: side,
+    player: victim.name,
+    description: foulerName
+      ? `🏥 ${victim.name} se lesiona após falta de ${foulerName}! Precisa deixar o campo.`
+      : `🏥 ${victim.name} se lesiona! Precisa deixar o campo.`,
+  };
+  return { event, state: { ...state, matchInjuries } };
+}
+
 // Simula UM lance (passe, drible ou chute) — chamado várias vezes por minuto.
 // Retorna o estado atualizado + novas ações + novos eventos.
 function simulateTick(
@@ -1965,6 +2094,7 @@ function simulateTick(
 ): LiveMatchState {
   // E-18: Sincronizar jogadores expulsos para filtragem em startingXI.
   _matchSentOff = new Set([...(state.sentOff?.home ?? []), ...(state.sentOff?.away ?? [])]);
+  _matchInjured = new Set((state.matchInjuries ?? []).map(mi => mi.playerId));
 
   const attackingTeam = state.possession === 'home' ? homeTeam : awayTeam;
   const defendingTeam = state.possession === 'home' ? awayTeam : homeTeam;
@@ -2024,7 +2154,7 @@ function simulateTick(
   const roll = _matchRng();
   const newActions: MatchAction[] = [];
   const newEvents: MatchEvent[] = [];
-  const newState: LiveMatchState = { ...state, pressure };
+  let newState: LiveMatchState = { ...state, pressure };
 
   // Books a foul: yellow accumulates (2nd = red), plus a small straight-red chance.
   // Realistic per-foul odds — card cadence comes from foul volume, not inflated odds.
@@ -2062,7 +2192,22 @@ function simulateTick(
     const team2 = foulSide2 === 'home' ? homeTeam : awayTeam;
     const outfield = startingXI(team2).filter(p => p.position !== 'GK');
     if (outfield.length > 0) {
-      bookOffender(outfield[Math.floor(_matchRng() * outfield.length)], foulSide2, team2.name);
+      const offender = outfield[Math.floor(_matchRng() * outfield.length)];
+      bookOffender(offender, foulSide2, team2.name);
+      // Verificar lesão no jogador adversário que sofreu a falta
+      const victimSide = foulSide2 === 'home' ? 'away' : 'home';
+      const victimTeam = victimSide === 'home' ? homeTeam : awayTeam;
+      const victims = startingXI(victimTeam).filter(p => p.position !== 'GK');
+      if (victims.length > 0) {
+        const victim = victims[Math.floor(_matchRng() * victims.length)];
+        const vFatigue = state.fatigue?.[victim.id] ?? 0;
+        const vProneness = victim.hidden?.injuryProneness ?? 5;
+        if (_matchRng() < foulInjuryChance(team2, vFatigue, vProneness)) {
+          const result = triggerMatchInjury(victim, victimSide, minute, newState, offender.name);
+          newEvents.push(result.event);
+          newState = result.state;
+        }
+      }
     }
   }
 
@@ -2229,6 +2374,14 @@ function simulateTick(
         });
         // Cartão pela falta no drible (amarelo acumula, 2º = vermelho)
         bookOffender(defender, side === 'home' ? 'away' : 'home', defendingTeam.name);
+        // Verificar lesão no atacante que sofreu a falta
+        const hFatigue = state.fatigue?.[holder.id] ?? 0;
+        const hProneness = holder.hidden?.injuryProneness ?? 5;
+        if (_matchRng() < foulInjuryChance(defendingTeam, hFatigue, hProneness)) {
+          const injResult = triggerMatchInjury(holder, side, minute, newState, defender.name);
+          newEvents.push(injResult.event);
+          newState = injResult.state;
+        }
         // Verifica se a falta é em posição perigosa
         if (attackProgress > 0.9 && _matchRng() < 0.08) {
           // Pênalti!
@@ -2431,9 +2584,189 @@ function simulateTick(
   return newState;
 }
 
+// ============================================================
+// SUBSTITUIÇÕES AUTOMÁTICAS DA IA — fadiga, cartões, tática
+// ============================================================
+
+const AI_SUB_MINUTE = 58;
+const AI_SUB_MAX = 5;
+const FATIGUE_SUB_THRESHOLD = 0.42;
+const YELLOW_FATIGUE_THRESHOLD = 0.25;
+const TACTICAL_SUB_MINUTES = [60, 68, 76];
+
+function getBenchPlayers(team: Team, state: LiveMatchState, side: 'home' | 'away'): Player[] {
+  const sentOff = new Set(state.sentOff?.[side] ?? []);
+  const matchInjured = new Set((state.matchInjuries ?? []).map(mi => mi.playerId));
+  return team.squad.filter(p =>
+    !team.startingXI.includes(p.id) &&
+    !sentOff.has(p.id) &&
+    !matchInjured.has(p.id) &&
+    !p.injury?.active,
+  );
+}
+
+function findBestReplacement(bench: Player[], preferPosition?: string): Player | null {
+  if (bench.length === 0) return null;
+  const matching = preferPosition ? bench.filter(p => p.position === preferPosition) : [];
+  const pool = matching.length > 0 ? matching : bench;
+  return pool.reduce((best, p) =>
+    p.currentAbility > best.currentAbility ? p : best,
+  );
+}
+
+function countSubs(state: LiveMatchState, side: 'home' | 'away'): number {
+  return state.events.filter(e => e.type === 'substitution' && e.team === side).length;
+}
+
+function tryAISub(
+  team: Team,
+  side: 'home' | 'away',
+  state: LiveMatchState,
+  minute: number,
+  ownGoals: number,
+  opponentGoals: number,
+): { team: Team; state: LiveMatchState } | null {
+  if (countSubs(state, side) >= AI_SUB_MAX) return null;
+
+  const xi = startingXI(team);
+  const fatigue = state.fatigue ?? {};
+  const cards = state.cards ?? {};
+  const injuredIds = new Set((state.matchInjuries ?? []).filter(mi => mi.side === side).map(mi => mi.playerId));
+  const bench = getBenchPlayers(team, state, side);
+  if (bench.length === 0 || xi.length === 0) return null;
+
+  const goalDiff = ownGoals - opponentGoals;
+
+  let bestCandidate: { player: Player; priority: number; preferPos?: string } | null = null;
+
+  // Prioridade 4: jogador lesionado durante a partida — substituição imediata
+  for (const p of xi) {
+    if (injuredIds.has(p.id)) {
+      bestCandidate = { player: p, priority: 4, preferPos: p.position };
+      break;
+    }
+  }
+
+  // Lesionado é emergência — ignora minuto mínimo e probGate
+  if (bestCandidate && bestCandidate.priority === 4) {
+    const replacement = findBestReplacement(bench, bestCandidate.preferPos);
+    if (!replacement) return null;
+    const outPlayer = bestCandidate.player;
+    const newXI = team.startingXI.map(id => id === outPlayer.id ? replacement.id : id);
+    const newTeam = { ...team, startingXI: newXI };
+    const subEvent: MatchEvent = {
+      minute,
+      type: 'substitution',
+      team: side,
+      player: replacement.name,
+      description: `Substituição da IA (lesão): sai ${outPlayer.name}, entra ${replacement.name}`,
+    };
+    const newState: LiveMatchState = {
+      ...state,
+      events: [...state.events, subEvent],
+      ballHolderId: state.ballHolderId === outPlayer.id ? replacement.id : state.ballHolderId,
+    };
+    return { team: newTeam, state: newState };
+  }
+
+  // Demais critérios só a partir do minuto mínimo
+  if (minute < AI_SUB_MINUTE) return null;
+
+  for (const p of xi) {
+    const pFatigue = fatigue[p.id] ?? 0;
+    const pCards = cards[p.id] ?? 0;
+
+    if (pFatigue > FATIGUE_SUB_THRESHOLD) {
+      if (!bestCandidate || bestCandidate.priority < 3) {
+        bestCandidate = { player: p, priority: 3, preferPos: p.position };
+      }
+      continue;
+    }
+
+    if (pCards >= 1 && pFatigue > YELLOW_FATIGUE_THRESHOLD) {
+      if (!bestCandidate || bestCandidate.priority < 2) {
+        bestCandidate = { player: p, priority: 2, preferPos: p.position };
+      }
+      continue;
+    }
+  }
+
+  if (TACTICAL_SUB_MINUTES.includes(minute) && (!bestCandidate || bestCandidate.priority < 1)) {
+    if (goalDiff <= -2) {
+      const defs = xi.filter(p => p.position === 'DEF').sort((a, b) => a.currentAbility - b.currentAbility);
+      if (defs.length > 2) {
+        bestCandidate = { player: defs[0], priority: 1, preferPos: 'FWD' };
+      }
+    } else if (goalDiff >= 2) {
+      const fwds = xi.filter(p => p.position === 'FWD').sort((a, b) => a.currentAbility - b.currentAbility);
+      if (fwds.length > 1) {
+        bestCandidate = { player: fwds[0], priority: 1, preferPos: 'DEF' };
+      }
+    }
+  }
+
+  if (!bestCandidate) return null;
+
+  const probGate: Record<number, number> = { 1: 0.5, 2: 0.2, 3: 0.35 };
+  if (_matchRng() > (probGate[bestCandidate.priority] ?? 0.3)) return null;
+
+  const replacement = findBestReplacement(bench, bestCandidate.preferPos);
+  if (!replacement) return null;
+
+  const outPlayer = bestCandidate.player;
+  const newXI = team.startingXI.map(id => id === outPlayer.id ? replacement.id : id);
+  const newTeam = { ...team, startingXI: newXI };
+
+  const subEvent: MatchEvent = {
+    minute,
+    type: 'substitution',
+    team: side,
+    player: replacement.name,
+    description: `Substituição da IA: sai ${outPlayer.name}, entra ${replacement.name}`,
+  };
+
+  const newState: LiveMatchState = {
+    ...state,
+    events: [...state.events, subEvent],
+    ballHolderId: state.ballHolderId === outPlayer.id ? replacement.id : state.ballHolderId,
+  };
+
+  return { team: newTeam, state: newState };
+}
+
+export function performAISubs(
+  homeTeam: Team,
+  awayTeam: Team,
+  state: LiveMatchState,
+  minute: number,
+  sidesToManage: ('home' | 'away')[],
+): { homeTeam: Team; awayTeam: Team; state: LiveMatchState } {
+  let ht = homeTeam;
+  let at = awayTeam;
+  let st = state;
+
+  if (sidesToManage.includes('home')) {
+    const result = tryAISub(ht, 'home', st, minute, st.homeGoals, st.awayGoals);
+    if (result) { ht = result.team; st = result.state; }
+  }
+
+  if (sidesToManage.includes('away')) {
+    const result = tryAISub(at, 'away', st, minute, st.awayGoals, st.homeGoals);
+    if (result) { at = result.team; st = result.state; }
+  }
+
+  const _rng = _matchRng as Rng & { state: () => number };
+  if (typeof _rng.state === 'function') {
+    st = { ...st, rngState: _rng.state() };
+  }
+
+  return { homeTeam: ht, awayTeam: at, state: st };
+}
+
 // Simula 1 minuto de jogo: vários lances (ticks) conforme o ritmo tático,
 // com fadiga acumulada, momentum e acréscimos ao fim do tempo regulamentar.
-export function simulateMinute(
+// v1 (implementação original)
+export function simulateMinuteV1(
   homeTeam: Team,
   awayTeam: Team,
   state: LiveMatchState,
@@ -2454,6 +2787,7 @@ export function simulateMinute(
   let st = state;
   // E-18: startingXI filtra expulsos via _matchSentOff — sincroniza antes da fadiga
   _matchSentOff = new Set([...(state.sentOff?.home ?? []), ...(state.sentOff?.away ?? [])]);
+  _matchInjured = new Set((state.matchInjuries ?? []).map(mi => mi.playerId));
 
   // Recomeço do 2º tempo: bola volta ao centro
   if (minute === 46) {
@@ -2465,6 +2799,22 @@ export function simulateMinute(
 
   // Fadiga acumula uma vez por minuto
   st = { ...st, fatigue: nextFatigue(homeTeam, awayTeam, st) };
+
+  // Verificar lesões por fadiga acumulada (uma vez por minuto, por jogador em campo)
+  const fatigueMap = st.fatigue ?? {};
+  for (const team of [homeTeam, awayTeam]) {
+    const side = team === homeTeam ? 'home' : 'away';
+    for (const p of startingXI(team)) {
+      if (_matchInjured.has(p.id)) continue;
+      const pFatigue = fatigueMap[p.id] ?? 0;
+      const pProneness = p.hidden?.injuryProneness ?? 5;
+      if (_matchRng() < fatigueInjuryChance(pFatigue, team.tempo, pProneness)) {
+        const injResult = triggerMatchInjury(p, side, minute, st);
+        st = injResult.state;
+        st.events = [...st.events, injResult.event];
+      }
+    }
+  }
 
   const ticks = ticksPerMinute(homeTeam, awayTeam);
   for (let t = 0; t < ticks; t++) {
@@ -2487,10 +2837,103 @@ export function simulateMinute(
   return st;
 }
 
+// Simula 1 minuto de jogo — v2 (Fase 3: progressão por fases)
+export function simulateMinuteV2(
+  homeTeam: Team,
+  awayTeam: Team,
+  state: LiveMatchState,
+  minute: number,
+): LiveMatchState {
+  // Restaura PRNG do estado da partida para continuação determinística
+  if (state.seed !== undefined && state.rngState !== undefined) {
+    const rng = mulberry32(state.rngState);
+    _matchRng = rng;
+  } else if (state.seed !== undefined) {
+    const rng = mulberry32(state.seed);
+    _matchRng = rng;
+  } else {
+    _matchRng = Math.random;
+  }
+  const _rng = _matchRng as Rng & { state: () => number };
+
+  let st = state;
+  // E-18: startingXI filtra expulsos via _matchSentOff — sincroniza antes da fadiga
+  _matchSentOff = new Set([...(state.sentOff?.home ?? []), ...(state.sentOff?.away ?? [])]);
+  _matchInjured = new Set((state.matchInjuries ?? []).map(mi => mi.playerId));
+
+  // Recomeço do 2º tempo: bola volta ao centro
+  if (minute === 46) {
+    const homeKicks = _matchRng() < 0.5;
+    const kickTeam = homeKicks ? homeTeam : awayTeam;
+    const holder = pickPlayerWithBall(kickTeam, 0.5, homeKicks);
+    st = { ...st, possession: homeKicks ? 'home' : 'away', ballPos: 0.5, ballPosY: 0.5, ballHolderId: holder.id, passChain: 0 };
+  }
+
+  // Fadiga acumula uma vez por minuto
+  st = { ...st, fatigue: nextFatigue(homeTeam, awayTeam, st) };
+
+  // Verificar lesões por fadiga acumulada (uma vez por minuto, por jogador em campo)
+  const fatigueMap = st.fatigue ?? {};
+  for (const team of [homeTeam, awayTeam]) {
+    const side = team === homeTeam ? 'home' : 'away';
+    for (const p of startingXI(team)) {
+      if (_matchInjured.has(p.id)) continue;
+      const pFatigue = fatigueMap[p.id] ?? 0;
+      const pProneness = p.hidden?.injuryProneness ?? 5;
+      if (_matchRng() < fatigueInjuryChance(pFatigue, team.tempo, pProneness)) {
+        const injResult = triggerMatchInjury(p, side, minute, st);
+        st = injResult.state;
+        st.events = [...st.events, injResult.event];
+      }
+    }
+  }
+
+  // Reset do log de duelos no início da partida
+  if (minute === 1) {
+    resetPhaseState();
+  }
+
+  const ticks = ticksPerMinute(homeTeam, awayTeam);
+  for (let t = 0; t < ticks; t++) {
+    st = simulateTickV2(homeTeam, awayTeam, st, minute, _matchRng);
+    // Momentum decai naturalmente rumo ao equilíbrio
+    st.momentum = clamp((st.momentum ?? 0) * 0.99, -1, 1);
+  }
+
+  // Acréscimos do 2º tempo: definidos aos 89' com base nos eventos que pararam o jogo
+  if (minute >= 89 && st.addedTime === undefined) {
+    const stoppages = st.events.filter(e =>
+      e.minute > 45 && (e.type === 'goal' || e.type === 'red' || e.type === 'substitution')).length;
+    st = { ...st, addedTime: Math.min(6, Math.max(1, Math.round(1 + stoppages * 0.5 + _matchRng() * 2))) };
+  }
+
+  // Salva estado do PRNG para próxima chamada
+  if (typeof _rng.state === 'function') {
+    st = { ...st, rngState: _rng.state() };
+  }
+
+  return st;
+}
+
+// Wrapper público — delega para v1 ou v2 conforme flag MATCH_ENGINE
+export function simulateMinute(
+  homeTeam: Team,
+  awayTeam: Team,
+  state: LiveMatchState,
+  minute: number,
+): LiveMatchState {
+  return isV2
+    ? simulateMinuteV2(homeTeam, awayTeam, state, minute)
+    : simulateMinuteV1(homeTeam, awayTeam, state, minute);
+}
+
 // Simula uma partida completa (para AI vs AI e auto-finalizar)
 // Roda 90 minutos de simulação passo a passo
-export function simulateFullMatch(homeTeam: Team, awayTeam: Team, homeBoost = 0, awayBoost = 0, seed?: number): MatchResult & { playerRatings: PlayerMatchRating[]; bestPlayer?: string; postMatchReport?: PostMatchReport } {
-  let state = initLiveMatchState(homeTeam, awayTeam, seed);
+// v1 (implementação original)
+export function simulateFullMatchV1(homeTeam: Team, awayTeam: Team, homeBoost = 0, awayBoost = 0, seed?: number): MatchResult & { playerRatings: PlayerMatchRating[]; bestPlayer?: string; postMatchReport?: PostMatchReport; matchInjuries?: { playerId: string; side: 'home' | 'away' }[] } {
+  let ht = homeTeam;
+  let at = awayTeam;
+  let state = initLiveMatchStateV1(ht, at, seed);
 
   // Aplica boosts de intervenção
   if (homeBoost > 0) {
@@ -2502,7 +2945,11 @@ export function simulateFullMatch(homeTeam: Team, awayTeam: Team, homeBoost = 0,
 
   // 90 minutos + acréscimos (addedTime é definido pelo próprio motor aos 89')
   for (let minute = 1; minute <= 90 + (state.addedTime ?? 0); minute++) {
-    state = simulateMinute(homeTeam, awayTeam, state, minute);
+    state = simulateMinuteV1(ht, at, state, minute);
+    const subResult = performAISubs(ht, at, state, minute, ['home', 'away']);
+    ht = subResult.homeTeam;
+    at = subResult.awayTeam;
+    state = subResult.state;
   }
 
   // Constrói o resultado no formato MatchResult
@@ -2525,6 +2972,7 @@ export function simulateFullMatch(homeTeam: Team, awayTeam: Team, homeBoost = 0,
 
   // E-18: Limpar sentOff para que calculatePlayerMatchRatings inclua expulsos (com minutesPlayed reduzido).
   _matchSentOff = new Set();
+  _matchInjured = new Set();
 
   // Restaura PRNG do estado final para ratings e relatório determinísticos
   if (state.seed !== undefined && state.rngState !== undefined) {
@@ -2533,7 +2981,69 @@ export function simulateFullMatch(homeTeam: Team, awayTeam: Team, homeBoost = 0,
     _matchRng = mulberry32(state.seed);
   }
 
-  const withRatings = calculatePlayerMatchRatings(homeTeam, awayTeam, result);
-  const postMatchReport = generatePostMatchReport(homeTeam, awayTeam, result, state.actions);
-  return { ...withRatings, postMatchReport };
+  const withRatings = calculatePlayerMatchRatings(ht, at, result);
+  const postMatchReport = generatePostMatchReport(ht, at, result, state.actions);
+  return { ...withRatings, postMatchReport, matchInjuries: state.matchInjuries ?? [] };
+}
+
+// Simula uma partida completa — v2 (Fase 3: progressão por fases)
+export function simulateFullMatchV2(homeTeam: Team, awayTeam: Team, homeBoost = 0, awayBoost = 0, seed?: number): MatchResult & { playerRatings: PlayerMatchRating[]; bestPlayer?: string; postMatchReport?: PostMatchReport; matchInjuries?: { playerId: string; side: 'home' | 'away' }[] } {
+  let ht = homeTeam;
+  let at = awayTeam;
+  let state = initLiveMatchStateV1(ht, at, seed);
+
+  // Aplica boosts de intervenção
+  if (homeBoost > 0) {
+    state.interventionBoost = { team: 'home', type: 'boost', untilMinute: 90 };
+  }
+  if (awayBoost > 0) {
+    state.interventionBoost = { team: 'away', type: 'boost', untilMinute: 90 };
+  }
+
+  // 90 minutos + acréscimos (addedTime é definido pelo próprio motor aos 89')
+  for (let minute = 1; minute <= 90 + (state.addedTime ?? 0); minute++) {
+    state = simulateMinuteV2(ht, at, state, minute);
+    const subResult = performAISubs(ht, at, state, minute, ['home', 'away']);
+    ht = subResult.homeTeam;
+    at = subResult.awayTeam;
+    state = subResult.state;
+  }
+
+  // Constrói o resultado no formato MatchResult
+  const events: MatchEvent[] = state.events.sort((a, b) => a.minute - b.minute);
+
+  // Ajusta posse final
+  const stats: MatchStats = {
+    ...state.stats,
+    homePossession: clamp(state.stats.homePossession, 25, 75),
+    awayPossession: 100 - clamp(state.stats.homePossession, 25, 75),
+  };
+
+  const result: MatchResult = {
+    homeGoals: state.homeGoals,
+    awayGoals: state.awayGoals,
+    stats,
+    events,
+    goalDetails: state.goalDetails,
+    homeTeam: ht.name,
+    awayTeam: at.name,
+  };
+
+  // Restaura PRNG do estado final para ratings e relatório determinísticos
+  if (state.seed !== undefined && state.rngState !== undefined) {
+    _matchRng = mulberry32(state.rngState);
+  } else if (state.seed !== undefined) {
+    _matchRng = mulberry32(state.seed);
+  }
+
+  const withRatings = calculatePlayerMatchRatings(ht, at, result);
+  const postMatchReport = generatePostMatchReport(ht, at, result, state.actions);
+  return { ...withRatings, postMatchReport, matchInjuries: state.matchInjuries ?? [] };
+}
+
+// Wrapper público — delega para v1 ou v2 conforme flag MATCH_ENGINE
+export function simulateFullMatch(homeTeam: Team, awayTeam: Team, homeBoost = 0, awayBoost = 0, seed?: number): MatchResult & { playerRatings: PlayerMatchRating[]; bestPlayer?: string; postMatchReport?: PostMatchReport; matchInjuries?: { playerId: string; side: 'home' | 'away' }[] } {
+  return isV2
+    ? simulateFullMatchV2(homeTeam, awayTeam, homeBoost, awayBoost, seed)
+    : simulateFullMatchV1(homeTeam, awayTeam, homeBoost, awayBoost, seed);
 }

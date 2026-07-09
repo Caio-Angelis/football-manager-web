@@ -8,7 +8,7 @@ export type { PlayerAttribute, GKAttributes, HiddenAttributes, PlayerPromise, Pl
 export type { PlayerRole, PlayerInstruction, TeamTacticsConfig, Team, Scout, SetPiecesConfig, CornerSetPiece, FreeKickSetPiece, ThrowInSetPiece, DefensiveCornerSetPiece, DefensiveFreeKickSetPiece } from './team';
 
 // Match
-export type { MatchEvent, MatchStats, MatchAction, LiveMatchState, PlayerMatchRating, Match, HeatMapZone, TacticalInsight, AssistantAdvice, PostMatchReport, KeyMatchup, FormComparison, TacticalRecommendation, PreMatchAnalysis } from './match';
+export type { MatchEvent, MatchStats, MatchAction, LiveMatchState, PlayerMatchRating, Match, HeatMapZone, TacticalInsight, AssistantAdvice, PostMatchReport, KeyMatchup, FormComparison, TacticalRecommendation, PreMatchAnalysis, BallPhase } from './match';
 
 // Transfer
 export type {

@@ -4,7 +4,8 @@ import { loadTeamsFromDatabase, assignBoardExpectations } from '../../utils/data
 import { healTeamsXI } from '../../utils/lineup';
 import {
   simulateFullMatch, simulateMinute, calculatePlayerMatchRatings,
-  generateWeekMatches, applyMatchResultToTeams, generatePostMatchReport,
+  generateWeekMatches, applyMatchResultToTeams, applyMatchInjuries, generatePostMatchReport,
+  performAISubs,
 } from '../helpers/matchEngine';
 import type { MatchStats, MatchEvent, Match } from '../../types/game';
 import { calculateLeagueStandings } from '../helpers/league';
@@ -196,7 +197,7 @@ export function processWeeklyScopedFeatures(
 // Auto-finaliza a partida pendente do usuário (caso ele avance sem jogá-la ao vivo).
 // Muta `matches` no lugar (marca a partida como completed) e retorna o novo array de teams
 // com o resultado aplicado. Usado tanto no avanço normal quanto no fim da temporada.
-function finalizePendingUserMatch(matches: Match[], teams: Team[], selectedTeam: string | null): Team[] {
+function finalizePendingUserMatch(matches: Match[], teams: Team[], selectedTeam: string | null, currentWeek: number): Team[] {
   if (!selectedTeam) return teams;
   const idx = matches.findIndex(
     pm => !pm.completed && (pm.homeTeam === selectedTeam || pm.awayTeam === selectedTeam),
@@ -210,9 +211,15 @@ function finalizePendingUserMatch(matches: Match[], teams: Team[], selectedTeam:
 
   let result;
   if (pending.isLive && pending.liveMatchState) {
+    let ht = ph;
+    let at = pa;
     let liveState = pending.liveMatchState;
     for (let m = pending.liveMinute + 1; m <= 90 + (liveState.addedTime ?? 0); m++) {
-      liveState = simulateMinute(ph, pa, liveState, m);
+      liveState = simulateMinute(ht, at, liveState, m);
+      const subResult = performAISubs(ht, at, liveState, m, ['home', 'away']);
+      ht = subResult.homeTeam;
+      at = subResult.awayTeam;
+      liveState = subResult.state;
     }
     const events: MatchEvent[] = liveState.events.sort((a, b) => a.minute - b.minute);
     const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
@@ -228,14 +235,15 @@ function finalizePendingUserMatch(matches: Match[], teams: Team[], selectedTeam:
       stats,
       goalDetails: liveState.goalDetails,
     };
-    const withRatings = calculatePlayerMatchRatings(ph, pa, baseResult);
-    const postMatchReport = generatePostMatchReport(ph, pa, baseResult, liveState.actions);
-    result = { ...withRatings, postMatchReport };
+    const withRatings = calculatePlayerMatchRatings(ht, at, baseResult);
+    const postMatchReport = generatePostMatchReport(ht, at, baseResult, liveState.actions);
+    result = { ...withRatings, postMatchReport, matchInjuries: liveState.matchInjuries ?? [] };
   } else {
     result = simulateFullMatch(ph, pa);
   }
 
-  const newTeams = applyMatchResultToTeams(teams, pending.homeTeam, pending.awayTeam, result);
+  const teamsWithInjuries = applyMatchInjuries(teams, pending.homeTeam, pending.awayTeam, result.matchInjuries ?? [], currentWeek);
+  const newTeams = applyMatchResultToTeams(teamsWithInjuries, pending.homeTeam, pending.awayTeam, result);
   matches[idx] = {
     ...pending,
     completed: true,
@@ -399,7 +407,7 @@ export const createCoreSlice = (set: Set, get: Get) => ({
       // Manter partidas existentes sem gerar novas, mas auto-finalizar a partida
       // pendente da rodada 38 do usuário para que a classificação final seja justa.
       const updatedMatches = [...state.matches];
-      updatedTeams = finalizePendingUserMatch(updatedMatches, updatedTeams, state.selectedTeam);
+      updatedTeams = finalizePendingUserMatch(updatedMatches, updatedTeams, state.selectedTeam, 38);
       const leagueStandings = calculateLeagueStandings(updatedTeams, updatedMatches, 38);
 
       // Prêmio por colocação final da temporada (Fase 6.2)
@@ -540,7 +548,7 @@ export const createCoreSlice = (set: Set, get: Get) => ({
     // pendente), então NÃO finalizamos — senão o host jogaria a partida duas vezes.
     const previousMatches = [...state.matches];
     if (!isOnline) {
-      updatedTeams = finalizePendingUserMatch(previousMatches, updatedTeams, state.selectedTeam);
+      updatedTeams = finalizePendingUserMatch(previousMatches, updatedTeams, state.selectedTeam, newWeek);
     }
 
     // Acumular partidas completadas de semanas anteriores para que a
@@ -567,6 +575,7 @@ export const createCoreSlice = (set: Set, get: Get) => ({
         match.playerRatings = result.playerRatings;
         match.bestPlayer = result.bestPlayer;
         match.postMatchReport = result.postMatchReport;
+        updatedTeams = applyMatchInjuries(updatedTeams, m.homeTeam, m.awayTeam, result.matchInjuries ?? [], newWeek);
         updatedTeams = applyMatchResultToTeams(updatedTeams, m.homeTeam, m.awayTeam, result);
       } else {
         // Partida do usuário: fica PENDENTE para ser jogada ao vivo no Centro de Partidas.
@@ -720,9 +729,9 @@ export const createCoreSlice = (set: Set, get: Get) => ({
             });
           }
 
-          // Risk-based injury generation: weekly roll
-          // Base chance 2%, modified by risk level
-          const injuryChance = 0.02 + (risk / 100) * 0.08;
+          // Risk-based injury generation: weekly roll (reduced — primary source is now in-match)
+          // Base chance 0.5%, modified by risk level
+          const injuryChance = 0.005 + (risk / 100) * 0.03;
           if (Math.random() < injuryChance) {
             const injuredPlayer = generateInjuryForPlayer(player, 'random', team.facilitiesLevel, team.staffLevel, newWeek);
             injuryInboxMessages.push({

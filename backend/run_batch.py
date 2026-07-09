@@ -3,6 +3,10 @@
 run_batch.py — Executa headless_sim.ts 30 vezes via subprocess, coleta métricas
 de sim_output.json a cada execução, e gera um relatório final balance_report.txt
 com médias e anomalias encontradas.
+
+Uso:
+  python run_batch.py           # modo original (headless_sim.ts)
+  python run_batch.py --v1v2    # modo comparativo v1×v2 (headless_v1v2.ts)
 """
 
 import json
@@ -19,8 +23,18 @@ from statistics import mean, stdev
 NUM_RUNS = 30
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SIM_OUTPUT = os.path.join(SCRIPT_DIR, "sim_output.json")
+V1V2_OUTPUT = os.path.join(SCRIPT_DIR, "v1v2_output.json")
 BALANCE_REPORT = os.path.join(SCRIPT_DIR, "balance_report.txt")
-COMMAND = ["npx", "tsx", "headless_sim.ts"]
+
+# Modo comparativo v1×v2 se --v1v2 for passado
+V1V2_MODE = "--v1v2" in sys.argv
+
+if V1V2_MODE:
+    OUTPUT_FILE = V1V2_OUTPUT
+    COMMAND = ["npx", "tsx", "headless_v1v2.ts"]
+else:
+    OUTPUT_FILE = SIM_OUTPUT
+    COMMAND = ["npx", "tsx", "headless_sim.ts"]
 
 # ============================================================
 # COLETA DE DADOS
@@ -45,15 +59,15 @@ for i in range(1, NUM_RUNS + 1):
         print("FAILED")
         continue
 
-    if not os.path.exists(SIM_OUTPUT):
+    if not os.path.exists(OUTPUT_FILE):
         print("NO OUTPUT")
         continue
 
-    with open(SIM_OUTPUT, "r", encoding="utf-8") as f:
+    with open(OUTPUT_FILE, "r", encoding="utf-8") as f:
         data = json.load(f)
 
     all_runs.append(data)
-    os.remove(SIM_OUTPUT)
+    os.remove(OUTPUT_FILE)
     print("OK")
 
 print(f"\nCollected {len(all_runs)} successful runs.\n")
@@ -66,6 +80,94 @@ if not all_runs:
 # AGREGAÇÃO DE MÉTRICAS
 # ============================================================
 
+if V1V2_MODE:
+    # --- Modo v1×v2: agrega métricas do HarnessOutput ---
+    v1_goals = [run["v1"]["avgGoals"] for run in all_runs if "v1" in run]
+    v2_goals = [run["v2"]["avgGoals"] for run in all_runs if "v2" in run]
+    v1_home = [run["v1"]["homeWinPct"] for run in all_runs if "v1" in run]
+    v2_home = [run["v2"]["homeWinPct"] for run in all_runs if "v2" in run]
+    v1_draw = [run["v1"]["drawPct"] for run in all_runs if "v1" in run]
+    v2_draw = [run["v2"]["drawPct"] for run in all_runs if "v2" in run]
+    v1_away = [run["v1"]["awayWinPct"] for run in all_runs if "v1" in run]
+    v2_away = [run["v2"]["awayWinPct"] for run in all_runs if "v2" in run]
+    v1_match_ms = [run["v1"]["avgMatchMs"] for run in all_runs if "v1" in run]
+    v2_match_ms = [run["v2"]["avgMatchMs"] for run in all_runs if "v2" in run]
+    v1_round_ms = [run["v1"]["roundMs"] for run in all_runs if "v1" in run]
+    v2_round_ms = [run["v2"]["roundMs"] for run in all_runs if "v2" in run]
+
+    v1_upset_b = [run["upset"]["v1"]["winRateB"] for run in all_runs if "upset" in run and "v1" in run.get("upset", {})]
+    v2_upset_b = [run["upset"]["v2"]["winRateB"] for run in all_runs if "upset" in run and "v2" in run.get("upset", {})]
+
+    n = len(all_runs)
+    total_matches = sum(run["v1"]["totalMatches"] for run in all_runs if "v1" in run)
+
+    lines = []
+    lines.append("=" * 70)
+    lines.append("BALANCE REPORT v1×v2 — Football Manager Web")
+    lines.append(f"Runs: {n} | Matches per run: {total_matches // n if n > 0 else 0} | Upset sims per run: 100")
+    lines.append("=" * 70)
+    lines.append("")
+
+    lines.append("1. INVARIANTES — v1 vs v2 (média ± desvio)")
+    lines.append("-" * 70)
+    def fmt(lst, dec=2):
+        if not lst:
+            return "N/A"
+        m = mean(lst)
+        s = stdev(lst) if len(lst) > 1 else 0
+        return f"{m:.{dec}f} ± {s:.{dec}f}"
+
+    lines.append(f"  Gols/jogo           v1: {fmt(v1_goals):>20}   v2: {fmt(v2_goals):>20}")
+    lines.append(f"  % vit. mandante     v1: {fmt(v1_home, 1):>20}   v2: {fmt(v2_home, 1):>20}")
+    lines.append(f"  % empates           v1: {fmt(v1_draw, 1):>20}   v2: {fmt(v2_draw, 1):>20}")
+    lines.append(f"  % vit. visitante    v1: {fmt(v1_away, 1):>20}   v2: {fmt(v2_away, 1):>20}")
+    lines.append("")
+
+    lines.append("2. PERFORMANCE — v1 vs v2")
+    lines.append("-" * 70)
+    lines.append(f"  1 partida (ms)      v1: {fmt(v1_match_ms):>20}   v2: {fmt(v2_match_ms):>20}")
+    lines.append(f"  1 rodada (ms)       v1: {fmt(v1_round_ms):>20}   v2: {fmt(v2_round_ms):>20}")
+    lines.append("")
+
+    lines.append("3. UPSET — B (coerente, 100%) vs A (incoerente, 130%)")
+    lines.append("-" * 70)
+    lines.append(f"  WinRate B (%)       v1: {fmt(v1_upset_b, 1):>20}   v2: {fmt(v2_upset_b, 1):>20}")
+    lines.append("")
+
+    # Anomalias
+    lines.append("4. ANOMALIAS DETECTADAS")
+    lines.append("-" * 40)
+    anomalies = []
+    if v2_goals and mean(v2_goals) > 3.5:
+        anomalies.append(f"  [GOLS EXCESSIVOS v2] Média {mean(v2_goals):.2f} (esperado 2.0-3.0)")
+    if v2_goals and mean(v2_goals) < 1.0:
+        anomalies.append(f"  [GOLS INSUFICIENTES v2] Média {mean(v2_goals):.2f} (esperado 2.0-3.0)")
+    if v2_home and mean(v2_home) > 55:
+        anomalies.append(f"  [MANDANTE DOMINANTE v2] {mean(v2_home):.1f}% (esperado 40-50%)")
+    if v2_draw and mean(v2_draw) < 20:
+        anomalies.append(f"  [POUCOS EMPATES v2] {mean(v2_draw):.1f}% (esperado 25-30%)")
+    if v2_match_ms and mean(v2_match_ms) > 50:
+        anomalies.append(f"  [PERF v2] {mean(v2_match_ms):.1f}ms/partida (budget 50ms)")
+    if v2_round_ms and mean(v2_round_ms) > 1000:
+        anomalies.append(f"  [PERF v2] {mean(v2_round_ms):.1f}ms/rodada (budget 1000ms)")
+    if anomalies:
+        for a in anomalies:
+            lines.append(a)
+    else:
+        lines.append("  Nenhuma anomalia significativa detectada.")
+    lines.append("")
+    lines.append("=" * 70)
+    lines.append("Fim do relatório")
+    lines.append("=" * 70)
+
+    report_text = "\n".join(lines)
+    with open(BALANCE_REPORT, "w", encoding="utf-8") as f:
+        f.write(report_text)
+    print(report_text)
+    print(f"\nReport saved to: {BALANCE_REPORT}")
+    sys.exit(0)
+
+# --- Modo padrão: agrega métricas do SimOutput ---
 total_seasons = len(all_runs) * 3  # 3 seasons per run
 
 # --- Win-rate por tática (campeonato) ---
@@ -264,7 +366,7 @@ lines.append("")
 lines.append("  Jogadores mais frequentes como maior CA sub-21:")
 for player, count in max_ca_players.most_common(5):
     lines.append(f"    {player:<30} {count}x")
-lines.append("  Times mais frequentes:")
+lines.append("  Teams mais frequentes:")
 for team, count in max_ca_teams.most_common(5):
     lines.append(f"    {team:<30} {count}x")
 lines.append("")

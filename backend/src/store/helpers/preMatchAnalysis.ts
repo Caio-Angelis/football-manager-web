@@ -3,7 +3,8 @@
 // identifica key matchups entre titulares e gera recomendações táticas.
 
 import type { Team, Player, PreMatchAnalysis, KeyMatchup, FormComparison, TacticalRecommendation } from '../../types/game';
-import { simulateMatchResult, calculateTeamStrength, getTacticalBonus } from './matchEngine';
+import { simulateMatchResult, calculateTeamStrength, getTacticalBonus, simulateFullMatchV2 } from './matchEngine';
+import { isV2 } from './engineFlag';
 
 function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v));
@@ -198,7 +199,8 @@ export function generatePreMatchAnalysis(
   away: Team,
   userTeamId: string | null,
 ): PreMatchAnalysis {
-  const SIM_COUNT = 500;
+  // Fase 9: quando v2 está ativo, usa o mesmo motor v2 (não Poisson divergente)
+  const SIM_COUNT = isV2 ? 100 : 500;
   let homeWins = 0;
   let draws = 0;
   let awayWins = 0;
@@ -207,7 +209,9 @@ export function generatePreMatchAnalysis(
   const scoreMap = new Map<string, number>();
 
   for (let i = 0; i < SIM_COUNT; i++) {
-    const result = simulateMatchResult(home, away);
+    const result = isV2
+      ? simulateFullMatchV2(home, away, 0, 0, 9000 + i)
+      : simulateMatchResult(home, away);
     totalHomeGoals += result.homeGoals;
     totalAwayGoals += result.awayGoals;
 
