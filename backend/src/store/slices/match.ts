@@ -112,7 +112,7 @@ export const createMatchSlice = (set: Set, get: Get) => ({
         postMatchReport,
       };
 
-      const updatedTeams = applyMatchResultToTeams(state.teams, match.homeTeam, match.awayTeam, result);
+      const updatedTeams = applyMatchResultToTeams(state.teams, match.homeTeam, match.awayTeam, withRatings);
       const leagueStandings = calculateLeagueStandings(updatedTeams, updatedMatches, state.currentWeek);
       set({ matches: updatedMatches, teams: updatedTeams, leagueTable: leagueStandings });
       return;
@@ -359,7 +359,7 @@ export const createMatchSlice = (set: Set, get: Get) => ({
       postMatchReport,
     };
 
-    const updatedTeams = applyMatchResultToTeams(state.teams, match.homeTeam, match.awayTeam, result);
+    const updatedTeams = applyMatchResultToTeams(state.teams, match.homeTeam, match.awayTeam, withRatings);
     const leagueStandings = calculateLeagueStandings(updatedTeams, updatedMatches, state.currentWeek);
     set({ matches: updatedMatches, teams: updatedTeams, leagueTable: leagueStandings });
   },

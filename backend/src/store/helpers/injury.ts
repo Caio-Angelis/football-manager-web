@@ -259,11 +259,18 @@ export function healInjuryForPlayer(
 export function applyFatigueDecayToPlayer(player: Player): Player {
   const updated = { ...player };
 
-  // Natural recovery: fitness increases during rest week
-  const naturalRecovery = 5;
+  // Recuperação PROPORCIONAL: quanto mais desgastado o jogador, mais condição
+  // ele recupera numa semana de descanso. Equilibra o custo de condição por
+  // partida (matchEngine.applyMatchFitnessCost) — titular fixo estabiliza ~86,
+  // jogadores poupados/rodados voltam para ~100 (dinâmica de rodízio do FM).
+  const gap = 100 - updated.fitness;
+  let recovery = 4 + gap * 0.35;
+  // Jogadores mais velhos recuperam mais devagar
+  if (updated.age >= 32) recovery *= 0.82;
+  else if (updated.age >= 28) recovery *= 0.92;
   const loadDecay = 5;
 
-  updated.fitness = Math.min(100, updated.fitness + naturalRecovery);
+  updated.fitness = Math.min(100, Math.round(updated.fitness + recovery));
   updated.cumulativeLoad = Math.max(0, (updated.cumulativeLoad || 0) - loadDecay);
   updated.consecutivePhysicalDays = Math.max(0, (updated.consecutivePhysicalDays || 0) - 1);
 

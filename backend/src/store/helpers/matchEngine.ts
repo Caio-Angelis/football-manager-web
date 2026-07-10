@@ -1022,11 +1022,43 @@ export function generateWeekMatches(teams: Team[], week: number): Match[] {
   return matches;
 }
 
+// ------------------------------------------------------------
+// CONDICIONAMENTO PÓS-JOGO — forma dinâmica e custo de condição física
+// (loops clássicos de Football Manager: atuar altera forma e gasta fitness)
+// ------------------------------------------------------------
+
+// Forma dinâmica: a nota da partida puxa a forma do jogador para cima/baixo,
+// com reversão à média (70) para evitar forma cravada nos extremos.
+// Boas atuações consecutivas elevam a forma naturalmente (streaks).
+export function updateFormFromRating(currentForm: number, rating: number): number {
+  const delta = (rating - 6.6) * 5; // nota média (~6.6) = neutro; ~ -13 a +17
+  const meanReversion = (currentForm - 70) * 0.12;
+  const next = currentForm + delta - meanReversion;
+  return clamp(Math.round(next * 10) / 10, 25, 100);
+}
+
+// Custo de condição física por jogar: escala com minutos em campo, penaliza
+// idade e é aliviado por stamina. A recuperação semanal (applyFatigueDecayToPlayer)
+// é proporcional e equilibra o desgaste (~83 titular fixo, ~61 veterano sem
+// rodízio, ~95+ jogador poupado — incentivo real a rodar o elenco).
+export function applyMatchFitnessCost(player: Player, minutesPlayed: number): number {
+  const stamina = player.physical?.stamina ?? 12;
+  const minutesFactor = clamp(minutesPlayed, 0, 90) / 90;
+  const staminaFactor = 1.25 - stamina / 40; // stamina 20→0.75, 10→1.0, 1→1.225
+  let ageFactor = 1.0;
+  if (player.age >= 32) ageFactor = 1.2;
+  else if (player.age >= 30) ageFactor = 1.1;
+  else if (player.age >= 28) ageFactor = 1.05;
+  else if (player.age <= 21) ageFactor = 0.95;
+  const cost = 18 * minutesFactor * staminaFactor * ageFactor;
+  return clamp(Math.round((player.fitness ?? 90) - cost), 1, 100);
+}
+
 export function applyMatchResultToTeams(
   teams: Team[],
   homeId: string,
   awayId: string,
-  result: ReturnType<typeof simulateMatchResult>,
+  result: ReturnType<typeof simulateMatchResult> & { playerRatings?: PlayerMatchRating[] },
 ): Team[] {
   const updated = [...teams];
   const homeIdx = updated.findIndex(t => t.id === homeId);
@@ -1043,8 +1075,11 @@ export function applyMatchResultToTeams(
   homeTeam.goalsAgainst += result.awayGoals;
   awayTeam.goalsAgainst += result.homeGoals;
 
-  // Track goals and assists per player for the season
+  // Track goals and assists per player for the season + condicionamento pós-jogo
   const goalDetails = result.goalDetails || [];
+  const ratingsById = new Map<string, PlayerMatchRating>();
+  (result.playerRatings ?? []).forEach(r => ratingsById.set(r.playerId, r));
+
   const applyPlayerStats = (team: Team, side: 'home' | 'away') => {
     team.squad = team.squad.map(player => {
       let goals = 0;
@@ -1054,12 +1089,22 @@ export function applyMatchResultToTeams(
         if (g.scorerId === player.id) goals++;
         if (g.assistId === player.id) assists++;
       });
-      if (goals === 0 && assists === 0) return player;
-      return {
-        ...player,
-        seasonGoals: (player.seasonGoals ?? 0) + goals,
-        seasonAssists: (player.seasonAssists ?? 0) + assists,
-      };
+
+      const rating = ratingsById.get(player.id);
+      // Jogador que não entrou em campo e não pontuou: sem alteração
+      if (!rating && goals === 0 && assists === 0) return player;
+
+      const next = { ...player };
+      if (goals > 0 || assists > 0) {
+        next.seasonGoals = (player.seasonGoals ?? 0) + goals;
+        next.seasonAssists = (player.seasonAssists ?? 0) + assists;
+      }
+      // Forma e fitness só mudam para quem efetivamente atuou (tem nota na partida)
+      if (rating) {
+        next.form = updateFormFromRating(player.form ?? 70, rating.rating);
+        next.fitness = applyMatchFitnessCost(player, rating.minutesPlayed);
+      }
+      return next;
     });
   };
   applyPlayerStats(homeTeam, 'home');
