@@ -311,7 +311,7 @@ export function simulatePenaltyV2(
 export function foulChanceFromDuel(defender: Player, tacklingStyle: string): number {
   const aggression = defender.mental?.aggression ?? 10;
   // dirtiness é um hidden attribute (se existir)
-  const dirtiness = (defender.hidden as Record<string, number | undefined> | undefined)?.dirtiness ?? 5;
+  const dirtiness = defender.hidden?.dirtiness ?? 5;
   const base = 0.15;
   const aggrMod = (aggression - 10) / 100; // ±0.10
   const dirtMod = (dirtiness - 5) / 100; // ±0.05

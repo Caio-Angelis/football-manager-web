@@ -5,7 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { useGameStore } from './src/store/gameStore';
-import { updatePlayerAttributes } from './src/store/helpers/training';
+import { updatePlayerAttributes, applyMonthlyAgeDecline } from './src/store/helpers/training';
 import { calculateTicketRevenue, calculateSponsorshipRevenue, calculateFacilityCosts, calculateStaffCosts, weeklyWages } from './src/store/helpers/finance';
 import type { Team } from './src/types/game';
 
@@ -98,10 +98,14 @@ function applyTrainingToAllTeams(teams: Team[], week: number): Team[] {
   const trainingTypes = ['technical', 'physical', 'cohesion', 'light'];
   return teams.map(team => {
     const focus = trainingTypes[week % trainingTypes.length];
-    const updatedSquad = team.squad.map(player => {
+    let updatedSquad = team.squad.map(player => {
       if (player.injury?.active) return player;
       return updatePlayerAttributes(player, focus);
     });
+    // Declínio mensal 31+ (headless não usa médico no ciclo — veteranos decaem)
+    if (week > 0 && week % 4 === 0) {
+      updatedSquad = updatedSquad.map(p => applyMonthlyAgeDecline(p, false));
+    }
     return { ...team, squad: updatedSquad };
   });
 }

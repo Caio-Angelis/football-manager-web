@@ -77,6 +77,7 @@ export const FinanceView: React.FC = () => {
       />
 
       <div className="fms-body--scroll">
+      <div className="fm-finance-layout">
 
       <div className="fm-finance-view__summary">
         <div className="fm-finance-card fm-finance-card--highlight">
@@ -95,69 +96,111 @@ export const FinanceView: React.FC = () => {
         </div>
       </div>
 
-      <section className="fm-finance-view__section">
-        <h2>Controle da Folha Salarial</h2>
-        <div className="fm-wage-control">
-          <div className="fm-wage-control__meter">
-            <div className="fm-wage-control__meter-labels">
-              <span>Folha atual: R$ {team.wageBill.toFixed(1)}M/sem</span>
-              <span>Limite sugerido: R$ {wageBudgetLimit.toFixed(1)}M</span>
+      <div className="fm-finance-grid">
+        <section className="fms-section fm-finance-section">
+          <h2 className="fms-section__title">Extrato Semanal</h2>
+          <div className="fm-finance-ledger">
+            <div className="fm-finance-ledger__row fm-finance-ledger__row--income">
+              <span>Bilheteira</span>
+              <span>+ R$ {ticketRevenue.toFixed(2)}M</span>
             </div>
-            <div className="fm-wage-control__track">
-              <div
-                className={`fm-wage-control__fill${team.wageBill > wageBudgetLimit ? ' fm-wage-control__fill--over' : ''}`}
-                style={{ width: `${Math.min(100, (team.wageBill / Math.max(wageBudgetLimit, 0.1)) * 100)}%` }}
+            <div className="fm-finance-ledger__row fm-finance-ledger__row--income">
+              <span>Patrocínio</span>
+              <span>+ R$ {sponsorship.toFixed(2)}M</span>
+            </div>
+            <div className="fm-finance-ledger__row fm-finance-ledger__row--income">
+              <span>Transmissão</span>
+              <span>+ R$ {broadcasting.toFixed(2)}M</span>
+            </div>
+            <div className="fm-finance-ledger__row fm-finance-ledger__row--income">
+              <span>Prêmios por partida (média)</span>
+              <span>+ R$ {avgPrizeMoney.toFixed(2)}M</span>
+            </div>
+            <div className="fm-finance-ledger__row fm-finance-ledger__row--expense">
+              <span>Salários</span>
+              <span>- R$ {weeklyWageCost.toFixed(2)}M</span>
+            </div>
+            <div className="fm-finance-ledger__row fm-finance-ledger__row--expense">
+              <span>Infraestruturas</span>
+              <span>- R$ {facilityCosts.toFixed(2)}M</span>
+            </div>
+            <div className="fm-finance-ledger__row fm-finance-ledger__row--expense">
+              <span>Staff</span>
+              <span>- R$ {staffCosts.toFixed(2)}M</span>
+            </div>
+            <div className="fm-finance-ledger__row fm-finance-ledger__row--total">
+              <span>Saldo semanal</span>
+              <span className={balance >= 0 ? 'fm-finance-ledger__value--positive' : 'fm-finance-ledger__value--negative'}>
+                {balance >= 0 ? '+ ' : '- '}R$ {Math.abs(balance).toFixed(2)}M
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <div className="fm-finance-col">
+          <section className="fms-section fm-finance-section">
+            <h2 className="fms-section__title">Controle da Folha Salarial</h2>
+            <div className="fm-wage-control">
+              <div className="fm-wage-control__meter">
+                <div className="fm-wage-control__meter-labels">
+                  <span>Folha atual: R$ {team.wageBill.toFixed(1)}M/sem</span>
+                  <span>Limite sugerido: R$ {wageBudgetLimit.toFixed(1)}M</span>
+                </div>
+                <div className="fm-wage-control__track">
+                  <div
+                    className={`fm-wage-control__fill${team.wageBill > wageBudgetLimit ? ' fm-wage-control__fill--over' : ''}`}
+                    style={{ width: `${Math.min(100, (team.wageBill / Math.max(wageBudgetLimit, 0.1)) * 100)}%` }}
+                  />
+                </div>
+                {team.wageBill > wageBudgetLimit && (
+                  <p className="fm-wage-control__warning">Folha acima do limite recomendado — risco financeiro elevado.</p>
+                )}
+              </div>
+            </div>
+          </section>
+
+          <section className="fms-section fm-finance-section">
+            <h2 className="fms-section__title">Fôlego (Runway)</h2>
+            <div className={`fm-runway-card${runwayAlert ? ' fm-runway-card--alert' : ''}`}>
+              {balance >= 0 ? (
+                <>
+                  <span className="fm-runway-card__label">Saldo positivo</span>
+                  <span className="fm-runway-card__value fm-runway-card__value--positive">Saudável</span>
+                  <span className="fm-runway-card__detail">O caixa cresce R$ {balance.toFixed(2)}M por semana.</span>
+                </>
+              ) : (
+                <>
+                  <span className="fm-runway-card__label">Semanas até esgotar o caixa</span>
+                  <span className={`fm-runway-card__value${runwayAlert ? ' fm-runway-card__value--alert' : ''}`}>
+                    {runway <= 0 ? '0' : runway} sem.
+                  </span>
+                  <span className="fm-runway-card__detail">
+                    {runway <= 0
+                      ? 'Caixa esgotado — ação urgente necessária!'
+                      : runwayAlert
+                      ? `⚠ Atenção: o caixa dura apenas ${runway} semanas no ritmo atual.`
+                      : `Queimando R$ ${Math.abs(balance).toFixed(2)}M por semana.`}
+                  </span>
+                </>
+              )}
+            </div>
+            <div className="fm-finance-chart">
+              <MiniAreaChart
+                data={projection}
+                xKey="week"
+                yKey="balance"
+                color={balance >= 0 ? '#3fbf6b' : '#e25c52'}
+                height={120}
+                labelFormatter={(w) => `Semana ${w}`}
+                valueFormatter={(v) => `R$ ${v.toFixed(1)}M`}
               />
             </div>
-            {team.wageBill > wageBudgetLimit && (
-              <p className="fm-wage-control__warning">Folha acima do limite recomendado — risco financeiro elevado.</p>
-            )}
-          </div>
+          </section>
         </div>
-      </section>
+      </div>
 
-      <section className="fm-finance-view__section">
-        <h2>Extrato Semanal</h2>
-        <div className="fm-finance-ledger">
-          <div className="fm-finance-ledger__row fm-finance-ledger__row--income">
-            <span>Bilheteira</span>
-            <span>+ R$ {ticketRevenue.toFixed(2)}M</span>
-          </div>
-          <div className="fm-finance-ledger__row fm-finance-ledger__row--income">
-            <span>Patrocínio</span>
-            <span>+ R$ {sponsorship.toFixed(2)}M</span>
-          </div>
-          <div className="fm-finance-ledger__row fm-finance-ledger__row--income">
-            <span>Transmissão</span>
-            <span>+ R$ {broadcasting.toFixed(2)}M</span>
-          </div>
-          <div className="fm-finance-ledger__row fm-finance-ledger__row--income">
-            <span>Prêmios por partida (média)</span>
-            <span>+ R$ {avgPrizeMoney.toFixed(2)}M</span>
-          </div>
-          <div className="fm-finance-ledger__row fm-finance-ledger__row--expense">
-            <span>Salários</span>
-            <span>- R$ {weeklyWageCost.toFixed(2)}M</span>
-          </div>
-          <div className="fm-finance-ledger__row fm-finance-ledger__row--expense">
-            <span>Infraestruturas</span>
-            <span>- R$ {facilityCosts.toFixed(2)}M</span>
-          </div>
-          <div className="fm-finance-ledger__row fm-finance-ledger__row--expense">
-            <span>Staff</span>
-            <span>- R$ {staffCosts.toFixed(2)}M</span>
-          </div>
-          <div className="fm-finance-ledger__row fm-finance-ledger__row--total">
-            <span>Saldo semanal</span>
-            <span className={balance >= 0 ? 'fm-finance-ledger__value--positive' : 'fm-finance-ledger__value--negative'}>
-              {balance >= 0 ? '+ ' : '- '}R$ {Math.abs(balance).toFixed(2)}M
-            </span>
-          </div>
-        </div>
-      </section>
-
-      <section className="fm-finance-view__section">
-        <h2>Folha Salarial por Jogador</h2>
+      <section className="fms-section fm-finance-section">
+        <h2 className="fms-section__title">Folha Salarial por Jogador</h2>
         <table className="fm-wages-table">
           <thead>
             <tr>
@@ -182,43 +225,7 @@ export const FinanceView: React.FC = () => {
         </table>
       </section>
 
-      <section className="fm-finance-view__section">
-        <h2>Fôlego (Runway)</h2>
-        <div className={`fm-runway-card${runwayAlert ? ' fm-runway-card--alert' : ''}`}>
-          {balance >= 0 ? (
-            <>
-              <span className="fm-runway-card__label">Saldo positivo</span>
-              <span className="fm-runway-card__value fm-runway-card__value--positive">Saudável</span>
-              <span className="fm-runway-card__detail">O caixa cresce R$ {balance.toFixed(2)}M por semana.</span>
-            </>
-          ) : (
-            <>
-              <span className="fm-runway-card__label">Semanas até esgotar o caixa</span>
-              <span className={`fm-runway-card__value${runwayAlert ? ' fm-runway-card__value--alert' : ''}`}>
-                {runway <= 0 ? '0' : runway} sem.
-              </span>
-              <span className="fm-runway-card__detail">
-                {runway <= 0
-                  ? 'Caixa esgotado — ação urgente necessária!'
-                  : runwayAlert
-                  ? `⚠ Atenção: o caixa dura apenas ${runway} semanas no ritmo atual.`
-                  : `Queimando R$ ${Math.abs(balance).toFixed(2)}M por semana.`}
-              </span>
-            </>
-          )}
-        </div>
-        <div className="fm-finance-chart">
-          <MiniAreaChart
-            data={projection}
-            xKey="week"
-            yKey="balance"
-            color={balance >= 0 ? '#3fbf6b' : '#e25c52'}
-            height={120}
-            labelFormatter={(w) => `Semana ${w}`}
-            valueFormatter={(v) => `R$ ${v.toFixed(1)}M`}
-          />
-        </div>
-      </section>
+      </div>
       </div>
     </div>
   );

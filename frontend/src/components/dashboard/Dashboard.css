@@ -3,6 +3,8 @@
    ============================================================ */
 
 .fm-dash {
+  --dash-ease: cubic-bezier(0.25, 1, 0.5, 1);
+  --dash-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   padding: 16px 20px 24px;
   display: flex;
   flex-direction: column;
@@ -72,9 +74,15 @@
   cursor: pointer;
   padding: 0;
   margin-top: auto;
-  transition: opacity .15s;
+  transition: opacity 150ms var(--dash-ease), transform 150ms var(--dash-ease);
 }
 .fm-dash__card-link:hover { opacity: 0.8; }
+.fm-dash__card-link:active { transform: translateX(2px); }
+.fm-dash__card-link:focus-visible {
+  outline: 2px solid var(--t-accent, #3d7bf5);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
 
 /* ===================== HERO CARD ===================== */
 .fm-dash__hero {
@@ -255,13 +263,19 @@
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: all .15s;
+  transition: background 150ms var(--dash-ease), border-color 150ms var(--dash-ease), transform 120ms var(--dash-ease);
   margin-top: auto;
 }
 .fm-dash__match-btn:hover {
   background: rgba(61,123,245,0.2);
   border-color: var(--t-accent, #3d7bf5);
 }
+.fm-dash__match-btn:active { transform: scale(0.97); }
+.fm-dash__match-btn:focus-visible {
+  outline: 2px solid var(--t-accent, #3d7bf5);
+  outline-offset: 2px;
+}
+.fm-dash__match-btn:disabled { opacity: 0.6; cursor: default; transform: none; }
 
 .fm-dash__next-match-empty {
   display: flex;
@@ -300,9 +314,12 @@
 
 .fm-dash__statbar-fill {
   height: 100%;
+  width: 100%;
   background: var(--t-accent, #3d7bf5);
   border-radius: 5px 0 0 5px;
-  transition: width .4s ease;
+  transform: scaleX(var(--fill, 0));
+  transform-origin: left center;
+  transition: transform 420ms var(--dash-ease);
 }
 
 .fm-dash__statbar-label {
@@ -335,14 +352,23 @@
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: all .15s;
+  transition: background 150ms var(--dash-ease), border-color 150ms var(--dash-ease), transform 120ms var(--dash-ease), color 150ms var(--dash-ease);
   position: relative;
 }
 .fm-dash__quick-btn:hover {
   background: rgba(255,255,255,0.06);
   border-color: var(--t-border-strong, rgba(255,255,255,0.12));
 }
-.fm-dash__quick-btn svg { color: var(--t-text-2, #9aa0ad); }
+.fm-dash__quick-btn:hover svg { color: var(--t-accent, #3d7bf5); }
+.fm-dash__quick-btn:active { transform: scale(0.97); }
+.fm-dash__quick-btn:focus-visible {
+  outline: 2px solid var(--t-accent, #3d7bf5);
+  outline-offset: 2px;
+}
+.fm-dash__quick-btn svg {
+  color: var(--t-text-2, #9aa0ad);
+  transition: color 150ms var(--dash-ease);
+}
 
 .fm-dash__quick-badge {
   position: absolute;
@@ -518,7 +544,18 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 120px;
+  max-width: 140px;
+}
+
+.fm-dash__table-team {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.fm-dash__table-team .fm-team-crest {
+  flex-shrink: 0;
 }
 
 .fm-dash__table-gap td {
@@ -638,9 +675,12 @@
 
 .fm-dash__injury-bar-fill {
   height: 100%;
+  width: 100%;
   background: var(--t-accent, #3d7bf5);
   border-radius: 3px;
-  transition: width .4s ease;
+  transform: scaleX(var(--fill, 0));
+  transform-origin: left center;
+  transition: transform 480ms var(--dash-ease);
 }
 
 .fm-dash__injury-days {
@@ -682,8 +722,11 @@
 
 .fm-dash__atmo-bar-fill {
   height: 100%;
+  width: 100%;
   border-radius: 4px;
-  transition: width .4s ease;
+  transform: scaleX(var(--fill, 0));
+  transform-origin: left center;
+  transition: transform 480ms var(--dash-ease);
 }
 
 .fm-dash__atmo-value {
@@ -721,4 +764,104 @@
   color: var(--t-text-2, #9aa0ad);
   text-transform: uppercase;
   letter-spacing: 0.03em;
+}
+
+/* ===================== MOTION ===================== */
+@keyframes fm-dash-card-in {
+  from { transform: translateY(6px); }
+  to { transform: translateY(0); }
+}
+
+@keyframes fm-dash-stat-pop {
+  from { transform: translateY(4px); }
+  to { transform: translateY(0); }
+}
+
+@keyframes fm-dash-badge-in {
+  from { transform: scale(0.92); }
+  to { transform: scale(1); }
+}
+
+@keyframes fm-dash-row-in {
+  from { transform: translateX(-4px); }
+  to { transform: translateX(0); }
+}
+
+@keyframes fm-dash-gauge-draw {
+  from { stroke-dashoffset: var(--gauge-circ); }
+}
+
+@keyframes fm-dash-badge-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .fm-dash__card {
+    animation: fm-dash-card-in 280ms var(--dash-ease-out);
+    animation-delay: calc(var(--i, 0) * 35ms);
+  }
+
+  .fm-dash__hero-stat {
+    animation: fm-dash-stat-pop 240ms var(--dash-ease);
+    animation-delay: calc(60ms + var(--i, 0) * 40ms);
+  }
+
+  .fm-dash__form-badge {
+    animation: fm-dash-badge-in 200ms var(--dash-ease);
+    animation-delay: calc(120ms + var(--i, 0) * 35ms);
+  }
+
+  .fm-dash__quick-btn {
+    animation: fm-dash-stat-pop 220ms var(--dash-ease);
+    animation-delay: calc(90ms + var(--i, 0) * 30ms);
+  }
+
+  .fm-dash__gauge {
+    animation: fm-dash-stat-pop 260ms var(--dash-ease);
+    animation-delay: calc(120ms + var(--i, 0) * 50ms);
+  }
+
+  .fm-dash__gauge-ring {
+    animation: fm-dash-gauge-draw 650ms var(--dash-ease-out);
+    animation-delay: calc(140ms + var(--i, 0) * 65ms);
+  }
+
+  .fm-dash__performer {
+    animation: fm-dash-row-in 220ms var(--dash-ease);
+    animation-delay: calc(160ms + var(--i, 0) * 35ms);
+  }
+
+  .fm-dash__quick-badge {
+    animation: fm-dash-badge-pulse 1.8s var(--dash-ease) 700ms 2;
+  }
+}
+
+.fm-dash__gauge-ring {
+  transition: stroke-dashoffset 500ms var(--dash-ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fm-dash__statbar-fill,
+  .fm-dash__injury-bar-fill,
+  .fm-dash__atmo-bar-fill,
+  .fm-dash__gauge-ring,
+  .fm-dash__match-btn,
+  .fm-dash__quick-btn,
+  .fm-dash__card-link,
+  .fm-dash__table-row {
+    transition: none !important;
+  }
+
+  .fm-dash__statbar-fill,
+  .fm-dash__injury-bar-fill,
+  .fm-dash__atmo-bar-fill {
+    transform: scaleX(var(--fill, 1));
+  }
+
+  .fm-dash__match-btn:active,
+  .fm-dash__quick-btn:active,
+  .fm-dash__card-link:active {
+    transform: none;
+  }
 }

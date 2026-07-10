@@ -3025,8 +3025,6 @@ export function simulateFullMatchV2(homeTeam: Team, awayTeam: Team, homeBoost = 
     stats,
     events,
     goalDetails: state.goalDetails,
-    homeTeam: ht.name,
-    awayTeam: at.name,
   };
 
   // Restaura PRNG do estado final para ratings e relatório determinísticos

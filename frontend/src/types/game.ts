@@ -197,6 +197,15 @@ export interface Player {
 
   // Agente livre (contrato expirado, sem clube)
   freeAgent?: boolean;
+
+  /** Pedido público de transferência (moral destruída / promessas quebradas). */
+  transferRequest?: {
+    active: boolean;
+    weekRequested: number;
+    reason: 'low_morale' | 'broken_promise';
+    /** Multiplicador do valor de mercado (ex: 0.75 = vende ~25% abaixo). */
+    askingPriceDiscount: number;
+  };
 }
 
 // ============================================================

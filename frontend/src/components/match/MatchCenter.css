@@ -12,6 +12,20 @@
   margin: 26px 0 12px;
 }
 
+/* Classic vertical pitch inside post-match details modal */
+.fm-match-details-modal__pitch {
+  height: min(52vh, 420px);
+  margin: 0 16px 12px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--t-border);
+}
+
+.fm-match-details-modal__pitch .fm-pitch2d,
+.fm-match-details-modal__pitch .fm-pitch2d__field {
+  height: 100%;
+}
+
 .fm-btn-ghost {
   display: inline-flex;
   align-items: center;

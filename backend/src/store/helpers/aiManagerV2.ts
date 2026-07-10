@@ -78,14 +78,14 @@ export function buildCoherentSetup(team: Team): Team {
   };
 
   const playerRoles = layout.map((slot, i) => {
-    const playerId = xi[i];
-    if (!playerId) return { slotIndex: i, role: 'centralMidfielder', duty: 'balance' };
+    const playerId = xi[i] ?? '';
     return {
+      playerId,
       slotIndex: i,
       role: roleByZone[slot.zone] ?? 'centralMidfielder',
       duty: dutyByZone[slot.zone] ?? 'balance',
     };
-  });
+  }).filter(r => r.playerId);
 
   return {
     ...team,

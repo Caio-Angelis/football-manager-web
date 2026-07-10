@@ -177,19 +177,14 @@ export const TeamSelection: React.FC = () => {
           <div className="fm-team-selection__empty">
             <div className="fm-team-selection__empty-pitch" aria-hidden="true" />
             <div className="fm-team-selection__empty-glass">
-              <svg className="fm-team-selection__empty-ball" viewBox="0 0 64 64" fill="none" role="img" aria-hidden="true">
-                <circle cx="32" cy="32" r="30" fill="oklch(0.98 0.002 264)" stroke="oklch(0.22 0.005 264)" strokeWidth="2" />
-                <path d="M32 8 L40 18 L36 30 L28 30 L24 18 Z" fill="oklch(0.22 0.005 264)" />
-                <path d="M32 8 L32 2" stroke="oklch(0.22 0.005 264)" strokeWidth="2" strokeLinecap="round" />
-                <path d="M40 18 L52 14" stroke="oklch(0.22 0.005 264)" strokeWidth="2" strokeLinecap="round" />
-                <path d="M24 18 L12 14" stroke="oklch(0.22 0.005 264)" strokeWidth="2" strokeLinecap="round" />
-                <path d="M36 30 L44 44" stroke="oklch(0.22 0.005 264)" strokeWidth="2" strokeLinecap="round" />
-                <path d="M28 30 L20 44" stroke="oklch(0.22 0.005 264)" strokeWidth="2" strokeLinecap="round" />
-                <path d="M32 56 L32 50" stroke="oklch(0.22 0.005 264)" strokeWidth="2" strokeLinecap="round" />
-                <path d="M44 44 L52 50" stroke="oklch(0.22 0.005 264)" strokeWidth="2" strokeLinecap="round" />
-                <path d="M20 44 L12 50" stroke="oklch(0.22 0.005 264)" strokeWidth="2" strokeLinecap="round" />
-                <path d="M32 50 L20 44 L28 30 L36 30 L44 44 Z" fill="none" stroke="oklch(0.22 0.005 264)" strokeWidth="1.5" />
-              </svg>
+              <img
+                className="fm-team-selection__empty-ball"
+                src="/brand/empty-clubs.png"
+                alt=""
+                width={88}
+                height={88}
+                decoding="async"
+              />
               <p className="fm-team-selection__empty-title">Nenhum clube gerado</p>
               <p className="fm-team-selection__empty-text">
                 Gere uma nova liga para comparar clubes e iniciar sua carreira.

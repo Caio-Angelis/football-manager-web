@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../../store/gameStore';
 import { getFullName } from '../../utils/player';
@@ -38,19 +38,24 @@ const EXPECTATION_LABELS: Record<string, string> = {
   title: 'Título',
 };
 
-function Gauge({ value, max, label, color, icon }: { value: number; max: number; label: string; color: string; icon: React.ReactNode }) {
+type CssVars = React.CSSProperties & Record<`--${string}`, string | number>;
+
+function Gauge({ value, max, label, color, icon, index = 0 }: {
+  value: number; max: number; label: string; color: string; icon: React.ReactNode; index?: number;
+}) {
   const pct = Math.min(100, Math.max(0, (value / max) * 100));
   const circumference = 2 * Math.PI * 28;
   const offset = circumference - (pct / 100) * circumference;
   return (
-    <div className="fm-dash__gauge">
-      <svg viewBox="0 0 72 72" className="fm-dash__gauge-svg">
+    <div className="fm-dash__gauge" style={{ '--i': index } as CssVars}>
+      <svg viewBox="0 0 72 72" className="fm-dash__gauge-svg" aria-hidden="true">
         <circle cx="36" cy="36" r="28" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="5" />
         <circle
+          className="fm-dash__gauge-ring"
           cx="36" cy="36" r="28" fill="none" stroke={color} strokeWidth="5"
           strokeDasharray={circumference} strokeDashoffset={offset}
           strokeLinecap="round" transform="rotate(-90 36 36)"
-          style={{ transition: 'stroke-dashoffset .6s ease' }}
+          style={{ '--gauge-circ': circumference } as CssVars}
         />
       </svg>
       <div className="fm-dash__gauge-center">
@@ -62,19 +67,19 @@ function Gauge({ value, max, label, color, icon }: { value: number; max: number;
   );
 }
 
-function FormBadge({ result }: { result: string }) {
+function FormBadge({ result, index = 0 }: { result: string; index?: number }) {
   return (
     <span
       className="fm-dash__form-badge"
-      style={{ background: FORM_COLORS[result] ?? '#555' }}
+      style={{ background: FORM_COLORS[result] ?? '#555', '--i': index } as CssVars}
     >
       {FORM_LABELS[result] ?? result}
     </span>
   );
 }
 
-function StatBar({ label, homeValue, awayValue, homeLabel, awayLabel }: {
-  label: string; homeValue: number; awayValue: number; homeLabel: string; awayLabel: string;
+function StatBar({ label, homeValue, awayValue, homeLabel, awayLabel, ready }: {
+  label: string; homeValue: number; awayValue: number; homeLabel: string; awayLabel: string; ready: boolean;
 }) {
   const total = homeValue + awayValue || 1;
   const homePct = (homeValue / total) * 100;
@@ -82,7 +87,10 @@ function StatBar({ label, homeValue, awayValue, homeLabel, awayLabel }: {
     <div className="fm-dash__statbar">
       <span className="fm-dash__statbar-home">{homeLabel}</span>
       <div className="fm-dash__statbar-track">
-        <div className="fm-dash__statbar-fill" style={{ width: `${homePct}%` }} />
+        <div
+          className="fm-dash__statbar-fill"
+          style={{ '--fill': ready ? homePct / 100 : 0 } as CssVars}
+        />
         <span className="fm-dash__statbar-label">{label}</span>
       </div>
       <span className="fm-dash__statbar-away">{awayLabel}</span>
@@ -96,6 +104,12 @@ export const Dashboard: React.FC = () => {
     selectedTeam, teams, matches, leagueTable, currentWeek,
     advanceWeek, isAdvancing, inbox, fanMood, boardSatisfaction,
   } = useGameStore();
+  const [motionReady, setMotionReady] = useState(false);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setMotionReady(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
 
   const team = teams.find(t => t.id === selectedTeam);
 
@@ -191,11 +205,11 @@ export const Dashboard: React.FC = () => {
         teamReputation={team.reputation}
       />
 
-      <div className="fms-body--scroll fm-dash">
+      <div className={`fms-body--scroll fm-dash${motionReady ? ' fm-dash--ready' : ''}`}>
         {/* ===== ROW 1: Hero + Next Match + Quick Actions ===== */}
         <div className="fm-dash__row fm-dash__row--1">
           {/* Hero Card */}
-          <div className="fm-dash__card fm-dash__hero">
+          <div className="fm-dash__card fm-dash__hero" style={{ '--i': 0 } as CssVars}>
             <div className="fm-dash__hero-top">
               <div className="fm-dash__hero-crest" style={{ borderColor: ZONE_COLORS[userStandings?.zone ?? 'safe'] }}>
                 <TeamCrest name={team.name} reputation={team.reputation} size={34} />
@@ -207,19 +221,19 @@ export const Dashboard: React.FC = () => {
               </div>
             </div>
             <div className="fm-dash__hero-stats">
-              <div className="fm-dash__hero-stat">
+              <div className="fm-dash__hero-stat" style={{ '--i': 0 } as CssVars}>
                 <span className="fm-dash__hero-stat-value">{userStandings?.position ?? team.leaguePosition}º</span>
                 <span className="fm-dash__hero-stat-label">Posição</span>
               </div>
-              <div className="fm-dash__hero-stat">
+              <div className="fm-dash__hero-stat" style={{ '--i': 1 } as CssVars}>
                 <span className="fm-dash__hero-stat-value">{team.points}</span>
                 <span className="fm-dash__hero-stat-label">Pontos</span>
               </div>
-              <div className="fm-dash__hero-stat">
+              <div className="fm-dash__hero-stat" style={{ '--i': 2 } as CssVars}>
                 <span className="fm-dash__hero-stat-value">{team.played}</span>
                 <span className="fm-dash__hero-stat-label">Jogos</span>
               </div>
-              <div className="fm-dash__hero-stat">
+              <div className="fm-dash__hero-stat" style={{ '--i': 3 } as CssVars}>
                 <span className="fm-dash__hero-stat-value" style={{ color: goalDiff >= 0 ? 'var(--t-green)' : 'var(--t-red)' }}>
                   {goalDiff >= 0 ? '+' : ''}{goalDiff}
                 </span>
@@ -231,7 +245,7 @@ export const Dashboard: React.FC = () => {
                 <>
                   <span className="fm-dash__hero-form-label">Últimos jogos</span>
                   <div className="fm-dash__form-badges">
-                    {(team.leagueForm ?? []).map((f, i) => <FormBadge key={i} result={f} />)}
+                    {(team.leagueForm ?? []).map((f, i) => <FormBadge key={i} result={f} index={i} />)}
                   </div>
                   <span className="fm-dash__hero-form-trend">
                     {formTrend === 'up' ? <TrendingUp size={14} style={{ color: 'var(--t-green)' }} />
@@ -249,7 +263,7 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* Next Match Card */}
-          <div className="fm-dash__card fm-dash__next-match">
+          <div className="fm-dash__card fm-dash__next-match" style={{ '--i': 1 } as CssVars}>
             <h3 className="fm-dash__card-title">
               <Calendar size={14} /> Próxima Partida
             </h3>
@@ -273,6 +287,7 @@ export const Dashboard: React.FC = () => {
                     awayValue={oppStrength}
                     homeLabel={Math.round(userStrength).toString()}
                     awayLabel={Math.round(oppStrength).toString()}
+                    ready={motionReady}
                   />
                 </div>
                 <div className="fm-dash__match-opp-info">
@@ -296,27 +311,27 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* Quick Actions */}
-          <div className="fm-dash__card fm-dash__quick-actions">
+          <div className="fm-dash__card fm-dash__quick-actions" style={{ '--i': 2 } as CssVars}>
             <h3 className="fm-dash__card-title">
               <Zap size={14} /> Ações Rápidas
             </h3>
             <div className="fm-dash__quick-grid">
-              <button className="fm-dash__quick-btn" onClick={() => navigate('/elenco')}>
+              <button className="fm-dash__quick-btn" style={{ '--i': 0 } as CssVars} onClick={() => navigate('/elenco')}>
                 <Users size={18} /> <span>Elenco</span>
               </button>
-              <button className="fm-dash__quick-btn" onClick={() => navigate('/taticas')}>
+              <button className="fm-dash__quick-btn" style={{ '--i': 1 } as CssVars} onClick={() => navigate('/taticas')}>
                 <ClipboardList size={18} /> <span>Táticas</span>
               </button>
-              <button className="fm-dash__quick-btn" onClick={() => navigate('/transferencias')}>
+              <button className="fm-dash__quick-btn" style={{ '--i': 2 } as CssVars} onClick={() => navigate('/transferencias')}>
                 <ArrowLeftRight size={18} /> <span>Transferências</span>
               </button>
-              <button className="fm-dash__quick-btn" onClick={() => navigate('/treino')}>
+              <button className="fm-dash__quick-btn" style={{ '--i': 3 } as CssVars} onClick={() => navigate('/treino')}>
                 <Dumbbell size={18} /> <span>Treino</span>
               </button>
-              <button className="fm-dash__quick-btn" onClick={() => navigate('/classificacao')}>
+              <button className="fm-dash__quick-btn" style={{ '--i': 4 } as CssVars} onClick={() => navigate('/classificacao')}>
                 <BarChart3 size={18} /> <span>Tabela</span>
               </button>
-              <button className="fm-dash__quick-btn fm-dash__quick-btn--badge" onClick={() => navigate('/caixa-de-entrada')}>
+              <button className="fm-dash__quick-btn fm-dash__quick-btn--badge" style={{ '--i': 5 } as CssVars} onClick={() => navigate('/caixa-de-entrada')}>
                 <Inbox size={18} /> <span>Inbox</span>
                 {unreadInbox > 0 && <span className="fm-dash__quick-badge">{unreadInbox}</span>}
               </button>
@@ -327,15 +342,15 @@ export const Dashboard: React.FC = () => {
         {/* ===== ROW 2: Squad Health + Financial + Mini Table ===== */}
         <div className="fm-dash__row fm-dash__row--2">
           {/* Squad Health */}
-          <div className="fm-dash__card fm-dash__squad-health">
+          <div className="fm-dash__card fm-dash__squad-health" style={{ '--i': 3 } as CssVars}>
             <h3 className="fm-dash__card-title">
               <Heart size={14} /> Saúde do Elenco
             </h3>
             <div className="fm-dash__gauges">
-              <Gauge value={avgMorale} max={100} label="Moral" color="#3fbf6b" icon={<Heart size={14} />} />
-              <Gauge value={avgFitness} max={100} label="Físico" color="#3d7bf5" icon={<Zap size={14} />} />
-              <Gauge value={avgForm} max={100} label="Forma" color="#e0b341" icon={<TrendingUp size={14} />} />
-              <Gauge value={avgCA} max={200} label="CA Médio" color="#6d5ef0" icon={<Target size={14} />} />
+              <Gauge value={avgMorale} max={100} label="Moral" color="#3fbf6b" icon={<Heart size={14} />} index={0} />
+              <Gauge value={avgFitness} max={100} label="Físico" color="#3d7bf5" icon={<Zap size={14} />} index={1} />
+              <Gauge value={avgForm} max={100} label="Forma" color="#e0b341" icon={<TrendingUp size={14} />} index={2} />
+              <Gauge value={avgCA} max={200} label="CA Médio" color="#6d5ef0" icon={<Target size={14} />} index={3} />
             </div>
             <div className="fm-dash__squad-summary">
               <div className="fm-dash__squad-summary-item">
@@ -348,7 +363,7 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* Financial Snapshot */}
-          <div className="fm-dash__card fm-dash__finance">
+          <div className="fm-dash__card fm-dash__finance" style={{ '--i': 4 } as CssVars}>
             <h3 className="fm-dash__card-title">
               <Wallet size={14} /> Financeiro
             </h3>
@@ -384,7 +399,7 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* Mini League Table */}
-          <div className="fm-dash__card fm-dash__mini-table">
+          <div className="fm-dash__card fm-dash__mini-table" style={{ '--i': 5 } as CssVars}>
             <h3 className="fm-dash__card-title">
               <Trophy size={14} /> Classificação
             </h3>
@@ -413,7 +428,12 @@ export const Dashboard: React.FC = () => {
                             {s.position}
                           </span>
                         </td>
-                        <td className="fm-dash__table-name">{s.teamName}</td>
+                        <td className="fm-dash__table-name">
+                          <span className="fm-dash__table-team">
+                            <TeamCrest name={s.teamName} size={16} />
+                            {s.teamName}
+                          </span>
+                        </td>
                         <td>{s.points}</td>
                         <td>{s.played}</td>
                         <td style={{ color: s.goalDifference >= 0 ? 'var(--t-green)' : 'var(--t-red)' }}>
@@ -434,13 +454,13 @@ export const Dashboard: React.FC = () => {
         {/* ===== ROW 3: Top Performers + Injury Ward + Fan Mood ===== */}
         <div className="fm-dash__row fm-dash__row--3">
           {/* Top Performers */}
-          <div className="fm-dash__card fm-dash__performers">
+          <div className="fm-dash__card fm-dash__performers" style={{ '--i': 6 } as CssVars}>
             <h3 className="fm-dash__card-title">
               <Target size={14} /> Artilheiros da Temporada
             </h3>
             <div className="fm-dash__performers-list">
               {topScorers.map((p, i) => (
-                <div key={p.id} className="fm-dash__performer">
+                <div key={p.id} className="fm-dash__performer" style={{ '--i': i } as CssVars}>
                   <span className="fm-dash__performer-rank" style={{ background: i === 0 ? '#e0b341' : i === 1 ? '#9aa0ad' : i === 2 ? '#cd7f32' : 'transparent' }}>
                     {i + 1}
                   </span>
@@ -457,7 +477,7 @@ export const Dashboard: React.FC = () => {
             </h3>
             <div className="fm-dash__performers-list">
               {topAssists.map((p, i) => (
-                <div key={p.id} className="fm-dash__performer">
+                <div key={p.id} className="fm-dash__performer" style={{ '--i': i + 3 } as CssVars}>
                   <span className="fm-dash__performer-rank" style={{ background: i === 0 ? '#3fbf6b' : 'transparent' }}>
                     {i + 1}
                   </span>
@@ -472,7 +492,7 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* Injury Ward */}
-          <div className="fm-dash__card fm-dash__injuries">
+          <div className="fm-dash__card fm-dash__injuries" style={{ '--i': 7 } as CssVars}>
             <h3 className="fm-dash__card-title">
               <AlertTriangle size={14} /> Enfermaria
             </h3>
@@ -491,7 +511,10 @@ export const Dashboard: React.FC = () => {
                         </span>
                       </div>
                       <div className="fm-dash__injury-bar">
-                        <div className="fm-dash__injury-bar-fill" style={{ width: `${progress}%` }} />
+                        <div
+                          className="fm-dash__injury-bar-fill"
+                          style={{ '--fill': motionReady ? progress / 100 : 0 } as CssVars}
+                        />
                       </div>
                       <span className="fm-dash__injury-days">
                         {p.injury!.daysRemaining} dias restantes · {progress}% recuperado
@@ -509,7 +532,7 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* Club Mood & Atmosphere */}
-          <div className="fm-dash__card fm-dash__atmosphere">
+          <div className="fm-dash__card fm-dash__atmosphere" style={{ '--i': 8 } as CssVars}>
             <h3 className="fm-dash__card-title">
               <Activity size={14} /> Atmosfera do Clube
             </h3>
@@ -517,9 +540,9 @@ export const Dashboard: React.FC = () => {
               <span className="fm-dash__atmo-label">Torcida</span>
               <div className="fm-dash__atmo-bar">
                 <div className="fm-dash__atmo-bar-fill" style={{
-                  width: `${Math.max(0, Math.min(100, fanMood?.value ?? 50))}%`,
+                  '--fill': motionReady ? Math.max(0, Math.min(100, fanMood?.value ?? 50)) / 100 : 0,
                   background: (fanMood?.value ?? 50) >= 60 ? '#3fbf6b' : (fanMood?.value ?? 50) >= 40 ? '#e0b341' : '#e25c52',
-                }} />
+                } as CssVars} />
               </div>
               <span className="fm-dash__atmo-value">{fanMood?.sentiment ?? 'neutral'}</span>
             </div>
@@ -527,9 +550,9 @@ export const Dashboard: React.FC = () => {
               <span className="fm-dash__atmo-label">Diretoria</span>
               <div className="fm-dash__atmo-bar">
                 <div className="fm-dash__atmo-bar-fill" style={{
-                  width: `${Math.max(0, Math.min(100, ((boardSatisfaction ?? 0) + 100) / 2))}%`,
+                  '--fill': motionReady ? Math.max(0, Math.min(100, ((boardSatisfaction ?? 0) + 100) / 2)) / 100 : 0,
                   background: (boardSatisfaction ?? 0) >= 20 ? '#3fbf6b' : (boardSatisfaction ?? 0) >= -20 ? '#e0b341' : '#e25c52',
-                }} />
+                } as CssVars} />
               </div>
               <span className="fm-dash__atmo-value">
                 {(boardSatisfaction ?? 0) >= 50 ? 'Excelente' :
@@ -542,9 +565,9 @@ export const Dashboard: React.FC = () => {
               <span className="fm-dash__atmo-label">Moral do Elenco</span>
               <div className="fm-dash__atmo-bar">
                 <div className="fm-dash__atmo-bar-fill" style={{
-                  width: `${avgMorale}%`,
+                  '--fill': motionReady ? avgMorale / 100 : 0,
                   background: avgMorale >= 70 ? '#3fbf6b' : avgMorale >= 50 ? '#e0b341' : '#e25c52',
-                }} />
+                } as CssVars} />
               </div>
               <span className="fm-dash__atmo-value">{Math.round(avgMorale)}/100</span>
             </div>

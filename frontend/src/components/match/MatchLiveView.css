@@ -1,0 +1,533 @@
+/* ============================================================
+   MatchLiveView — fullscreen FM-classic match HUD
+   ============================================================ */
+
+.fm-mlv {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  background: #14161c;
+  color: #e8eaf0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.fm-mlv__pitch {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.fm-mlv__pitch .fm-pitch2d {
+  height: 100%;
+}
+
+/* ---- Scoreboard (top-left) ---- */
+.fm-mlv__scoreboard {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 14px;
+  background: rgba(20, 22, 28, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  min-width: 160px;
+  pointer-events: none;
+}
+
+.fm-mlv__sb-teams {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.fm-mlv__sb-score {
+  font-family: 'Oswald', 'Inter', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  color: #e8eaf0;
+}
+
+.fm-mlv__sb-clock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.fm-mlv__sb-time {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #e8eaf0;
+}
+
+.fm-mlv__sb-added {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #e0b341;
+  background: rgba(224, 179, 65, 0.15);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* ---- Top-right chrome ---- */
+.fm-mlv__top-right {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fm-mlv__speed {
+  display: inline-flex;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(20, 22, 28, 0.88);
+}
+
+.fm-mlv__speed-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: #9aa0ad;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 7px 10px;
+  cursor: pointer;
+  transition: background 0.15s ease-out, color 0.15s ease-out;
+}
+
+.fm-mlv__speed-btn:hover {
+  color: #e8eaf0;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.fm-mlv__speed-btn--active {
+  background: rgba(61, 123, 245, 0.2);
+  color: #3d7bf5;
+}
+
+.fm-mlv__finish {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(20, 22, 28, 0.88);
+  color: #9aa0ad;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 7px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color 0.15s ease-out, border-color 0.15s ease-out;
+}
+
+.fm-mlv__finish:hover {
+  color: #e8eaf0;
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.fm-mlv__close {
+  appearance: none;
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(20, 22, 28, 0.88);
+  color: #9aa0ad;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color 0.15s ease-out, border-color 0.15s ease-out;
+}
+
+.fm-mlv__close:hover {
+  color: #e8eaf0;
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.fm-mlv__close:focus-visible,
+.fm-mlv__speed-btn:focus-visible,
+.fm-mlv__finish:focus-visible,
+.fm-mlv__tac-btn:focus-visible,
+.fm-mlv__shout:focus-visible {
+  outline: 2px solid #3d7bf5;
+  outline-offset: 2px;
+}
+
+/* ---- Commentary ---- */
+.fm-mlv__commentary {
+  position: absolute;
+  left: 50%;
+  bottom: 148px;
+  transform: translateX(-50%);
+  z-index: 4;
+  max-width: min(720px, calc(100% - 48px));
+  padding: 8px 18px;
+  background: rgba(90, 28, 40, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #f0e8ea;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+/* ---- Bottom HUD ---- */
+.fm-mlv__hud {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  min-height: 118px;
+  background: rgba(16, 18, 24, 0.94);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 10px 12px 12px;
+}
+
+.fm-mlv__tactics {
+  flex: 0 0 168px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-right: 12px;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.fm-mlv__tac-row {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.fm-mlv__tac-label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6b7080;
+}
+
+.fm-mlv__tac-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: #e8eaf0;
+}
+
+.fm-mlv__tac-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: auto;
+}
+
+.fm-mlv__tac-btn {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #20242e;
+  color: #9aa0ad;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  transition: color 0.15s ease-out, border-color 0.15s ease-out, background 0.15s ease-out;
+}
+
+.fm-mlv__tac-btn:hover {
+  color: #e8eaf0;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.fm-mlv__tac-btn--active {
+  border-color: #3d7bf5;
+  color: #3d7bf5;
+  background: rgba(61, 123, 245, 0.12);
+}
+
+.fm-mlv__xi {
+  flex: 1;
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  overflow-x: auto;
+  padding-left: 10px;
+  min-width: 0;
+}
+
+.fm-mlv__xi-empty {
+  align-self: center;
+  font-size: 12px;
+  color: #6b7080;
+  padding: 0 8px;
+}
+
+.fm-mlv__slot {
+  flex: 1 1 0;
+  min-width: 64px;
+  max-width: 88px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 2px;
+}
+
+.fm-mlv__avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  flex-shrink: 0;
+}
+
+.fm-mlv__pos {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #6b7080;
+  text-transform: uppercase;
+}
+
+.fm-mlv__name {
+  font-size: 10px;
+  font-weight: 600;
+  color: #e8eaf0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  text-align: center;
+}
+
+.fm-mlv__rating {
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #e8eaf0;
+}
+
+.fm-mlv__fit {
+  width: 100%;
+  height: 3px;
+  border-radius: 999px;
+  background: #20242e;
+  overflow: hidden;
+}
+
+.fm-mlv__fit-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+/* ---- Modals / panels ---- */
+.fm-mlv__modal {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.fm-mlv__modal-card {
+  background: #1b1e26;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 28px 32px;
+  text-align: center;
+  max-width: 360px;
+  width: calc(100% - 48px);
+}
+
+.fm-mlv__modal-card h3 {
+  margin: 0 0 8px;
+  font-family: 'Oswald', 'Inter', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.fm-mlv__modal-score {
+  margin: 0 0 8px;
+  font-size: 28px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.fm-mlv__modal-hint {
+  margin: 0 0 18px;
+  font-size: 12px;
+  color: #9aa0ad;
+}
+
+.fm-mlv__panel {
+  position: absolute;
+  left: 12px;
+  bottom: 130px;
+  z-index: 7;
+  width: min(320px, calc(100% - 24px));
+  background: #1b1e26;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+}
+
+.fm-mlv__panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.fm-mlv__panel-head h4 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #e8eaf0;
+}
+
+.fm-mlv__panel-close {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: #6b7080;
+  cursor: pointer;
+  padding: 4px;
+  display: inline-flex;
+}
+
+.fm-mlv__panel-close:hover {
+  color: #e8eaf0;
+}
+
+.fm-mlv__shouts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.fm-mlv__shout {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #20242e;
+  color: #e8eaf0;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s ease-out, background 0.15s ease-out;
+}
+
+.fm-mlv__shout:hover {
+  border-color: #3d7bf5;
+  background: rgba(61, 123, 245, 0.12);
+}
+
+.fm-mlv__sub {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fm-mlv__select {
+  width: 100%;
+  background: #20242e;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #e8eaf0;
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+
+.fm-mlv__note {
+  font-size: 11px;
+  color: #e0b341;
+}
+
+@media (max-width: 900px) {
+  .fm-mlv__commentary {
+    bottom: 168px;
+    white-space: normal;
+    max-height: 40px;
+  }
+
+  .fm-mlv__hud {
+    flex-direction: column;
+    min-height: 150px;
+    gap: 8px;
+  }
+
+  .fm-mlv__tactics {
+    flex: none;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 14px;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 0 0 8px;
+    width: 100%;
+  }
+
+  .fm-mlv__tac-actions {
+    flex-direction: row;
+    margin-top: 0;
+    margin-left: auto;
+  }
+
+  .fm-mlv__xi {
+    padding-left: 0;
+  }
+
+  .fm-mlv__finish {
+    display: none;
+  }
+
+  .fm-mlv__panel {
+    bottom: 160px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fm-mlv__fit-fill,
+  .fm-mlv__speed-btn,
+  .fm-mlv__tac-btn,
+  .fm-mlv__shout {
+    transition: none;
+  }
+}

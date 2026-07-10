@@ -1,13 +1,34 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  Activity,
+  Crown,
+  GitBranch,
+  Globe,
+  Handshake,
+  ShieldCheck,
+  TrendingUp,
+  Users,
+  UsersRound,
+  type LucideIcon,
+} from 'lucide-react';
 import { useGameStore } from '../../store/gameStore';
 import type { Player } from '../../types/game';
 import { getFullName } from '../../utils/player';
+import { getRatingColor, STATUS_COLOR } from '../../utils/statusColors';
 import { useSortable } from '../../hooks/useSortable';
-import { Globe, Users } from 'lucide-react';
 import { PageHeader } from '../ui/PageHeader';
+import './dynamics.css';
 
-type DynamicsSortKey = 'name' | 'playingTime' | 'contract' | 'morale' | 'performance' | 'squadStatus' | 'coachTreatment' | 'trustLevel';
+type DynamicsSortKey =
+  | 'name'
+  | 'playingTime'
+  | 'contract'
+  | 'morale'
+  | 'performance'
+  | 'squadStatus'
+  | 'coachTreatment'
+  | 'trustLevel';
 
 const HIERARCHY_LEVELS = [
   { key: 'Key Player', label: 'Líderes de Equipa' },
@@ -15,24 +36,54 @@ const HIERARCHY_LEVELS = [
   { key: 'Rotation', label: 'Influentes' },
   { key: 'Young Talent', label: 'Jovens Promessas' },
   { key: 'Excess', label: 'Outros' },
-];
+] as const;
+
+const SQUAD_STATUS_LABELS: Record<string, string> = {
+  'Key Player': 'Jogador-chave',
+  'Regular Starter': 'Titular',
+  Rotation: 'Rotação',
+  'Young Talent': 'Jovem promessa',
+  Excess: 'Excedentário',
+};
+
+const FORM_LABELS: Record<string, string> = {
+  excellent: 'Excelente',
+  good: 'Boa',
+  average: 'Média',
+  poor: 'Fraca',
+  terrible: 'Péssima',
+};
+
+const FORM_VALUES: Record<string, number> = {
+  excellent: 100,
+  good: 75,
+  average: 50,
+  poor: 30,
+  terrible: 10,
+};
 
 function getSatisfaction(player: Player) {
   const playingTime =
-    player.squadStatus === 'Key Player' ? 90 :
-    player.squadStatus === 'Regular Starter' ? 75 :
-    player.squadStatus === 'Rotation' ? 50 :
-    player.squadStatus === 'Young Talent' ? 30 : 15;
+    player.squadStatus === 'Key Player' ? 90
+    : player.squadStatus === 'Regular Starter' ? 75
+    : player.squadStatus === 'Rotation' ? 50
+    : player.squadStatus === 'Young Talent' ? 30
+    : 15;
   const contract =
-    player.contractEnd > 52 ? 85 :
-    player.contractEnd > 26 ? 70 :
-    player.contractEnd > 10 ? 55 : 40;
-  const morale = player.morale;
-  const performance = player.form;
-  return { playingTime, contract, morale, performance };
+    player.contractEnd > 52 ? 85
+    : player.contractEnd > 26 ? 70
+    : player.contractEnd > 10 ? 55
+    : 40;
+
+  return {
+    playingTime,
+    contract,
+    morale: player.morale,
+    performance: player.form,
+  };
 }
 
-function getCoachTreatmentLabel(type: string): string {
+function getCoachTreatmentLabel(type?: string): string {
   const labels: Record<string, string> = {
     starter: 'Titular',
     substitute: 'Suplente',
@@ -40,54 +91,73 @@ function getCoachTreatmentLabel(type: string): string {
     training: 'Treino',
     rest: 'Descanso',
   };
-  return labels[type] || type;
+  return type ? labels[type] || type : 'Sem registo';
 }
 
-function getFormRatingColor(rating: string): string {
-  const colors: Record<string, string> = {
-    excellent: '#22c32a',
-    good: '#66b634',
-    average: '#eab308',
-    poor: '#f59e0b',
-    terrible: '#ef4444',
-  };
-  return colors[rating] || '#eab308';
+function getSquadStatusLabel(status?: string): string {
+  return status ? SQUAD_STATUS_LABELS[status] || status : 'Sem estatuto';
 }
 
-function getInfluenceColor(influence: number): string {
-  if (influence >= 80) return '#22c32a';
-  if (influence >= 60) return '#66b634';
-  if (influence >= 40) return '#eab308';
-  if (influence >= 20) return '#f59e0b';
-  return '#ef4444';
+function SectionTitle({
+  icon: Icon,
+  title,
+  detail,
+}: {
+  icon: LucideIcon;
+  title: string;
+  detail: string;
+}) {
+  return (
+    <header className="fmd-section-title">
+      <span className="fmd-section-title__icon" aria-hidden="true"><Icon size={15} /></span>
+      <div>
+        <h2>{title}</h2>
+        <p>{detail}</p>
+      </div>
+    </header>
+  );
+}
+
+function MetricBar({ value, label }: { value: number; label: string }) {
+  const safeValue = Math.max(0, Math.min(100, value));
+  return (
+    <div className="fmd-meter" aria-label={`${label}: ${safeValue}%`}>
+      <div className="fmd-meter__track">
+        <span
+          className="fmd-meter__fill"
+          style={{ width: `${safeValue}%`, backgroundColor: getRatingColor(safeValue) }}
+        />
+      </div>
+      <span className="fmd-meter__value">{safeValue}</span>
+    </div>
+  );
 }
 
 export const DynamicsView: React.FC = () => {
   const { selectedTeam, teams, socialTree, generateSocialTree, getActivePromises } = useGameStore();
   const navigate = useNavigate();
-  const team = teams.find(t => t.id === selectedTeam);
-
-  // E-22: Hooks devem ser chamados incondicionalmente (regra dos Hooks).
+  const team = teams.find(candidate => candidate.id === selectedTeam);
   const { sortState, toggleSort } = useSortable<DynamicsSortKey>('name', 'asc');
 
   const sortedSquad = useMemo(() => {
     const list = [...(team?.squad ?? [])];
     list.sort((a, b) => {
-      let cmp: number;
       const sa = getSatisfaction(a);
       const sb = getSatisfaction(b);
+      let comparison = 0;
+
       switch (sortState.key) {
-        case 'name': cmp = getFullName(a).localeCompare(getFullName(b)); break;
-        case 'playingTime': cmp = sa.playingTime - sb.playingTime; break;
-        case 'contract': cmp = sa.contract - sb.contract; break;
-        case 'morale': cmp = sa.morale - sb.morale; break;
-        case 'performance': cmp = sa.performance - sb.performance; break;
-        case 'squadStatus': cmp = (a.squadStatus || '').localeCompare(b.squadStatus || ''); break;
-        case 'coachTreatment': cmp = (a.coachTreatment?.type || '').localeCompare(b.coachTreatment?.type || ''); break;
-        case 'trustLevel': cmp = (a.coachTreatment?.trustLevel ?? 0) - (b.coachTreatment?.trustLevel ?? 0); break;
-        default: cmp = 0;
+        case 'name': comparison = getFullName(a).localeCompare(getFullName(b)); break;
+        case 'playingTime': comparison = sa.playingTime - sb.playingTime; break;
+        case 'contract': comparison = sa.contract - sb.contract; break;
+        case 'morale': comparison = sa.morale - sb.morale; break;
+        case 'performance': comparison = sa.performance - sb.performance; break;
+        case 'squadStatus': comparison = (a.squadStatus || '').localeCompare(b.squadStatus || ''); break;
+        case 'coachTreatment': comparison = (a.coachTreatment?.type || '').localeCompare(b.coachTreatment?.type || ''); break;
+        case 'trustLevel': comparison = (a.coachTreatment?.trustLevel ?? 0) - (b.coachTreatment?.trustLevel ?? 0); break;
       }
-      return sortState.direction === 'asc' ? cmp : -cmp;
+
+      return sortState.direction === 'asc' ? comparison : -comparison;
     });
     return list;
   }, [team?.squad, sortState]);
@@ -96,20 +166,31 @@ export const DynamicsView: React.FC = () => {
     return <div className="fm-empty">Selecione um time para ver dinâmicas</div>;
   }
 
-  const leaders = team.squad.filter(p => Number(p.mental?.leadership ?? 0) >= 15);
-  const influential = team.squad.filter(p => {
-    const l = Number(p.mental?.leadership ?? 0);
-    return l >= 12 && l < 15;
+  const leaders = team.squad.filter(player => Number(player.mental?.leadership ?? 0) >= 15);
+  const influential = team.squad.filter(player => {
+    const leadership = Number(player.mental?.leadership ?? 0);
+    return leadership >= 12 && leadership < 15;
   });
-
-  const socialGroups: Record<string, Player[]> = {};
-  team.squad.forEach(p => {
-    const group = p.socialGroup ?? 'Sem grupo';
-    if (!socialGroups[group]) socialGroups[group] = [];
-    socialGroups[group].push(p);
-  });
-
+  const averageMorale = Math.round(
+    team.squad.reduce((total, player) => total + (player.morale ?? 50), 0) / Math.max(team.squad.length, 1),
+  );
+  const socialGroups = team.squad.reduce<Record<string, Player[]>>((groups, player) => {
+    const group = player.socialGroup ?? 'Sem grupo';
+    (groups[group] ??= []).push(player);
+    return groups;
+  }, {});
   const activePromises = getActivePromises();
+  const formValue = FORM_VALUES[team.formRating] ?? 50;
+  const rootNode = socialTree?.nodes.find(node => node.playerId === socialTree.rootNodeId);
+
+  const sortableHeader = (key: DynamicsSortKey, label: string) => (
+    <th aria-sort={sortState.key === key ? (sortState.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
+      <button type="button" className="fmd-sort" onClick={() => toggleSort(key)}>
+        {label}
+        <span aria-hidden="true">{sortState.key === key ? (sortState.direction === 'asc' ? '↑' : '↓') : '↕'}</span>
+      </button>
+    </th>
+  );
 
   return (
     <div className="fms-page">
@@ -124,320 +205,312 @@ export const DynamicsView: React.FC = () => {
         ]}
       />
 
-      <div className="fms-body--scroll">
-
-      <section className="fm-dynamics-view__section">
-        <h2>Pirâmide de Hierarquia</h2>
-        <div className="fm-hierarchy">
-          {HIERARCHY_LEVELS.map((level) => {
-            const players = team.squad.filter(p => p.squadStatus === level.key);
-            if (players.length === 0) return null;
-            return (
-              <div key={level.key} className="fm-hierarchy__level">
-                <h3>{level.label}</h3>
-                <div className="fm-hierarchy__players">
-                  {players.map(p => (
-                    <span key={p.id} className="fm-hierarchy__player">
-                      {getFullName(p)} ({p.position})
-                    </span>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        {leaders.length > 0 && (
-          <p className="fm-dynamics-view__note">
-            Líderes naturais (Liderança ≥15): {leaders.map(p => p.name).join(', ')}
-          </p>
-        )}
-        {influential.length > 0 && (
-          <p className="fm-dynamics-view__note">
-            Influentes (Liderança 12-14): {influential.map(p => p.name).join(', ')}
-          </p>
-        )}
-      </section>
-
-      <section className="fm-dynamics-view__section">
-        <h2>Satisfação do Plantel</h2>
-        <table className="fm-satisfaction-table">
-          <thead>
-            <tr>
-              <th className="fm-satisfaction-table__th--sortable" onClick={() => toggleSort('name')}>Jogador {sortState.key === 'name' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
-              <th className="fm-satisfaction-table__th--sortable" onClick={() => toggleSort('playingTime')}>Tempo de Jogo {sortState.key === 'playingTime' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
-              <th className="fm-satisfaction-table__th--sortable" onClick={() => toggleSort('contract')}>Contrato {sortState.key === 'contract' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
-              <th className="fm-satisfaction-table__th--sortable" onClick={() => toggleSort('morale')}>Moral {sortState.key === 'morale' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
-              <th className="fm-satisfaction-table__th--sortable" onClick={() => toggleSort('performance')}>Forma {sortState.key === 'performance' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
-              <th className="fm-satisfaction-table__th--sortable" onClick={() => toggleSort('squadStatus')}>Status {sortState.key === 'squadStatus' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
-              <th className="fm-satisfaction-table__th--sortable" onClick={() => toggleSort('coachTreatment')}>Trat. Treinador {sortState.key === 'coachTreatment' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
-              <th className="fm-satisfaction-table__th--sortable" onClick={() => toggleSort('trustLevel')}>Confiança {sortState.key === 'trustLevel' ? (sortState.direction === 'asc' ? '↑' : '↓') : ''}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedSquad.map((player) => {
-              const s = getSatisfaction(player);
-              const ct = player.coachTreatment;
-              return (
-                <tr key={player.id}>
-                  <td>{getFullName(player)}</td>
-                  <td>
-                    <div className="fm-promise-bar">
-                      <div className="fm-promise-bar__fill" style={{ width: `${s.playingTime}%` }} />
-                    </div>
-                  </td>
-                  <td>{s.contract}%</td>
-                  <td>{s.morale}%</td>
-                  <td>{s.performance}%</td>
-                  <td>{player.squadStatus}</td>
-                  <td>{getCoachTreatmentLabel(ct.type)}</td>
-                  <td>
-                    <div className="fm-promise-bar">
-                      <div
-                        className="fm-promise-bar__fill"
-                        style={{
-                          width: `${ct.trustLevel}%`,
-                          backgroundColor: ct.trustLevel >= 70 ? '#22c32a' : ct.trustLevel >= 40 ? '#eab308' : '#ef4444',
-                        }}
-                      />
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </section>
-
-      <section className="fm-dynamics-view__section">
-        <h2>Performance do Clube na Tabela</h2>
-        <div className="fm-club-performance">
-          <div className="fm-club-performance__header">
-            <div className="fm-club-performance__stat">
-              <span className="fm-club-performance__label">Posição</span>
-              <span className="fm-club-performance__value">{team.leaguePosition}</span>
-            </div>
-            <div className="fm-club-performance__stat">
-              <span className="fm-club-performance__label">Forma</span>
-              <span
-                className="fm-club-performance__value"
-                style={{ color: getFormRatingColor(team.formRating) }}
-              >
-                {team.formRating === 'excellent' ? 'Excelente' :
-                 team.formRating === 'good' ? 'Boa' :
-                 team.formRating === 'average' ? 'Média' :
-                 team.formRating === 'poor' ? 'Fraca' :
-                 'Péssima'}
+      <main className="fms-body--scroll fmd-body">
+        <section className="fmd-summary" aria-label="Resumo da dinâmica do plantel">
+          <div className="fmd-summary__intro">
+            <span className="fmd-summary__icon" aria-hidden="true"><Activity size={18} /></span>
+            <div>
+              <strong>Estado do balneário</strong>
+              <span>
+                {averageMorale >= 70 ? 'Ambiente positivo e estável'
+                : averageMorale >= 40 ? 'Ambiente controlado, mas exige atenção'
+                : 'Ambiente frágil — intervenha antes do próximo jogo'}
               </span>
             </div>
           </div>
-          {team.leagueForm.length > 0 && (
-            <div className="fm-club-performance__form">
-              <span className="fm-club-performance__label">Últimos jogos:</span>
-              <div className="fm-club-performance__form-badges">
-                {team.leagueForm.map((result, i) => (
-                  <span
-                    key={i}
-                    className={`fm-form-badge fm-form-badge--${result.toLowerCase()}`}
-                    title={result === 'W' ? 'Vitória' : result === 'D' ? 'Empate' : 'Derrota'}
-                  >
-                    {result === 'W' ? 'V' : result === 'D' ? 'E' : 'D'}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
+          <dl className="fmd-summary__metrics">
+            <div><dt>Moral média</dt><dd style={{ color: getRatingColor(averageMorale) }}>{averageMorale}%</dd></div>
+            <div><dt>Líderes naturais</dt><dd>{leaders.length}</dd></div>
+            <div><dt>Grupos sociais</dt><dd>{Object.keys(socialGroups).length}</dd></div>
+            <div><dt>Promessas ativas</dt><dd className={activePromises.length > 0 ? 'fmd-text-warning' : ''}>{activePromises.length}</dd></div>
+            <div><dt>Pedidos de saída</dt><dd className={team.squad.some(p => p.transferRequest?.active) ? 'fmd-text-warning' : ''}>{team.squad.filter(p => p.transferRequest?.active).length}</dd></div>
+          </dl>
+        </section>
 
-      <section className="fm-dynamics-view__section">
-        <h2>Grupos Sociais</h2>
-        <div className="fm-social-groups-grid">
-          {Object.entries(socialGroups).map(([group, players], idx) => {
-            const avgMorale = Math.round(players.reduce((s, p) => s + (p.morale ?? 50), 0) / players.length);
-            const cohesionColor = avgMorale >= 70 ? 'high' : avgMorale >= 45 ? 'medium' : 'low';
-            return (
-              <div key={group} className="fm-social-group-card" data-group-index={idx}>
-                <div className="fm-social-group-card__accent" />
-                <div className="fm-social-group-card__header">
-                  <div className="fm-social-group-card__title-row">
-                    <span className="fm-social-group-card__avatar">
-                      {players.length === 1 ? '👤' : '👥'}
-                    </span>
-                    <div className="fm-social-group-card__title-wrap">
-                      <h3 className="fm-social-group-card__title">{group}</h3>
-                      <span className="fm-social-group-card__count">{players.length} {players.length === 1 ? 'membro' : 'membros'}</span>
-                    </div>
-                  </div>
-                  <div className={`fm-social-group-card__cohesion fm-social-group-card__cohesion--${cohesionColor}`} title={`Moral média: ${avgMorale}%`}>
-                    <span className="fm-social-group-card__cohesion-label">Coesão</span>
-                    <div className="fm-social-group-card__cohesion-bar">
-                      <div className="fm-social-group-card__cohesion-fill" style={{ width: `${avgMorale}%` }} />
-                    </div>
-                    <span className="fm-social-group-card__cohesion-value">{avgMorale}%</span>
-                  </div>
-                </div>
-                <div className="fm-social-group-card__members">
-                  {players.map(p => {
-                    const initials = (p.name?.charAt(0) ?? '') + (p.surname?.charAt(0) ?? '');
-                    return (
-                      <div key={p.id} className="fm-social-group-card__member">
-                        <span className="fm-social-group-card__member-avatar" data-group-index={idx}>{initials || '?'}</span>
-                        <span className="fm-social-group-card__member-name">{getFullName(p)}</span>
-                        <div className="fm-social-group-card__member-badges">
-                          <span className="fm-social-group-card__badge fm-social-group-card__badge--pos">{p.position}</span>
-                          {p.squadStatus && (
-                            <span className={`fm-social-group-card__badge fm-social-group-card__badge--${(p.squadStatus || '').toLowerCase().replace(/\s+/g, '-')}`}>{p.squadStatus}</span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-          {Object.keys(socialGroups).length <= 1 && (
-            <p className="fm-dynamics-view__note">
-              Panelinhas ainda não formadas — coesão de equipa no treino ajuda a criar grupos.
-            </p>
-          )}
-        </div>
-      </section>
-
-      <section className="fm-dynamics-view__section">
-        <h2>Árvore Social</h2>
-        <div className="fm-social-tree-actions">
-          <button
-            className="fm-social-tree__generate-btn"
-            onClick={generateSocialTree}
-            disabled={!!socialTree}
-          >
-            {socialTree ? 'Árvore já gerada (sem. ' + socialTree.generatedWeek + ')' : 'Gerar Árvore Social'}
-          </button>
-        </div>
-
-        {socialTree ? (
-          <div className="fm-social-tree-display">
-            {/* Root Node */}
-            <div className="fm-social-tree__root">
-              <div className="fm-social-tree__root-node">
-                <span className="fm-social-tree__root-label">Centralizador</span>
-                <div className="fm-social-tree__node-info">
-                  {socialTree.nodes.find(n => n.playerId === socialTree.rootNodeId)?.playerName || 'Desconhecido'}
-                </div>
-                <div className="fm-social-tree__node-influence">
-                  Influência: {socialTree.nodes.find(n => n.playerId === socialTree.rootNodeId)?.influence}%
-                </div>
-              </div>
-            </div>
-
-            {/* Nodes Grid */}
-            <div className="fm-social-tree__nodes">
-              {socialTree.nodes.map((node) => {
-                const isRoot = node.playerId === socialTree.rootNodeId;
+        <div className="fmd-overview-grid">
+          <section className="fmd-panel">
+            <SectionTitle
+              icon={Crown}
+              title="Hierarquia do Balneário"
+              detail="Influência formal e liderança natural no plantel."
+            />
+            <div className="fmd-hierarchy">
+              {HIERARCHY_LEVELS.map((level, index) => {
+                const players = team.squad.filter(player => player.squadStatus === level.key);
                 return (
-                  <div
-                    key={node.playerId}
-                    className={`fm-social-tree__node${isRoot ? ' fm-social-tree__node--root' : ''}`}
-                    style={{
-                      borderLeft: isRoot ? '4px solid #22c32a' : 'none',
-                      paddingLeft: isRoot ? 8 : 4,
-                    }}
-                  >
-                    <div className="fm-social-tree__node-header">
-                      <span className="fm-social-tree__node-name">{node.playerName}</span>
-                      <span className="fm-social-tree__node-position">{node.position}</span>
-                    </div>
-                    <div className="fm-social-tree__node-stats">
-                      <div className="fm-social-tree__node-stat">
-                        <span className="fm-social-tree__node-stat-label">Influência:</span>
-                        <div className="fm-social-tree__node-stat-bar" style={{ background: getInfluenceColor(node.influence) }} />
-                        <span className="fm-social-tree__node-stat-value">{node.influence}%</span>
+                  <div key={level.key} className={`fmd-hierarchy__level${players.length === 0 ? ' fmd-hierarchy__level--empty' : ''}`}>
+                    <span className="fmd-hierarchy__rank">{index + 1}</span>
+                    <div className="fmd-hierarchy__content">
+                      <div className="fmd-hierarchy__heading">
+                        <h3>{level.label}</h3>
+                        <span>{players.length}</span>
                       </div>
-                      <div className="fm-social-tree__node-stat">
-                        <span className="fm-social-tree__node-stat-label">Profundidade:</span>
-                        <span className="fm-social-tree__node-stat-value">{node.depth ?? 0} níveis</span>
+                      <div className="fmd-hierarchy__players">
+                        {players.length > 0
+                          ? players.map(player => (
+                              <span key={player.id}>{getFullName(player)} <small>{player.position}</small></span>
+                            ))
+                          : <em>Nenhum jogador neste nível</em>}
                       </div>
-                    </div>
-                    <div className="fm-social-tree__node-connections">
-                      {node.connections.map(connId => {
-                        const connectedNode = socialTree.nodes.find(n => n.playerId === connId);
-                        const edge = socialTree.edges.find(e =>
-                          (e.from === node.playerId && e.to === connId) ||
-                          (e.from === connId && e.to === node.playerId)
-                        );
-                        const strength = edge?.strength ?? 0;
-                        const strengthClass =
-                          strength >= 0.8 ? 'fm-social-tree__connection--strong' :
-                          strength >= 0.6 ? 'fm-social-tree__connection--medium' :
-                          'fm-social-tree__connection--weak';
-                        return connectedNode ? (
-                          <span key={connId} className={`fm-social-tree__connection ${strengthClass}`}>
-                            {connectedNode.playerName} ({Math.round(strength * 100)}%)
-                          </span>
-                        ) : null;
-                      })}
                     </div>
                   </div>
                 );
               })}
             </div>
-
-            {/* Edge Legend */}
-            <div className="fm-social-tree__edges-legend">
-              <h3>Força de Conexões</h3>
-              <ul>
-                <li>
-                  <span className="fm-social-tree__edge-indicator fm-social-tree__edge-indicator--strong" />
-                  <span>Fortíssima (≥0.8)</span>
-                </li>
-                <li>
-                  <span className="fm-social-tree__edge-indicator fm-social-tree__edge-indicator--medium" />
-                  <span>Forte (0.6-0.8)</span>
-                </li>
-                <li>
-                  <span className="fm-social-tree__edge-indicator fm-social-tree__edge-indicator--weak" />
-                  <span>Moderada (0.4-0.6)</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-        ) : (
-          <p className="fm-dynamics-view__note">
-            Clique em "Gerar Árvore Social" para visualizar a rede de influências do plantel.
-          </p>
-        )}
-      </section>
-
-      <section className="fm-dynamics-view__section">
-        <h2>Promessas Ativas</h2>
-        {activePromises.length === 0 ? (
-          <p className="fm-dynamics-view__note">Nenhuma promessa ativa no momento.</p>
-        ) : (
-          <div className="fm-promises-list">
-            {activePromises.map(({ player, promise, weeksLeft }) => (
-              <div key={`${player.id}-${promise.goal}`} className="fm-promise-card">
-                <span className="fm-promise-card__player">{player.name}</span>
-                <span className="fm-promise-card__goal">{promise.goal}</span>
-                <div className="fm-promise-bar">
-                  <div
-                    className="fm-promise-bar__fill"
-                    style={{
-                      width: `${Math.max(0, Math.min(100, (weeksLeft / Math.max(promise.originalDeadline ?? weeksLeft, 1)) * 100))}%`,
-                      backgroundColor: weeksLeft <= 2 ? '#ef4444' : weeksLeft <= 5 ? '#eab308' : '#22c32a',
-                    }}
-                  />
-                </div>
-                <span className="fm-promise-card__deadline">
-                  {weeksLeft} semana{weeksLeft !== 1 ? 's' : ''} restante{weeksLeft !== 1 ? 's' : ''}
-                  {weeksLeft <= 0 ? ' — prazo expirado' : ''}
-                </span>
+            {(leaders.length > 0 || influential.length > 0) && (
+              <div className="fmd-leadership-note">
+                <ShieldCheck size={15} aria-hidden="true" />
+                <p>
+                  <strong>Núcleo de liderança:</strong>{' '}
+                  {[...leaders, ...influential].map(player => getFullName(player)).join(', ')}.
+                </p>
               </div>
-            ))}
+            )}
+          </section>
+
+          <section className="fmd-panel">
+            <SectionTitle
+              icon={TrendingUp}
+              title="Contexto Competitivo"
+              detail="A posição e a forma recente moldam o humor do grupo."
+            />
+            <div className="fmd-performance">
+              <div className="fmd-performance__position">
+                <span>Posição na liga</span>
+                <strong>{team.leaguePosition}<sup>º</sup></strong>
+              </div>
+              <div className="fmd-performance__form">
+                <span>Forma atual</span>
+                <strong style={{ color: getRatingColor(formValue) }}>
+                  {FORM_LABELS[team.formRating] ?? 'Média'}
+                </strong>
+              </div>
+            </div>
+            <div className="fmd-recent-form">
+              <span>Últimos jogos</span>
+              {team.leagueForm.length > 0 ? (
+                <div className="fmd-form-sequence">
+                  {team.leagueForm.map((result, index) => (
+                    <span
+                      key={`${result}-${index}`}
+                      className={`fmd-result fmd-result--${result.toLowerCase()}`}
+                      title={result === 'W' ? 'Vitória' : result === 'D' ? 'Empate' : 'Derrota'}
+                    >
+                      {result === 'W' ? 'V' : result === 'D' ? 'E' : 'D'}
+                    </span>
+                  ))}
+                </div>
+              ) : <em>Sem jogos disputados</em>}
+            </div>
+            <div className="fmd-context-note">
+              <span>Leitura do momento</span>
+              <p>
+                {formValue >= 70
+                  ? 'Os resultados sustentam a confiança do grupo e reforçam a liderança.'
+                  : formValue >= 40
+                    ? 'A equipa está num ponto de equilíbrio; consistência será decisiva.'
+                    : 'A sequência recente aumenta a pressão sobre jogadores e treinador.'}
+              </p>
+            </div>
+          </section>
+        </div>
+
+        <section className="fmd-panel">
+          <SectionTitle
+            icon={Activity}
+            title="Satisfação do Plantel"
+            detail="Compare expectativas, moral, forma e confiança no treinador."
+          />
+          <div className="fmd-table-wrap">
+            <table className="fmd-table">
+              <thead>
+                <tr>
+                  {sortableHeader('name', 'Jogador')}
+                  {sortableHeader('playingTime', 'Tempo de jogo')}
+                  {sortableHeader('contract', 'Contrato')}
+                  {sortableHeader('morale', 'Moral')}
+                  {sortableHeader('performance', 'Forma')}
+                  {sortableHeader('squadStatus', 'Estatuto')}
+                  {sortableHeader('coachTreatment', 'Tratamento')}
+                  {sortableHeader('trustLevel', 'Confiança')}
+                </tr>
+              </thead>
+              <tbody>
+                {sortedSquad.map(player => {
+                  const satisfaction = getSatisfaction(player);
+                  const treatment = player.coachTreatment;
+                  return (
+                    <tr key={player.id}>
+                      <td>
+                        <button type="button" className="fmd-player-link" onClick={() => navigate('/elenco')}>
+                          <strong>{getFullName(player)}</strong>
+                          <span>{player.position}</span>
+                        </button>
+                      </td>
+                      <td><MetricBar value={satisfaction.playingTime} label={`Tempo de jogo de ${getFullName(player)}`} /></td>
+                      <td><MetricBar value={satisfaction.contract} label={`Contrato de ${getFullName(player)}`} /></td>
+                      <td><MetricBar value={satisfaction.morale} label={`Moral de ${getFullName(player)}`} /></td>
+                      <td><MetricBar value={satisfaction.performance} label={`Forma de ${getFullName(player)}`} /></td>
+                      <td>
+                        <span className="fmd-status">{getSquadStatusLabel(player.squadStatus)}</span>
+                        {player.transferRequest?.active && <span className="fmd-status fmd-text-warning" style={{ marginLeft: 6 }}>Pediu saída</span>}
+                      </td>
+                      <td>{getCoachTreatmentLabel(treatment?.type)}</td>
+                      <td><MetricBar value={treatment?.trustLevel ?? 0} label={`Confiança de ${getFullName(player)}`} /></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-        )}
-      </section>
-      </div>
+        </section>
+
+        <section className="fmd-panel">
+          <SectionTitle
+            icon={UsersRound}
+            title="Grupos Sociais"
+            detail="Relações internas e coesão média de cada núcleo do balneário."
+          />
+          <div className="fmd-groups">
+            {Object.entries(socialGroups).map(([group, players]) => {
+              const averageGroupMorale = Math.round(
+                players.reduce((total, player) => total + (player.morale ?? 50), 0) / players.length,
+              );
+              return (
+                <article key={group} className="fmd-group">
+                  <header className="fmd-group__header">
+                    <div>
+                      <span className="fmd-group__icon" aria-hidden="true"><UsersRound size={15} /></span>
+                      <div><h3>{group}</h3><p>{players.length} {players.length === 1 ? 'membro' : 'membros'}</p></div>
+                    </div>
+                    <MetricBar value={averageGroupMorale} label={`Coesão do grupo ${group}`} />
+                  </header>
+                  <ul className="fmd-group__members">
+                    {players.map(player => (
+                      <li key={player.id}>
+                        <span className="fmd-initials" aria-hidden="true">
+                          {(player.name?.charAt(0) ?? '') + (player.surname?.charAt(0) ?? '') || '?'}
+                        </span>
+                        <span className="fmd-group__name">{getFullName(player)}</span>
+                        <span className="fmd-position">{player.position}</span>
+                        <span className="fmd-status">{getSquadStatusLabel(player.squadStatus)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </article>
+              );
+            })}
+          </div>
+          {Object.keys(socialGroups).length <= 1 && (
+            <p className="fmd-empty-note">Os grupos ainda não se formaram. Sessões de coesão no treino ajudam a criar ligações.</p>
+          )}
+        </section>
+
+        <section className="fmd-panel">
+          <div className="fmd-section-actions">
+            <SectionTitle
+              icon={GitBranch}
+              title="Rede de Influência"
+              detail="Centralidade, alcance e força das ligações entre jogadores."
+            />
+            <button
+              type="button"
+              className="fmd-primary-button"
+              onClick={generateSocialTree}
+              disabled={Boolean(socialTree)}
+            >
+              <GitBranch size={14} aria-hidden="true" />
+              {socialTree ? `Gerada na sem. ${socialTree.generatedWeek}` : 'Gerar rede social'}
+            </button>
+          </div>
+
+          {socialTree ? (
+            <div className="fmd-network">
+              {rootNode && (
+                <div className="fmd-network__root">
+                  <Crown size={17} aria-hidden="true" />
+                  <div><span>Centralizador</span><strong>{rootNode.playerName}</strong></div>
+                  <b>{rootNode.influence}% influência</b>
+                </div>
+              )}
+              <div className="fmd-network__nodes">
+                {socialTree.nodes.map(node => {
+                  const isRoot = node.playerId === socialTree.rootNodeId;
+                  return (
+                    <article key={node.playerId} className={`fmd-node${isRoot ? ' fmd-node--root' : ''}`}>
+                      <header>
+                        <div><strong>{node.playerName}</strong><span>{node.position}</span></div>
+                        {isRoot && <span className="fmd-central-badge">Central</span>}
+                      </header>
+                      <div className="fmd-node__influence">
+                        <span>Influência</span>
+                        <div><i style={{ width: `${node.influence}%`, backgroundColor: getRatingColor(node.influence) }} /></div>
+                        <b>{node.influence}%</b>
+                      </div>
+                      <div className="fmd-node__depth">Alcance: <strong>{node.depth ?? 0} níveis</strong></div>
+                      <div className="fmd-node__connections">
+                        {node.connections.map(connectionId => {
+                          const connectedNode = socialTree.nodes.find(candidate => candidate.playerId === connectionId);
+                          const edge = socialTree.edges.find(candidate =>
+                            (candidate.from === node.playerId && candidate.to === connectionId)
+                            || (candidate.from === connectionId && candidate.to === node.playerId),
+                          );
+                          return connectedNode ? (
+                            <span key={connectionId}>
+                              {connectedNode.playerName} <b>{Math.round((edge?.strength ?? 0) * 100)}%</b>
+                            </span>
+                          ) : null;
+                        })}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="fmd-empty-state">
+              <GitBranch size={22} aria-hidden="true" />
+              <div><strong>Rede ainda não mapeada</strong><p>Gere a análise para identificar o centro de influência e as ligações do grupo.</p></div>
+            </div>
+          )}
+        </section>
+
+        <section className="fmd-panel">
+          <SectionTitle
+            icon={Handshake}
+            title="Promessas Ativas"
+            detail="Compromissos assumidos com jogadores e tempo restante."
+          />
+          {activePromises.length === 0 ? (
+            <div className="fmd-empty-state fmd-empty-state--success">
+              <ShieldCheck size={22} aria-hidden="true" />
+              <div><strong>Nenhuma promessa pendente</strong><p>Não existem compromissos ativos a pressionar a gestão do plantel.</p></div>
+            </div>
+          ) : (
+            <div className="fmd-promises">
+              {activePromises.map(({ player, promise, weeksLeft }) => {
+                const progress = Math.max(
+                  0,
+                  Math.min(100, (weeksLeft / Math.max(promise.originalDeadline ?? weeksLeft, 1)) * 100),
+                );
+                const urgencyColor = weeksLeft <= 2 ? STATUS_COLOR.red : weeksLeft <= 5 ? STATUS_COLOR.amber : STATUS_COLOR.green;
+                return (
+                  <article key={`${player.id}-${promise.goal}`} className="fmd-promise">
+                    <div className="fmd-promise__main">
+                      <strong>{getFullName(player)}</strong>
+                      <span>{promise.goal}</span>
+                    </div>
+                    <div className="fmd-promise__deadline">
+                      <span>{weeksLeft <= 0 ? 'Prazo expirado' : `${weeksLeft} sem. restantes`}</span>
+                      <div><i style={{ width: `${progress}%`, backgroundColor: urgencyColor }} /></div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      </main>
     </div>
   );
 };

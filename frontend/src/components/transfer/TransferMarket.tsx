@@ -18,20 +18,32 @@ const TransferOfferCard: React.FC<{
   offer: IncomingTransfer;
   playerName: string;
   fromTeamName: string;
+  marketValue?: number;
+  transferRequest?: boolean;
   onAccept: () => void;
   onReject: () => void;
   onDefer: () => void;
   onNegotiate: () => void;
-}> = ({ offer, playerName, fromTeamName, onAccept, onReject, onDefer, onNegotiate }) => (
+}> = ({ offer, playerName, fromTeamName, marketValue, transferRequest, onAccept, onReject, onDefer, onNegotiate }) => (
   <div className="fm-transfer-offer">
     <div className="fm-transfer-offer__header">
-      <h3 className="fm-transfer-offer__player-name">{playerName}</h3>
+      <h3 className="fm-transfer-offer__player-name">
+        {playerName}
+        {transferRequest && <span className="fm-transfer-offer__request-badge" title="Pedido de transferência ativo"> Pediu saída</span>}
+      </h3>
       <span className="fm-transfer-offer__from-team">{fromTeamName}</span>
     </div>
     <div className="fm-transfer-offer__details">
       <div className="fm-transfer-offer__detail">
         <span className="fm-transfer-offer__detail-label">Proposta:</span>
-        <span className="fm-transfer-offer__detail-value">R$ {offer.offerPrice}M</span>
+        <span className="fm-transfer-offer__detail-value">
+          R$ {offer.offerPrice}M
+          {marketValue != null && marketValue > 0 && (
+            <span className="fm-transfer-offer__vs-market">
+              {' '}({Math.round((offer.offerPrice / marketValue) * 100)}% do mercado)
+            </span>
+          )}
+        </span>
       </div>
       <div className="fm-transfer-offer__detail">
         <span className="fm-transfer-offer__detail-label">Salário:</span>
@@ -188,6 +200,10 @@ export const TransferMarket: React.FC<{
     });
 
   const filteredPlayers = sortedPlayers;
+
+  const getSquadPlayer = (playerId: string) =>
+    team?.squad.find(p => p.id === playerId)
+    ?? teams.flatMap(t => t.squad).find(p => p.id === playerId);
 
   const getPlayerName = (playerId: string) => {
     for (const t of teams) {
@@ -670,18 +686,22 @@ export const TransferMarket: React.FC<{
             <div className="fm-empty">Nenhuma oferta recebida. Avance semanas para receber propostas.</div>
           ) : (
             <div className="fm-offers-list">
-              {incomingTransfers.slice().sort((a, b) => a.playerId.localeCompare(b.playerId)).map((offer) => (
+              {incomingTransfers.slice().sort((a, b) => a.playerId.localeCompare(b.playerId)).map((offer) => {
+                const squadPlayer = getSquadPlayer(offer.playerId);
+                return (
                 <TransferOfferCard
                   key={offer.playerId}
                   offer={offer}
                   playerName={getPlayerName(offer.playerId)}
                   fromTeamName={teams.find(t => t.id === offer.fromTeam)?.name ?? offer.fromTeam}
+                  marketValue={squadPlayer?.marketValue}
+                  transferRequest={!!squadPlayer?.transferRequest?.active}
                   onAccept={() => handleAcceptTransfer(offer.playerId)}
                   onReject={() => handleRejectTransfer(offer.playerId)}
                   onDefer={() => deferTransfer(offer.playerId)}
                   onNegotiate={() => handleNegotiate(offer.playerId)}
                 />
-              ))}
+              );})}
             </div>
           )}
         </div>
@@ -694,18 +714,22 @@ export const TransferMarket: React.FC<{
             <div className="fm-empty">Nenhuma transferência adiada. Adie ofertas para revisitar depois.</div>
           ) : (
             <div className="fm-deferred-list">
-              {deferredTransfers.slice().sort(sortByDateDesc).map((offer) => (
+              {deferredTransfers.slice().sort(sortByDateDesc).map((offer) => {
+                const squadPlayer = getSquadPlayer(offer.playerId);
+                return (
                 <TransferOfferCard
                   key={offer.playerId}
                   offer={offer}
                   playerName={getPlayerName(offer.playerId)}
                   fromTeamName={teams.find(t => t.id === offer.fromTeam)?.name ?? offer.fromTeam}
+                  marketValue={squadPlayer?.marketValue}
+                  transferRequest={!!squadPlayer?.transferRequest?.active}
                   onAccept={() => handleAcceptTransfer(offer.playerId)}
                   onReject={() => rejectDeferredTransfer(offer.playerId)}
                   onDefer={() => reinstateDeferredTransfer(offer.playerId)}
                   onNegotiate={() => handleNegotiate(offer.playerId)}
                 />
-              ))}
+              );})}
             </div>
           )}
         </div>

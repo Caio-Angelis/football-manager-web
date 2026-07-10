@@ -5,13 +5,10 @@ import { Button } from '../ui/Button';
 import type { TrainingSession, WeeklyTrainingPlan } from '../../types/game';
 import {
   Activity,
-  AlertTriangle,
   Camera,
   CheckCircle2,
   ClipboardList,
   Dumbbell,
-  Eye,
-  EyeOff,
   Globe,
   HeartPulse,
   Play,
@@ -134,12 +131,11 @@ const POSITION_LABELS: Record<string, string> = {
 };
 
 export const TrainingView: React.FC = () => {
-  const { selectedTeam, teams, currentWeek, trainingPlan, setTrainingPlan, applyWeeklyTraining, calculateInjuryRisk, schedulePreventionSession, getInjuryRiskSummary, applyPreventionSession, captureWeeklyAttributeSnapshot } = useGameStore();
+  const { selectedTeam, teams, currentWeek, trainingPlan, setTrainingPlan, applyWeeklyTraining, calculateInjuryRisk, schedulePreventionSession, applyPreventionSession, captureWeeklyAttributeSnapshot } = useGameStore();
   const navigate = useNavigate();
   const team = teams.find(t => t.id === selectedTeam);
   const [teamFocus, setTeamFocus] = useState(trainingPlan?.teamFocus ?? 'technical');
-  const [showInjuryRisk, setShowInjuryRisk] = useState(false);
-  const [showProgression, setShowProgression] = useState(true);
+  const [showProgression, setShowProgression] = useState(false);
   const [targetGroup, setTargetGroup] = useState<'all' | 'attackers' | 'midfielders' | 'defenders' | 'custom'>('all');
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const [isManualPlan, setIsManualPlan] = useState(false);
@@ -213,7 +209,21 @@ export const TrainingView: React.FC = () => {
     return 'Baixo';
   };
 
-  const riskSummary = showInjuryRisk ? getInjuryRiskSummary() : null;
+  const RISK_LEVELS = [
+    { label: 'Crítico', min: 80, ref: 85 },
+    { label: 'Alto', min: 60, ref: 65 },
+    { label: 'Moderado', min: 30, ref: 40 },
+    { label: 'Baixo', min: 0, ref: 10 },
+  ] as const;
+
+  const riskTally = RISK_LEVELS.map((lvl, i) => {
+    const upper = i === 0 ? Infinity : RISK_LEVELS[i - 1].min;
+    const count = team.squad.filter(p => {
+      const r = calculateInjuryRisk(p.id);
+      return r >= lvl.min && r < upper;
+    }).length;
+    return { ...lvl, count };
+  });
 
   return (
     <div className="fms-page">
@@ -324,27 +334,32 @@ export const TrainingView: React.FC = () => {
           <span className="fm-training-view__hint">Alterações manuais são preservadas ao guardar ou aplicar.</span>
         </div>
         <div className="fm-training-calendar">
+          <div className="fm-training-calendar__head" aria-hidden="true">
+            <span className="fm-training-calendar__corner" />
+            {BLOCKS.map((block) => (
+              <span key={block} className="fm-training-calendar__col-label">{BLOCK_LABELS[block]}</span>
+            ))}
+          </div>
           {DAYS.map((day, dayIdx) => (
-            <div key={day} className="fm-training-day">
-              <h3 className="fm-training-day__title">{day}</h3>
+            <div key={day} className="fm-training-row">
+              <span className="fm-training-row__day">{day}</span>
               {BLOCKS.map((block) => {
                 const inputId = `training-session-${dayIdx}-${block}`;
                 return (
-                  <div key={block} className="fm-training-block">
-                    <label className="fm-training-block__label" htmlFor={inputId}>{BLOCK_LABELS[block]}</label>
-                    <select
-                      id={inputId}
-                      name={inputId}
-                      className="fms-select fm-training-block__select"
-                      value={sessions[dayIdx]?.[block]?.type ?? 'rest'}
-                      onChange={(e) => updateSession(dayIdx, block, e.target.value)}
-                    >
-                      <option value="rest">Descanso</option>
-                      {TRAINING_TYPES.map((t) => (
-                        <option key={t.id} value={t.id}>{t.label}</option>
-                      ))}
-                    </select>
-                  </div>
+                  <select
+                    key={block}
+                    id={inputId}
+                    name={inputId}
+                    aria-label={`${day} — ${BLOCK_LABELS[block]}`}
+                    className={`fms-select fm-training-row__select ${(sessions[dayIdx]?.[block]?.type ?? 'rest') === 'rest' ? 'fm-training-row__select--rest' : ''}`}
+                    value={sessions[dayIdx]?.[block]?.type ?? 'rest'}
+                    onChange={(e) => updateSession(dayIdx, block, e.target.value)}
+                  >
+                    <option value="rest">Descanso</option>
+                    {TRAINING_TYPES.map((t) => (
+                      <option key={t.id} value={t.id}>{t.label}</option>
+                    ))}
+                  </select>
                 );
               })}
             </div>
@@ -357,63 +372,33 @@ export const TrainingView: React.FC = () => {
       <section className="fms-section fm-training-view__section">
         <div className="fm-training-view__section-header">
           <h2 className="fms-section__title">Monitor de fadiga e risco</h2>
-          <Button variant="secondary" onClick={() => setShowInjuryRisk(!showInjuryRisk)}>
-            {showInjuryRisk ? <EyeOff size={14} /> : <Eye size={14} />}
-            {showInjuryRisk ? 'Ocultar resumo' : 'Ver resumo'}
-          </Button>
-        </div>
-        {showInjuryRisk && riskSummary && (
-          <div className="fm-injury-risk-grid" id="injury-risk-summary">
-            <div className="fm-injury-risk-category fm-injury-risk--critical">
-              <h3><AlertTriangle size={14} /> Crítico ({riskSummary.critical.length})</h3>
-              <ul>
-                {riskSummary.critical.map(p => (
-                  <li key={p.id} className="fm-injury-risk-item">
-                    {p.name} — Risco: {calculateInjuryRisk(p.id)}%
-                    <br />
-                    <small>Carregamento: {p.cumulativeLoad} | Dias consecutivos: {p.consecutivePhysicalDays}</small>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="fm-injury-risk-category fm-injury-risk--high">
-              <h3><span className="fms-dot fm-risk-dot--high" /> Alto ({riskSummary.high.length})</h3>
-              <ul>
-                {riskSummary.high.map(p => (
-                  <li key={p.id}>
-                    {p.name} — Risco: {calculateInjuryRisk(p.id)}%
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="fm-injury-risk-category fm-injury-risk--moderate">
-              <h3><span className="fms-dot fm-risk-dot--moderate" /> Moderado ({riskSummary.moderate.length})</h3>
-              <ul>
-                {riskSummary.moderate.map(p => (
-                  <li key={p.id}>
-                    {p.name} — Risco: {calculateInjuryRisk(p.id)}%
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="fm-injury-risk-category fm-injury-risk--low">
-              <h3><span className="fms-dot fm-risk-dot--low" /> Baixo ({riskSummary.low.length})</h3>
-              <ul>
-                {riskSummary.low.map(p => (
-                  <li key={p.id}>
-                    {p.name} — Risco: {calculateInjuryRisk(p.id)}%
-                  </li>
-                ))}
-              </ul>
-            </div>
+          <div className="fm-risk-tally" role="status" aria-label="Resumo de risco do elenco">
+            {riskTally.filter(l => l.count > 0).map(l => (
+              <span
+                key={l.label}
+                className="fm-risk-tally__item"
+                style={{ '--risk': getRiskColor(l.ref) } as React.CSSProperties}
+              >
+                <span className="fm-risk-tally__dot" aria-hidden="true" />
+                {l.count} {l.label}
+              </span>
+            ))}
           </div>
-        )}
+        </div>
         <div className="fm-fatigue-grid">
-          {team.squad.map((player) => {
-            const risk = calculateInjuryRisk(player.id);
-            return (
-              <div key={player.id} className="fm-fatigue-card">
-                <span className="fm-fatigue-card__name">{player.name}</span>
+          {[...team.squad]
+            .map((player) => ({ player, risk: calculateInjuryRisk(player.id) }))
+            .sort((a, b) => b.risk - a.risk)
+            .map(({ player, risk }) => (
+              <div
+                key={player.id}
+                className="fm-fatigue-card"
+                style={{ '--risk': getRiskColor(risk) } as React.CSSProperties}
+              >
+                <div className="fm-fatigue-card__top">
+                  <span className="fm-fatigue-card__name">{player.name}</span>
+                  <span className="fm-fatigue-card__risk-chip">{getRiskLabel(risk)} · {risk}%</span>
+                </div>
                 <div className="fm-fatigue-card__bar" aria-label={`Fitness ${player.fitness}%`}>
                   <div
                     className="fm-fatigue-card__fill"
@@ -423,18 +408,14 @@ export const TrainingView: React.FC = () => {
                     }}
                   />
                 </div>
-                <span className="fm-fatigue-card__value">{player.fitness}%</span>
-                {player.injury?.active && (
-                  <span className="fm-fatigue-card__injury">Lesão: {player.injury.daysRemaining}d</span>
-                )}
-                <div className="fm-fatigue-card__risk">
-                  <span className="fm-risk-text" style={{ color: getRiskColor(risk) }}>
-                    Risco: {risk}% ({getRiskLabel(risk)})
-                  </span>
+                <div className="fm-fatigue-card__meta">
+                  <span className="fm-fatigue-card__value">Fitness {player.fitness}%</span>
+                  {player.injury?.active && (
+                    <span className="fm-fatigue-card__injury">Lesão {player.injury.daysRemaining}d</span>
+                  )}
                 </div>
               </div>
-            );
-          })}
+            ))}
         </div>
       </section>
 
@@ -469,56 +450,27 @@ export const TrainingView: React.FC = () => {
                     <span className="fm-attribute-progression-card__position">{POSITION_LABELS[player.position] ?? player.position}</span>
                   </div>
                   <div className="fm-attribute-progression-card__body">
-                    <div className="fm-attribute-progression-bar-row">
-                      <span className="fm-attribute-progression-bar-label">Técnica</span>
-                      <div className="fm-attribute-progression-bar">
-                        <div
-                          className="fm-attribute-progression-bar-fill fm-attribute-progression-bar-fill--technical"
-                          style={{ width: `${(Number(player.technical?.technique || 8) / 20) * 100}%` }}
-                        />
+                    {[
+                      { label: 'Técnica', value: Number(player.technical?.technique || 8) },
+                      { label: 'Passe', value: Number(player.technical?.passing || 8) },
+                      { label: 'Finalização', value: Number(player.technical?.finishing || 8) },
+                      { label: 'Resistência', value: Number(player.physical?.stamina || 8) },
+                      { label: 'Velocidade', value: Number(player.physical?.speed || 8) },
+                    ].map(({ label, value }) => (
+                      <div key={label} className="fm-attribute-progression-bar-row">
+                        <span className="fm-attribute-progression-bar-label">{label}</span>
+                        <div className="fm-attribute-progression-bar">
+                          <div
+                            className="fm-attribute-progression-bar-fill"
+                            style={{
+                              width: `${(value / 20) * 100}%`,
+                              backgroundColor: getRatingColor((value / 20) * 100, { high: 70, medium: 40 }),
+                            }}
+                          />
+                        </div>
+                        <span className="fm-attribute-progression-bar-value">{value}</span>
                       </div>
-                      <span className="fm-attribute-progression-bar-value">{player.technical?.technique || 8}</span>
-                    </div>
-                    <div className="fm-attribute-progression-bar-row">
-                      <span className="fm-attribute-progression-bar-label">Passe</span>
-                      <div className="fm-attribute-progression-bar">
-                        <div
-                          className="fm-attribute-progression-bar-fill fm-attribute-progression-bar-fill--technical"
-                          style={{ width: `${(Number(player.technical?.passing || 8) / 20) * 100}%` }}
-                        />
-                      </div>
-                      <span className="fm-attribute-progression-bar-value">{player.technical?.passing || 8}</span>
-                    </div>
-                    <div className="fm-attribute-progression-bar-row">
-                      <span className="fm-attribute-progression-bar-label">Finalização</span>
-                      <div className="fm-attribute-progression-bar">
-                        <div
-                          className="fm-attribute-progression-bar-fill fm-attribute-progression-bar-fill--technical"
-                          style={{ width: `${(Number(player.technical?.finishing || 8) / 20) * 100}%` }}
-                        />
-                      </div>
-                      <span className="fm-attribute-progression-bar-value">{player.technical?.finishing || 8}</span>
-                    </div>
-                    <div className="fm-attribute-progression-bar-row">
-                      <span className="fm-attribute-progression-bar-label">Resistência</span>
-                      <div className="fm-attribute-progression-bar">
-                        <div
-                          className="fm-attribute-progression-bar-fill fm-attribute-progression-bar-fill--physical"
-                          style={{ width: `${(Number(player.physical?.stamina || 8) / 20) * 100}%` }}
-                        />
-                      </div>
-                      <span className="fm-attribute-progression-bar-value">{player.physical?.stamina || 8}</span>
-                    </div>
-                    <div className="fm-attribute-progression-bar-row">
-                      <span className="fm-attribute-progression-bar-label">Velocidade</span>
-                      <div className="fm-attribute-progression-bar">
-                        <div
-                          className="fm-attribute-progression-bar-fill fm-attribute-progression-bar-fill--physical"
-                          style={{ width: `${(Number(player.physical?.speed || 8) / 20) * 100}%` }}
-                        />
-                      </div>
-                      <span className="fm-attribute-progression-bar-value">{player.physical?.speed || 8}</span>
-                    </div>
+                    ))}
                     <div className="fm-attribute-progression-stats">
                       <span className="fm-attribute-progression-stats__item">
                         CA: <strong>{player.currentAbility}</strong>

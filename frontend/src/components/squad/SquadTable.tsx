@@ -212,7 +212,12 @@ export const SquadTable: React.FC<SquadTableProps> = ({
                       <div className="fms-bar"><div className="fms-bar__fill" style={{ width: `${player.morale}%`, backgroundColor: getRatingColor(player.morale) }} /></div>
                     </td>
                   )}
-                  <td><span className="fms-badge">{STATUS_LABELS[player.squadStatus] || player.squadStatus}</span></td>
+                  <td>
+                    <span className="fms-badge">{STATUS_LABELS[player.squadStatus] || player.squadStatus}</span>
+                    {player.transferRequest?.active && (
+                      <span className="fms-badge fms-badge--red" style={{ marginLeft: 4 }} title="Pedido de transferência">Saída</span>
+                    )}
+                  </td>
                   {!isNarrow && <td className="fms-text-2">R$ {player.marketValue.toFixed(1)}M</td>}
                   {!isNarrow && <td className="fms-text-2">R$ {player.salary}K</td>}
                   <td className="fms-center">

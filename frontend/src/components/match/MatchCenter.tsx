@@ -4,40 +4,18 @@ import { useGameStore } from '../../store/gameStore';
 import { getActiveRoom } from '../../api/client';
 import { Button } from '../ui/Button';
 import { MatchPitch2D } from './MatchPitch2D';
+import { MatchLiveView } from './MatchLiveView';
 import { PostMatchReportView } from './PostMatchReportView';
 import { PreMatchBriefing } from './PreMatchBriefing';
 import { MomentumChart } from './MomentumChart';
 import { teamStrength, buildMomentum, goalsFromMatch } from '../../utils/winProbability';
 import { fmtMinute } from '../../utils/matchTime';
-import type { MatchEvent, MatchStats, PlayerMatchRating, MatchAction, Team, Match, Player } from '../../types/game';
-import { Globe, Trophy, ArrowRight, Zap, Footprints, Shield, Hand, Wind, Route, OctagonAlert, PlayCircle, CornerUpRight, XCircle, Circle, Radio, ClipboardList, type LucideIcon } from 'lucide-react';
+import type { MatchEvent, MatchStats, PlayerMatchRating, Team, Match } from '../../types/game';
+import { Globe, Trophy, ArrowRight, PlayCircle, Eye, ClipboardList } from 'lucide-react';
 import { PageHeader } from '../ui/PageHeader';
 import { MatchEventIcon } from '../ui/MatchEventIcon';
 import { TeamCrest } from '../ui/TeamCrest';
 import './MatchCenter.css';
-
-const ACTION_ICON: Record<string, LucideIcon> = {
-  pass: ArrowRight, dribble: Zap, shot: Footprints, tackle: Shield, interception: Hand,
-  clearance: Wind, cross: Route, foul: OctagonAlert, kickoff: PlayCircle, goalKick: Hand, throwIn: CornerUpRight,
-};
-// These actions render the same icon regardless of success — only pass/dribble/shot/tackle/interception/cross flip to XCircle on failure.
-const SAME_ICON_ON_FAIL = new Set(['clearance', 'foul', 'kickoff', 'goalKick', 'throwIn']);
-
-const ActionIcon: React.FC<{ type: string; success: boolean; size?: number }> = ({ type, success, size = 13 }) => {
-  const Icon = (!success && !SAME_ICON_ON_FAIL.has(type)) ? XCircle : (ACTION_ICON[type] ?? Circle);
-  return <Icon size={size} />;
-};
-
-const MatchActionDisplay: React.FC<{ action: MatchAction }> = ({ action }) => (
-  <div className={`fm-match-action ${action.success ? '' : 'fm-match-action--fail'}`}>
-    <span className="fm-match-action__icon"><ActionIcon type={action.type} success={action.success} /></span>
-    <span className="fm-match-action__time">{fmtMinute(action.minute)}'</span>
-    <span className="fm-match-action__content">
-      <span className="fm-match-action__team-label">{action.team === 'home' ? 'Casa' : 'Fora'}</span>
-      {' '}{action.description}
-    </span>
-  </div>
-);
 
 const StatBar: React.FC<{ label: string; homeValue: number; awayValue: number; format?: (v: number) => string }> = ({
   label, homeValue, awayValue, format,
@@ -276,69 +254,14 @@ const standingsOrder = (a: Team, b: Team) =>
 const zoneFor = (index: number, total: number) =>
   index < 4 ? 'libertadores' : index < 6 ? 'sul-americana' : index >= total - 4 ? 'rebaixamento' : '';
 
-type ShoutKey = 'encourage' | 'demand' | 'praise' | 'calm';
-const SHOUTS: { key: ShoutKey; label: string }[] = [
-  { key: 'encourage', label: 'Incentivar' },
-  { key: 'demand', label: 'Exigir mais' },
-  { key: 'praise', label: 'Elogiar' },
-  { key: 'calm', label: 'Acalmar' },
-];
-
-/** Live touchline controls: typed shouts + real substitutions (pick out/in). */
-const LiveControls: React.FC<{
-  team: Team;
-  subs: number;
-  sentOff: string[];
-  onSub: (outId: string, inId: string) => void;
-  onShout: (s: ShoutKey) => void;
-}> = ({ team, subs, sentOff, onSub, onShout }) => {
-  const [outId, setOutId] = useState('');
-  const [inId, setInId] = useState('');
-  // onPitch = current startingXI (already updated after prior subs) minus sent-off
-  const onPitch = team.startingXI
-    .map(id => team.squad.find(p => p.id === id))
-    .filter((p): p is Player => !!p && !sentOff.includes(p.id));
-  // bench = not in startingXI, not sent off, not injured
-  const bench = team.squad.filter(p =>
-    !team.startingXI.includes(p.id) &&
-    !sentOff.includes(p.id) &&
-    !p.injury?.active,
-  );
-  const canSub = subs < 5 && !!outId && !!inId;
-  return (
-    <div className="fm-livectl">
-      <div className="fm-livectl__block">
-        <h4 className="fm-livectl__title">Gritos à equipa</h4>
-        <div className="fm-livectl__shouts">
-          {SHOUTS.map(s => (
-            <button key={s.key} type="button" className="fm-livectl__shout" onClick={() => onShout(s.key)}>{s.label}</button>
-          ))}
-        </div>
-      </div>
-      <div className="fm-livectl__block">
-        <h4 className="fm-livectl__title">Substituições <span className="fm-livectl__count">{subs}/5</span></h4>
-        <div className="fm-livectl__sub">
-          <select className="fm-livectl__select" value={outId} onChange={e => setOutId(e.target.value)} aria-label="Jogador que sai">
-            <option value="">Sai…</option>
-            {onPitch.map(p => <option key={p.id} value={p.id}>{p.position} · {p.name}</option>)}
-          </select>
-          <select className="fm-livectl__select" value={inId} onChange={e => setInId(e.target.value)} aria-label="Jogador que entra">
-            <option value="">Entra…</option>
-            {bench.map(p => <option key={p.id} value={p.id}>{p.position} · {p.name}</option>)}
-          </select>
-          <Button disabled={!canSub} onClick={() => { onSub(outId, inId); setOutId(''); setInId(''); }}>Trocar</Button>
-        </div>
-        {subs >= 5 && <span className="fm-livectl__note">Limite de 5 substituições atingido.</span>}
-      </div>
-    </div>
-  );
-};
-
 export const MatchCenter: React.FC = () => {
   const { matches, teams, selectedTeam, currentWeek, simulateMatch, advanceWeek, substitutePlayer, applyShout, generateLiveMatchMinute, finishMatch } = useGameStore();
   const navigate = useNavigate();
   const [selectedMatchIndex, setSelectedMatchIndex] = useState<number | null>(null);
+  /** Index of the match whose live sim timer is running (may continue in background). */
   const [liveMatchWatching, setLiveMatchWatching] = useState<number | null>(null);
+  /** Fullscreen classic pitch overlay — opened only via "Ver partida". */
+  const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const [matchSpeed, setMatchSpeed] = useState<number>(1);
   const [briefingMatchIndex, setBriefingMatchIndex] = useState<number | null>(null);
   // Half-time: sim pauses at 45' until the manager resumes. Ref drives the
@@ -347,15 +270,30 @@ export const MatchCenter: React.FC = () => {
   const halfTimeResumedRef = useRef(false);
   const setHalfTime = (resumed: boolean) => { halfTimeResumedRef.current = resumed; setHalfTimeResumed(resumed); };
 
+  const openMatchView = (index: number) => {
+    setLiveMatchWatching(index);
+    setFullscreenOpen(true);
+  };
+
   // Reset selection when week changes (new matches are generated)
   useEffect(() => {
     setSelectedMatchIndex(null);
     setLiveMatchWatching(null);
+    setFullscreenOpen(false);
     setMatchSpeed(1);
     setHalfTime(false);
     // E-34: Resetar briefingMatchIndex para nao apontar para jogo errado apos virar rodada.
     setBriefingMatchIndex(null);
   }, [currentWeek]);
+
+  // Close fullscreen when the watched match ends
+  useEffect(() => {
+    if (liveMatchWatching === null) return;
+    const m = matches[liveMatchWatching];
+    if (m && !m.isLive && m.completed) {
+      setFullscreenOpen(false);
+    }
+  }, [liveMatchWatching, matches]);
 
   // Live match auto-advance effect — stable interval via ref (C7).
   const liveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -461,17 +399,17 @@ export const MatchCenter: React.FC = () => {
                         <button className="fm-btn-ghost" onClick={() => setBriefingMatchIndex(heroIdx)}>
                           <ClipboardList size={16} /> Central de Inteligência
                         </button>
-                        <Button onClick={() => { setHalfTime(false); simulateMatch(heroIdx); setLiveMatchWatching(heroIdx); }}>
+                        <Button onClick={() => { setHalfTime(false); simulateMatch(heroIdx); openMatchView(heroIdx); }}>
                           <PlayCircle size={16} /> Iniciar Partida
                         </Button>
                       </>
                     )}
                     {live && (
                       <>
-                        <Button onClick={() => setLiveMatchWatching(heroIdx)}>
-                          <Radio size={16} /> Assistir ao Vivo
+                        <Button onClick={() => openMatchView(heroIdx)}>
+                          <Eye size={16} /> Ver partida
                         </Button>
-                        <button className="fm-btn-ghost" onClick={() => { finishMatch(heroIdx); setLiveMatchWatching(null); }}>
+                        <button className="fm-btn-ghost" onClick={() => { finishMatch(heroIdx); setLiveMatchWatching(null); setFullscreenOpen(false); }}>
                           Simular até o fim
                         </button>
                       </>
@@ -510,148 +448,34 @@ export const MatchCenter: React.FC = () => {
           </>
         )}
 
-      {/* Live Match View */}
-      {liveMatchWatching !== null && matches[liveMatchWatching]?.isLive && (
-        <div className="fm-match-live-view">
-          <div className="fm-match-live-view__content">
-            <div className="fm-match-live-view__header">
-              <h2>Partida ao Vivo</h2>
-              <div className="fm-match-live-view__header-right">
-                <div className="fm-match-speed">
-                  <button
-                    className={`fm-match-speed__btn ${matchSpeed === 1 ? 'fm-match-speed__btn--active' : ''}`}
-                    onClick={() => setMatchSpeed(1)}
-                  >1x</button>
-                  <button
-                    className={`fm-match-speed__btn ${matchSpeed === 2 ? 'fm-match-speed__btn--active' : ''}`}
-                    onClick={() => setMatchSpeed(2)}
-                  >2x</button>
-                  <button
-                    className={`fm-match-speed__btn ${matchSpeed === 4 ? 'fm-match-speed__btn--active' : ''}`}
-                    onClick={() => setMatchSpeed(4)}
-                  >4x</button>
-                </div>
-                <div className="fm-match-live-view__minute">
-                  <span>{fmtMinute(matches[liveMatchWatching].liveMinute)}' / {fmtMinute(90 + (matches[liveMatchWatching].liveMatchState?.addedTime ?? 0))}'</span>
-                </div>
-              </div>
-            </div>
-            <div className="fm-match-live-view__scoreboard">
-              <div className="fm-match-live-view__side fm-match-live-view__side--home">
-                <span className="fm-match-live-view__side-name">{getTeamName(matches[liveMatchWatching].homeTeam)}</span>
-                <span className="fm-match-live-view__side-score">{matches[liveMatchWatching].homeGoals}</span>
-              </div>
-              <span className="fm-match-live-view__score-separator">-</span>
-              <div className="fm-match-live-view__side fm-match-live-view__side--away">
-                <span className="fm-match-live-view__side-score">{matches[liveMatchWatching].awayGoals}</span>
-                <span className="fm-match-live-view__side-name">{getTeamName(matches[liveMatchWatching].awayTeam)}</span>
-              </div>
-            </div>
-            <div className="fm-match-live-view__progress">
-              <div className="fm-match-live-view__progress-track">
-                <div className="fm-match-live-view__progress-fill" style={{ width: `${Math.min(100, (matches[liveMatchWatching].liveMinute / 90) * 100)}%` }} />
-              </div>
-              <span className="fm-match-live-view__progress-label">{fmtMinute(matches[liveMatchWatching].liveMinute)}' / {fmtMinute(90 + (matches[liveMatchWatching].liveMatchState?.addedTime ?? 0))}'</span>
-            </div>
-            {(() => {
-              const m = matches[liveMatchWatching];
-              const atHT = m.liveMinute >= 45 && m.liveMinute < 90 && !halfTimeResumed;
-              if (!atHT) return null;
-              return (
-                <div className="fm-halftime">
-                  <span className="fm-halftime__label">Intervalo · {m.homeGoals} - {m.awayGoals}</span>
-                  <p className="fm-halftime__hint">Ajuste os gritos e as substituições antes de recomeçar.</p>
-                  <Button onClick={() => setHalfTime(true)}><PlayCircle size={16} /> Iniciar 2º tempo</Button>
-                </div>
-              );
-            })()}
-            {(() => {
-              const m = matches[liveMatchWatching];
-              const userTeam = teams.find(t => t.id === selectedTeam);
-              if (!userTeam || (m.homeTeam !== selectedTeam && m.awayTeam !== selectedTeam)) return null;
-              const isHome = m.homeTeam === selectedTeam;
-              const sentOff = (isHome ? m.liveMatchState?.sentOff?.home : m.liveMatchState?.sentOff?.away) ?? [];
-              return (
-                <LiveControls
-                  team={userTeam}
-                  subs={isHome ? m.homeSubstitutions : m.awaySubstitutions}
-                  sentOff={sentOff}
-                  onSub={(outId, inId) => substitutePlayer(liveMatchWatching, outId, inId)}
-                  onShout={(s) => applyShout(liveMatchWatching, s)}
-                />
-              );
-            })()}
-            {(() => {
-              const lm = matches[liveMatchWatching];
-              const home = teams.find(t => t.id === lm.homeTeam);
-              const away = teams.find(t => t.id === lm.awayTeam);
-              if (!home || !away) return null;
-              return (
-                <MatchPitch2D
-                  homeTeam={home}
-                  awayTeam={away}
-                  homeGoals={lm.homeGoals}
-                  awayGoals={lm.awayGoals}
-                  minute={lm.liveMinute}
-                  possession={lm.liveStats?.homePossession ?? 50}
-                  events={lm.liveEvents ?? []}
-                  isLive={true}
-                  ballPos={lm.liveMatchState?.ballPos}
-                  ballPosY={lm.liveMatchState?.ballPosY}
-                  ballHolderId={lm.liveMatchState?.ballHolderId}
-                  possessionSide={lm.liveMatchState?.possession}
-                  speed={matchSpeed}
-                />
-              );
-            })()}
-            {matches[liveMatchWatching].liveActions && matches[liveMatchWatching].liveActions.length > 0 && (
-              <div className="fm-match-live-view__actions">
-                <h3>Lances da Partida</h3>
-                <div className="fm-match-actions-list">
-                  {matches[liveMatchWatching].liveActions!.slice(-20).reverse().map((action, i) => (
-                    <MatchActionDisplay key={i} action={action} />
-                  ))}
-                </div>
-              </div>
-            )}
-            <CommentaryFeed
-              events={matches[liveMatchWatching].liveEvents ?? []}
-              homeName={getTeamName(matches[liveMatchWatching].homeTeam)}
-              awayName={getTeamName(matches[liveMatchWatching].awayTeam)}
-              live
-            />
-            {matches[liveMatchWatching].liveStats && (
-              <MatchStatsDisplay
-                stats={matches[liveMatchWatching].liveStats!}
-                homeTeamName={getTeamName(matches[liveMatchWatching].homeTeam)}
-                awayTeamName={getTeamName(matches[liveMatchWatching].awayTeam)}
-              />
-            )}
-            <LiveDataHub
-              stats={matches[liveMatchWatching].liveStats}
-              events={matches[liveMatchWatching].liveEvents ?? []}
-              isLive={true}
-              minute={matches[liveMatchWatching].liveMinute}
-            />
-            {(() => {
-              const lm = matches[liveMatchWatching];
-              const strH = teamStrength(teams.find(t => t.id === lm.homeTeam));
-              const strA = teamStrength(teams.find(t => t.id === lm.awayTeam));
-              const goals = goalsFromMatch(lm, true);
-              const points = buildMomentum(goals, strH, strA, Math.max(1, lm.liveMinute));
-              return (
-                <MomentumChart
-                  live
-                  homeName={getTeamName(lm.homeTeam)}
-                  awayName={getTeamName(lm.awayTeam)}
-                  points={points}
-                  goals={goals}
-                />
-              );
-            })()}
-          </div>
-        </div>
-      )}
+      {/* Fullscreen classic match view — opened via "Ver partida" */}
+      {fullscreenOpen && liveMatchWatching !== null && matches[liveMatchWatching]?.isLive && (() => {
+        const lm = matches[liveMatchWatching];
+        const home = teams.find(t => t.id === lm.homeTeam);
+        const away = teams.find(t => t.id === lm.awayTeam);
+        if (!home || !away) return null;
+        const userTeam = teams.find(t => t.id === selectedTeam) ?? null;
+        return (
+          <MatchLiveView
+            match={lm}
+            homeTeam={home}
+            awayTeam={away}
+            userTeam={userTeam}
+            matchSpeed={matchSpeed}
+            halfTimeResumed={halfTimeResumed}
+            onClose={() => setFullscreenOpen(false)}
+            onSetSpeed={setMatchSpeed}
+            onResumeSecondHalf={() => setHalfTime(true)}
+            onSub={(outId, inId) => substitutePlayer(liveMatchWatching, outId, inId)}
+            onShout={(s) => applyShout(liveMatchWatching, s)}
+            onFinish={() => {
+              finishMatch(liveMatchWatching);
+              setLiveMatchWatching(null);
+              setFullscreenOpen(false);
+            }}
+          />
+        );
+      })()}
 
       {selectedMatchIndex !== null && matches[selectedMatchIndex]?.completed && (
         <div className="fm-match-details-modal">
@@ -671,16 +495,20 @@ export const MatchCenter: React.FC = () => {
               const away = teams.find(t => t.id === dm.awayTeam);
               if (!home || !away) return null;
               return (
-                <MatchPitch2D
-                  homeTeam={home}
-                  awayTeam={away}
-                  homeGoals={dm.homeGoals}
-                  awayGoals={dm.awayGoals}
-                  minute={90}
-                  possession={dm.stats?.homePossession ?? 50}
-                  events={dm.events ?? []}
-                  isLive={false}
-                />
+                <div className="fm-match-details-modal__pitch">
+                  <MatchPitch2D
+                    homeTeam={home}
+                    awayTeam={away}
+                    homeGoals={dm.homeGoals}
+                    awayGoals={dm.awayGoals}
+                    minute={90}
+                    possession={dm.stats?.homePossession ?? 50}
+                    events={dm.events ?? []}
+                    isLive={false}
+                    variant="classic"
+                    showTacticalLines={false}
+                  />
+                </div>
               );
             })()}
             {matches[selectedMatchIndex].events && matches[selectedMatchIndex].events!.length > 0 && (
@@ -717,8 +545,7 @@ export const MatchCenter: React.FC = () => {
                 />
               );
             })()}
-            {/* Player Ratings (Tarefa 2.2) */}
-            {matches[selectedMatchIndex].playerRatings && matches[selectedMatchIndex].playerRatings.length > 0 && (
+            {matches[selectedMatchIndex].playerRatings && matches[selectedMatchIndex].playerRatings!.length > 0 && (
               <PlayerRatingsDisplay
                 ratings={matches[selectedMatchIndex].playerRatings!}
                 bestPlayerId={matches[selectedMatchIndex].bestPlayer}

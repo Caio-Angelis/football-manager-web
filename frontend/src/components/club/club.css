@@ -1,0 +1,263 @@
+/* Visão do Clube — scoped under .fmc-view inside .fms-page */
+
+.fmc-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 20px;
+  flex: 1;
+  min-height: 0;
+}
+
+.fmc-identity {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+}
+
+.fmc-identity__crest {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fmc-identity__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.fmc-identity__name {
+  margin: 0;
+  font-family: 'Oswald', 'Inter', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: var(--t-text);
+  line-height: 1.15;
+}
+
+.fmc-identity__meta {
+  margin: 0;
+  font-size: 12px;
+  color: var(--t-text-2);
+}
+
+.fmc-identity__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.fmc-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.fmc-panel {
+  background: var(--t-panel);
+  border: 1px solid var(--t-border);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.fmc-panel--wide {
+  grid-column: 1 / -1;
+}
+
+.fmc-section-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.fmc-section-title__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--t-panel-2);
+  color: var(--t-text-2);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.fmc-section-title h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--t-text);
+  line-height: 1.3;
+}
+
+.fmc-section-title p {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: var(--t-text-3);
+  line-height: 1.35;
+}
+
+.fmc-stat-grid {
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+
+.fmc-level-stat .fms-bar {
+  margin-top: 2px;
+}
+
+.fmc-mood-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fmc-mood-row__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.fmc-mood-row__label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--t-text-3);
+}
+
+.fmc-mood-row__value {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.fmc-form {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--t-border);
+}
+
+.fmc-form__label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--t-text-3);
+}
+
+.fmc-form__badges {
+  display: flex;
+  gap: 6px;
+}
+
+.fmc-form__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.fmc-form__score {
+  font-size: 12px;
+  color: var(--t-text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.fmc-form__empty,
+.fmc-promises__empty {
+  margin: 0;
+  font-size: 12px;
+  color: var(--t-text-2);
+}
+
+.fmc-promises {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fmc-promise {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--t-panel-2);
+  border: 1px solid var(--t-border);
+  border-radius: 8px;
+}
+
+.fmc-promise--done {
+  opacity: 0.72;
+}
+
+.fmc-promise__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.fmc-promise__goal {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--t-text);
+}
+
+@media (max-width: 900px) {
+  .fmc-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .fmc-panel--wide {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .fmc-view {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .fmc-identity {
+    align-items: flex-start;
+    padding: 14px;
+  }
+
+  .fmc-identity__name {
+    font-size: 18px;
+  }
+
+  .fmc-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fmc-promise {
+    flex-wrap: wrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fmc-view * {
+    transition: none !important;
+  }
+}

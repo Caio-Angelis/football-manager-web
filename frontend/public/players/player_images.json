@@ -1,0 +1,962 @@
+{
+  "atletico_mineiro/Everson": {
+    "file": "everson.svg",
+    "source": "fallback"
+  },
+  "atletico_mineiro/Gustavo Scarpa": {
+    "file": "gustavo_scarpa.svg",
+    "source": "fallback"
+  },
+  "atletico_mineiro/Natanael": {
+    "file": "natanael.svg",
+    "source": "fallback"
+  },
+  "atletico_mineiro/Hulk": {
+    "file": "hulk.svg",
+    "source": "fallback"
+  },
+  "atletico_mineiro/Junior Alonso": {
+    "file": "junior_alonso.svg",
+    "source": "fallback"
+  },
+  "atletico_mineiro/Rony": {
+    "file": "rony.svg",
+    "source": "fallback"
+  },
+  "atletico_mineiro/Igor Gomes": {
+    "file": "igor_gomes.svg",
+    "source": "fallback"
+  },
+  "atletico_mineiro/Alan Franco": {
+    "file": "alan_franco.svg",
+    "source": "fallback"
+  },
+  "atletico_mineiro/Bernard": {
+    "file": "bernard.svg",
+    "source": "fallback"
+  },
+  "atletico_mineiro/Guilherme Arana": {
+    "file": "guilherme_arana.svg",
+    "source": "fallback"
+  },
+  "atletico_mineiro/Gabriel Menino": {
+    "file": "gabriel_menino.svg",
+    "source": "fallback"
+  },
+  "atletico_mineiro/Lyanco": {
+    "file": "lyanco.svg",
+    "source": "fallback"
+  },
+  "atletico_mineiro/Tomás Cuello": {
+    "file": "tomás_cuello.svg",
+    "source": "fallback"
+  },
+  "atletico_mineiro/Caio": {
+    "file": "caio.svg",
+    "source": "fallback"
+  },
+  "atletico_mineiro/Vitor Hugo": {
+    "file": "vitor_hugo.svg",
+    "source": "fallback"
+  },
+  "atletico_mineiro/Saravia": {
+    "file": "saravia.svg",
+    "source": "fallback"
+  },
+  "atletico_mineiro/Rubens": {
+    "file": "rubens.svg",
+    "source": "fallback"
+  },
+  "atletico_mineiro/Alexsander": {
+    "file": "alexsander.svg",
+    "source": "fallback"
+  },
+  "atletico_mineiro/Júnior Santos": {
+    "file": "júnior_santos.svg",
+    "source": "fallback"
+  },
+  "atletico_mineiro/Dudu": {
+    "file": "dudu.svg",
+    "source": "fallback"
+  },
+  "bahia/Ronaldo": {
+    "file": "ronaldo.svg",
+    "source": "fallback"
+  },
+  "bahia/Gilberto": {
+    "file": "gilberto.svg",
+    "source": "fallback"
+  },
+  "bahia/David Duarte": {
+    "file": "david_duarte.svg",
+    "source": "fallback"
+  },
+  "bahia/Ramos Mingo": {
+    "file": "ramos_mingo.svg",
+    "source": "fallback"
+  },
+  "bahia/Luciano Juba": {
+    "file": "luciano_juba.svg",
+    "source": "fallback"
+  },
+  "bahia/Acevedo": {
+    "file": "acevedo.svg",
+    "source": "fallback"
+  },
+  "bahia/Jean Lucas": {
+    "file": "jean_lucas.svg",
+    "source": "fallback"
+  },
+  "bahia/Everton Ribeiro": {
+    "file": "everton_ribeiro.svg",
+    "source": "fallback"
+  },
+  "bahia/Ademir": {
+    "file": "ademir.svg",
+    "source": "fallback"
+  },
+  "bahia/Pulga": {
+    "file": "pulga.svg",
+    "source": "fallback"
+  },
+  "bahia/Willian José": {
+    "file": "willian_josé.svg",
+    "source": "fallback"
+  },
+  "bahia/Cauly": {
+    "file": "cauly.svg",
+    "source": "fallback"
+  },
+  "bahia/Estupiñán": {
+    "file": "estupiñán.svg",
+    "source": "fallback"
+  },
+  "bahia/Luciano Rodríguez": {
+    "file": "luciano_rodríguez.svg",
+    "source": "fallback"
+  },
+  "bahia/Caio Alexandre": {
+    "file": "caio_alexandre.svg",
+    "source": "fallback"
+  },
+  "bahia/Everaldo": {
+    "file": "everaldo.svg",
+    "source": "fallback"
+  },
+  "bahia/Vitor Hugo": {
+    "file": "vitor_hugo.svg",
+    "source": "fallback"
+  },
+  "bahia/Nestor": {
+    "file": "nestor.svg",
+    "source": "fallback"
+  },
+  "bahia/Marcos Felipe": {
+    "file": "marcos_felipe.svg",
+    "source": "fallback"
+  },
+  "bahia/Rafael Ramos": {
+    "file": "rafael_ramos.svg",
+    "source": "fallback"
+  },
+  "botafogo/John Victor": {
+    "file": "john_victor.svg",
+    "source": "fallback"
+  },
+  "botafogo/Gregore": {
+    "file": "gregore.svg",
+    "source": "fallback"
+  },
+  "botafogo/Igor Jesus": {
+    "file": "igor_jesus.svg",
+    "source": "fallback"
+  },
+  "botafogo/Marlon Freitas": {
+    "file": "marlon_freitas.svg",
+    "source": "fallback"
+  },
+  "botafogo/Vitinho": {
+    "file": "vitinho.svg",
+    "source": "fallback"
+  },
+  "botafogo/Alex Telles": {
+    "file": "alex_telles.svg",
+    "source": "fallback"
+  },
+  "botafogo/Jair": {
+    "file": "jair.svg",
+    "source": "fallback"
+  },
+  "botafogo/Savarino": {
+    "file": "savarino.svg",
+    "source": "fallback"
+  },
+  "botafogo/Alexander Barboza": {
+    "file": "alexander_barboza.svg",
+    "source": "fallback"
+  },
+  "botafogo/Patrick de Paula": {
+    "file": "patrick_de_paula.svg",
+    "source": "fallback"
+  },
+  "botafogo/Cuiabano": {
+    "file": "cuiabano.svg",
+    "source": "fallback"
+  },
+  "botafogo/Newton": {
+    "file": "newton.svg",
+    "source": "fallback"
+  },
+  "botafogo/Mateo Ponte": {
+    "file": "mateo_ponte.svg",
+    "source": "fallback"
+  },
+  "botafogo/Serafim": {
+    "file": "serafim.svg",
+    "source": "fallback"
+  },
+  "botafogo/Artur": {
+    "file": "artur.svg",
+    "source": "fallback"
+  },
+  "botafogo/Rwan Cruz": {
+    "file": "rwan_cruz.svg",
+    "source": "fallback"
+  },
+  "botafogo/David Ricardo": {
+    "file": "david_ricardo.svg",
+    "source": "fallback"
+  },
+  "botafogo/Kayke": {
+    "file": "kayke.svg",
+    "source": "fallback"
+  },
+  "botafogo/Danilo Santos": {
+    "file": "danilo_santos.svg",
+    "source": "fallback"
+  },
+  "botafogo/Bastos": {
+    "file": "bastos.svg",
+    "source": "fallback"
+  },
+  "ceara/Fernando Miguel": {
+    "file": "fernando_miguel.svg",
+    "source": "fallback"
+  },
+  "ceara/Bruno Ferreira": {
+    "file": "bruno_ferreira.svg",
+    "source": "fallback"
+  },
+  "ceara/Antonio Galeano": {
+    "file": "antonio_galeano.svg",
+    "source": "fallback"
+  },
+  "ceara/Lourenço": {
+    "file": "lourenço.svg",
+    "source": "fallback"
+  },
+  "ceara/Willian Machado": {
+    "file": "willian_machado.svg",
+    "source": "fallback"
+  },
+  "ceara/Lucas Mugni": {
+    "file": "lucas_mugni.svg",
+    "source": "fallback"
+  },
+  "ceara/Dieguinho": {
+    "file": "dieguinho.svg",
+    "source": "fallback"
+  },
+  "ceara/Fernando Sobral": {
+    "file": "fernando_sobral.svg",
+    "source": "fallback"
+  },
+  "ceara/Fabiano Souza": {
+    "file": "fabiano_souza.svg",
+    "source": "fallback"
+  },
+  "ceara/Pedro Raul": {
+    "file": "pedro_raul.svg",
+    "source": "fallback"
+  },
+  "ceara/Pedro Henrique": {
+    "file": "pedro_henrique.svg",
+    "source": "fallback"
+  },
+  "ceara/Aylon": {
+    "file": "aylon.svg",
+    "source": "fallback"
+  },
+  "ceara/Fernandinho": {
+    "file": "fernandinho.svg",
+    "source": "fallback"
+  },
+  "ceara/Matheus Bahia": {
+    "file": "matheus_bahia.svg",
+    "source": "fallback"
+  },
+  "ceara/Marllon": {
+    "file": "marllon.svg",
+    "source": "fallback"
+  },
+  "ceara/Nicolas": {
+    "file": "nicolas.svg",
+    "source": "fallback"
+  },
+  "ceara/Rafael Ramos": {
+    "file": "rafael_ramos.svg",
+    "source": "fallback"
+  },
+  "ceara/Matheus Araújo": {
+    "file": "matheus_araújo.svg",
+    "source": "fallback"
+  },
+  "ceara/Vinicius": {
+    "file": "vinicius.svg",
+    "source": "fallback"
+  },
+  "ceara/Richard": {
+    "file": "richard.svg",
+    "source": "fallback"
+  },
+  "corinthians/Hugo Souza": {
+    "file": "hugo_souza.svg",
+    "source": "fallback"
+  },
+  "corinthians/Yuri Alberto": {
+    "file": "yuri_alberto.svg",
+    "source": "fallback"
+  },
+  "corinthians/Matheuzinho": {
+    "file": "matheuzinho.svg",
+    "source": "fallback"
+  },
+  "corinthians/Breno Bidon": {
+    "file": "breno_bidon.svg",
+    "source": "fallback"
+  },
+  "corinthians/Romero": {
+    "file": "romero.svg",
+    "source": "fallback"
+  },
+  "corinthians/André Carrillo": {
+    "file": "andré_carrillo.svg",
+    "source": "fallback"
+  },
+  "corinthians/Raniele": {
+    "file": "raniele.svg",
+    "source": "fallback"
+  },
+  "corinthians/José Martínez": {
+    "file": "josé_martínez.svg",
+    "source": "fallback"
+  },
+  "corinthians/Memphis Depay": {
+    "file": "memphis_depay.svg",
+    "source": "fallback"
+  },
+  "corinthians/Matheus Bidu": {
+    "file": "matheus_bidu.svg",
+    "source": "fallback"
+  },
+  "corinthians/Talles Magno": {
+    "file": "talles_magno.svg",
+    "source": "fallback"
+  },
+  "corinthians/André Ramalho": {
+    "file": "andré_ramalho.svg",
+    "source": "fallback"
+  },
+  "corinthians/Maycon": {
+    "file": "maycon.svg",
+    "source": "fallback"
+  },
+  "corinthians/Fabrizio Angileri": {
+    "file": "fabrizio_angileri.svg",
+    "source": "fallback"
+  },
+  "corinthians/Gustavo Henrique": {
+    "file": "gustavo_henrique.svg",
+    "source": "fallback"
+  },
+  "corinthians/Rodrigo Garro": {
+    "file": "rodrigo_garro.svg",
+    "source": "fallback"
+  },
+  "corinthians/Charles": {
+    "file": "charles.svg",
+    "source": "fallback"
+  },
+  "corinthians/Cacá": {
+    "file": "cacá.svg",
+    "source": "fallback"
+  },
+  "corinthians/João Pedro": {
+    "file": "joão_pedro.svg",
+    "source": "fallback"
+  },
+  "corinthians/Félix Torres": {
+    "file": "félix_torres.svg",
+    "source": "fallback"
+  },
+  "cruzeiro/Cássio": {
+    "file": "cássio.svg",
+    "source": "fallback"
+  },
+  "cruzeiro/Lucas Romero": {
+    "file": "lucas_romero.svg",
+    "source": "fallback"
+  },
+  "cruzeiro/Fabrício Bruno": {
+    "file": "fabrício_bruno.svg",
+    "source": "fallback"
+  },
+  "cruzeiro/Kaiki": {
+    "file": "kaiki.svg",
+    "source": "fallback"
+  },
+  "cruzeiro/William": {
+    "file": "william.svg",
+    "source": "fallback"
+  },
+  "cruzeiro/Lucas Silva": {
+    "file": "lucas_silva.svg",
+    "source": "fallback"
+  },
+  "cruzeiro/Walace": {
+    "file": "walace.svg",
+    "source": "fallback"
+  },
+  "cruzeiro/Matheus Pereira": {
+    "file": "matheus_pereira.svg",
+    "source": "fallback"
+  },
+  "cruzeiro/Eduardo": {
+    "file": "eduardo.svg",
+    "source": "fallback"
+  },
+  "cruzeiro/Kaio Jorge": {
+    "file": "kaio_jorge.svg",
+    "source": "fallback"
+  },
+  "cruzeiro/Gabigol": {
+    "file": "gabigol.svg",
+    "source": "fallback"
+  },
+  "cruzeiro/Dante": {
+    "file": "dante.svg",
+    "source": "fallback"
+  },
+  "cruzeiro/Marlon": {
+    "file": "marlon.svg",
+    "source": "fallback"
+  },
+  "cruzeiro/Fernando Henrique": {
+    "file": "fernando_henrique.svg",
+    "source": "fallback"
+  },
+  "cruzeiro/Lucas Villalba": {
+    "file": "lucas_villalba.svg",
+    "source": "fallback"
+  },
+  "cruzeiro/Araújo": {
+    "file": "araújo.svg",
+    "source": "fallback"
+  },
+  "cruzeiro/Giovani": {
+    "file": "giovani.svg",
+    "source": "fallback"
+  },
+  "cruzeiro/Cristian": {
+    "file": "cristian.svg",
+    "source": "fallback"
+  },
+  "cruzeiro/Rafael Cabral": {
+    "file": "rafael_cabral.svg",
+    "source": "fallback"
+  },
+  "cruzeiro/Matheus Pereira II": {
+    "file": "matheus_pereira_ii.svg",
+    "source": "fallback"
+  },
+  "flamengo/Rossi": {
+    "file": "rossi.svg",
+    "source": "fallback"
+  },
+  "flamengo/Léo Pereira": {
+    "file": "léo_pereira.svg",
+    "source": "fallback"
+  },
+  "flamengo/Léo Ortiz": {
+    "file": "léo_ortiz.svg",
+    "source": "fallback"
+  },
+  "flamengo/Wesley": {
+    "file": "wesley.svg",
+    "source": "fallback"
+  },
+  "flamengo/Ayrton Lucas": {
+    "file": "ayrton_lucas.svg",
+    "source": "fallback"
+  },
+  "flamengo/Pulgar": {
+    "file": "pulgar.svg",
+    "source": "fallback"
+  },
+  "flamengo/De La Cruz": {
+    "file": "de_la_cruz.svg",
+    "source": "fallback"
+  },
+  "flamengo/Gerson": {
+    "file": "gerson.svg",
+    "source": "fallback"
+  },
+  "flamengo/Arrascaeta": {
+    "file": "arrascaeta.svg",
+    "source": "fallback"
+  },
+  "flamengo/Pedro": {
+    "file": "pedro.svg",
+    "source": "fallback"
+  },
+  "flamengo/Bruno Henrique": {
+    "file": "bruno_henrique.svg",
+    "source": "fallback"
+  },
+  "flamengo/Léo Pereira II": {
+    "file": "léo_pereira_ii.svg",
+    "source": "fallback"
+  },
+  "flamengo/Pablo": {
+    "file": "pablo.svg",
+    "source": "fallback"
+  },
+  "flamengo/Plata": {
+    "file": "plata.svg",
+    "source": "fallback"
+  },
+  "flamengo/Everton Cebolinha": {
+    "file": "everton_cebolinha.svg",
+    "source": "fallback"
+  },
+  "flamengo/Lyanco": {
+    "file": "lyanco.svg",
+    "source": "fallback"
+  },
+  "flamengo/Thiago Maia": {
+    "file": "thiago_maia.svg",
+    "source": "fallback"
+  },
+  "flamengo/Matheus Cunha": {
+    "file": "matheus_cunha.svg",
+    "source": "fallback"
+  },
+  "flamengo/Filipe Luís": {
+    "file": "filipe_luís.svg",
+    "source": "fallback"
+  },
+  "flamengo/Michael": {
+    "file": "michael.svg",
+    "source": "fallback"
+  },
+  "fluminense/Fábio": {
+    "file": "fábio.svg",
+    "source": "fallback"
+  },
+  "fluminense/Hércules": {
+    "file": "hércules.svg",
+    "source": "fallback"
+  },
+  "fluminense/Kevin Serna": {
+    "file": "kevin_serna.svg",
+    "source": "fallback"
+  },
+  "fluminense/Martinelli": {
+    "file": "martinelli.svg",
+    "source": "fallback"
+  },
+  "fluminense/Juan Freytes": {
+    "file": "juan_freytes.svg",
+    "source": "fallback"
+  },
+  "fluminense/Agustín Canobbio": {
+    "file": "agustín_canobbio.svg",
+    "source": "fallback"
+  },
+  "fluminense/Everaldo": {
+    "file": "everaldo.svg",
+    "source": "fallback"
+  },
+  "fluminense/Samuel Xavier": {
+    "file": "samuel_xavier.svg",
+    "source": "fallback"
+  },
+  "fluminense/Germán Cano": {
+    "file": "germán_cano.svg",
+    "source": "fallback"
+  },
+  "fluminense/Renê": {
+    "file": "renê.svg",
+    "source": "fallback"
+  },
+  "fluminense/Facundo Bernal": {
+    "file": "facundo_bernal.svg",
+    "source": "fallback"
+  },
+  "fluminense/Lima": {
+    "file": "lima.svg",
+    "source": "fallback"
+  },
+  "fluminense/Thiago Silva": {
+    "file": "thiago_silva.svg",
+    "source": "fallback"
+  },
+  "fluminense/Nonato": {
+    "file": "nonato.svg",
+    "source": "fallback"
+  },
+  "fluminense/Ignácio": {
+    "file": "ignácio.svg",
+    "source": "fallback"
+  },
+  "fluminense/Guga": {
+    "file": "guga.svg",
+    "source": "fallback"
+  },
+  "fluminense/Keno": {
+    "file": "keno.svg",
+    "source": "fallback"
+  },
+  "fluminense/Jhon Arias": {
+    "file": "jhon_arias.svg",
+    "source": "fallback"
+  },
+  "fluminense/Gabriel Fuentes": {
+    "file": "gabriel_fuentes.svg",
+    "source": "fallback"
+  },
+  "fluminense/PH Ganso": {
+    "file": "ph_ganso.svg",
+    "source": "fallback"
+  },
+  "fortaleza/João Ricardo": {
+    "file": "joão_ricardo.svg",
+    "source": "fallback"
+  },
+  "fortaleza/Pikachu": {
+    "file": "pikachu.svg",
+    "source": "fallback"
+  },
+  "fortaleza/Breno Lopes": {
+    "file": "breno_lopes.svg",
+    "source": "fallback"
+  },
+  "fortaleza/Lucero": {
+    "file": "lucero.svg",
+    "source": "fallback"
+  },
+  "fortaleza/Mancuso": {
+    "file": "mancuso.svg",
+    "source": "fallback"
+  },
+  "fortaleza/Lucas Sasha": {
+    "file": "lucas_sasha.svg",
+    "source": "fallback"
+  },
+  "fortaleza/Gastón Ávila": {
+    "file": "gastón_ávila.svg",
+    "source": "fallback"
+  },
+  "fortaleza/Brítez": {
+    "file": "brítez.svg",
+    "source": "fallback"
+  },
+  "fortaleza/Deyverson": {
+    "file": "deyverson.svg",
+    "source": "fallback"
+  },
+  "fortaleza/Bareiro": {
+    "file": "bareiro.svg",
+    "source": "fallback"
+  },
+  "fortaleza/Pochettino": {
+    "file": "pochettino.svg",
+    "source": "fallback"
+  },
+  "fortaleza/Marinho": {
+    "file": "marinho.svg",
+    "source": "fallback"
+  },
+  "fortaleza/Bruno Pacheco": {
+    "file": "bruno_pacheco.svg",
+    "source": "fallback"
+  },
+  "fortaleza/Martínez": {
+    "file": "martínez.svg",
+    "source": "fallback"
+  },
+  "fortaleza/Tinga": {
+    "file": "tinga.svg",
+    "source": "fallback"
+  },
+  "fortaleza/Marcelo Benevenuto": {
+    "file": "marcelo_benevenuto.svg",
+    "source": "fallback"
+  },
+  "fortaleza/Thiago Galhardo": {
+    "file": "thiago_galhardo.svg",
+    "source": "fallback"
+  },
+  "fortaleza/Moisés": {
+    "file": "moisés.svg",
+    "source": "fallback"
+  },
+  "fortaleza/Kevyson": {
+    "file": "kevyson.svg",
+    "source": "fallback"
+  },
+  "fortaleza/Edinho": {
+    "file": "edinho.svg",
+    "source": "fallback"
+  },
+  "gremio/Marchesín": {
+    "file": "marchesín.svg",
+    "source": "fallback"
+  },
+  "gremio/Tiago Volpi": {
+    "file": "tiago_volpi.svg",
+    "source": "fallback"
+  },
+  "gremio/Dodi": {
+    "file": "dodi.svg",
+    "source": "fallback"
+  },
+  "gremio/Edenilson": {
+    "file": "edenilson.svg",
+    "source": "fallback"
+  },
+  "gremio/Cristaldo": {
+    "file": "cristaldo.svg",
+    "source": "fallback"
+  },
+  "gremio/Pavón": {
+    "file": "pavón.svg",
+    "source": "fallback"
+  },
+  "gremio/Wagner Leonardo": {
+    "file": "wagner_leonardo.svg",
+    "source": "fallback"
+  },
+  "gremio/Alysson": {
+    "file": "alysson.svg",
+    "source": "fallback"
+  },
+  "gremio/Cristian Olivera": {
+    "file": "cristian_olivera.svg",
+    "source": "fallback"
+  },
+  "gremio/Aravena": {
+    "file": "aravena.svg",
+    "source": "fallback"
+  },
+  "gremio/André Henrique": {
+    "file": "andré_henrique.svg",
+    "source": "fallback"
+  },
+  "gremio/Marlon": {
+    "file": "marlon.svg",
+    "source": "fallback"
+  },
+  "gremio/Braithwaite": {
+    "file": "braithwaite.svg",
+    "source": "fallback"
+  },
+  "gremio/Villasanti": {
+    "file": "villasanti.svg",
+    "source": "fallback"
+  },
+  "gremio/Balbuena": {
+    "file": "balbuena.svg",
+    "source": "fallback"
+  },
+  "gremio/Soteldo": {
+    "file": "soteldo.svg",
+    "source": "fallback"
+  },
+  "gremio/Arezo": {
+    "file": "arezo.svg",
+    "source": "fallback"
+  },
+  "gremio/Jhonata Robert": {
+    "file": "jhonata_robert.svg",
+    "source": "fallback"
+  },
+  "gremio/Rodrigues": {
+    "file": "rodrigues.svg",
+    "source": "fallback"
+  },
+  "gremio/Arthur": {
+    "file": "arthur.svg",
+    "source": "fallback"
+  },
+  "internacional/Rochet": {
+    "file": "rochet.svg",
+    "source": "fallback"
+  },
+  "internacional/Anthoni": {
+    "file": "anthoni.svg",
+    "source": "fallback"
+  },
+  "internacional/Braian Aguirre": {
+    "file": "braian_aguirre.svg",
+    "source": "fallback"
+  },
+  "internacional/Vitão": {
+    "file": "vitão.svg",
+    "source": "fallback"
+  },
+  "internacional/Alexandro Bernabei": {
+    "file": "alexandro_bernabei.svg",
+    "source": "fallback"
+  },
+  "internacional/Alan Patrick": {
+    "file": "alan_patrick.svg",
+    "source": "fallback"
+  },
+  "internacional/Thiago Maia": {
+    "file": "thiago_maia.svg",
+    "source": "fallback"
+  },
+  "internacional/Vitinho": {
+    "file": "vitinho.svg",
+    "source": "fallback"
+  },
+  "internacional/Bruno Henrique": {
+    "file": "bruno_henrique.svg",
+    "source": "fallback"
+  },
+  "internacional/Rafael Borré": {
+    "file": "rafael_borré.svg",
+    "source": "fallback"
+  },
+  "internacional/Wesley": {
+    "file": "wesley.svg",
+    "source": "fallback"
+  },
+  "internacional/Carbonero": {
+    "file": "carbonero.svg",
+    "source": "fallback"
+  },
+  "internacional/Bruno Tabata": {
+    "file": "bruno_tabata.svg",
+    "source": "fallback"
+  },
+  "internacional/Ronaldo": {
+    "file": "ronaldo.svg",
+    "source": "fallback"
+  },
+  "internacional/Victor Gabriel": {
+    "file": "victor_gabriel.svg",
+    "source": "fallback"
+  },
+  "internacional/Valencia": {
+    "file": "valencia.svg",
+    "source": "fallback"
+  },
+  "internacional/Mercado": {
+    "file": "mercado.svg",
+    "source": "fallback"
+  },
+  "internacional/Fernando": {
+    "file": "fernando.svg",
+    "source": "fallback"
+  },
+  "internacional/Bruno Gomes": {
+    "file": "bruno_gomes.svg",
+    "source": "fallback"
+  },
+  "internacional/Rômulo": {
+    "file": "rômulo.svg",
+    "source": "fallback"
+  },
+  "juventude/Gustavo": {
+    "file": "gustavo.svg",
+    "source": "fallback"
+  },
+  "juventude/Jadson": {
+    "file": "jadson.svg",
+    "source": "fallback"
+  },
+  "juventude/Ewerthon": {
+    "file": "ewerthon.svg",
+    "source": "fallback"
+  },
+  "juventude/Batalla": {
+    "file": "batalla.svg",
+    "source": "fallback"
+  },
+  "juventude/Giraldo": {
+    "file": "giraldo.svg",
+    "source": "fallback"
+  },
+  "juventude/Abner": {
+    "file": "abner.svg",
+    "source": "fallback"
+  },
+  "juventude/Mandaca": {
+    "file": "mandaca.svg",
+    "source": "fallback"
+  },
+  "juventude/Ênio": {
+    "file": "ênio.svg",
+    "source": "fallback"
+  },
+  "juventude/Alan Ruschel": {
+    "file": "alan_ruschel.svg",
+    "source": "fallback"
+  },
+  "juventude/Marcos Paulo": {
+    "file": "marcos_paulo.svg",
+    "source": "fallback"
+  },
+  "juventude/Erick Farias": {
+    "file": "erick_farias.svg",
+    "source": "fallback"
+  },
+  "juventude/Felipinho": {
+    "file": "felipinho.svg",
+    "source": "fallback"
+  },
+  "juventude/Taliari": {
+    "file": "taliari.svg",
+    "source": "fallback"
+  },
+  "juventude/Adriano Martins": {
+    "file": "adriano_martins.svg",
+    "source": "fallback"
+  },
+  "juventude/Jean Carlos": {
+    "file": "jean_carlos.svg",
+    "source": "fallback"
+  },
+  "juventude/Giovanny": {
+    "file": "giovanny.svg",
+    "source": "fallback"
+  },
+  "juventude/Wilker Ángel": {
+    "file": "wilker_ángel.svg",
+    "source": "fallback"
+  },
+  "juventude/Gilberto": {
+    "file": "gilberto.svg",
+    "source": "fallback"
+  },
+  "juventude/Nenê": {
+    "file": "nenê.svg",
+    "source": "fallback"
+  },
+  "juventude/Moreschi": {
+    "file": "moreschi.svg",
+    "source": "fallback"
+  }
+}

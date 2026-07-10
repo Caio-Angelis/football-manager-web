@@ -5,6 +5,7 @@ import type { LeagueStandings } from '../../types/game';
 import { useSortable } from '../../hooks/useSortable';
 import { Globe, Users } from 'lucide-react';
 import { PageHeader } from '../ui/PageHeader';
+import { TeamCrest } from '../ui/TeamCrest';
 import { ZoneIcon } from '../ui/ZoneIcon';
 
 type StandingsSortKey = 'position' | 'teamName' | 'played' | 'wins' | 'draws' | 'losses' | 'goalsFor' | 'goalsAgainst' | 'goalDifference' | 'points';
@@ -94,9 +95,12 @@ export const LeagueTable: React.FC<LeagueTableProps> = ({ standings, userTeamId 
                 <tr key={s.teamId} className={isUser ? 'fms-row--user' : ''}>
                   <td className="fms-bold">{s.position}</td>
                   <td>
-                    <span className="fms-bold">{s.teamName}</span>
-                    {isUser && <span className="fms-badge fms-badge--accent" style={{ marginLeft: 8 }}>Seu clube</span>}
-                    {s.isRelegated && <span className="fms-badge fms-badge--red" style={{ marginLeft: 8 }}>Rebaixado</span>}
+                    <span className="fms-flex fms-gap-8" style={{ alignItems: 'center' }}>
+                      <TeamCrest name={s.teamName} size={20} />
+                      <span className="fms-bold">{s.teamName}</span>
+                      {isUser && <span className="fms-badge fms-badge--accent">Seu clube</span>}
+                      {s.isRelegated && <span className="fms-badge fms-badge--red">Rebaixado</span>}
+                    </span>
                   </td>
                   <td className="fms-center">{s.played}</td>
                   <td className="fms-center">{s.wins}</td>

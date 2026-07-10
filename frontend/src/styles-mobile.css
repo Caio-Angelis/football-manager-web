@@ -28,22 +28,28 @@
   .fm-tactics-view,
   .fm-training-view,
   .fm-dynamics-view,
-  .fm-finance-view,
-  .fm-club-view {
+  .fm-finance-view {
     padding: 16px 16px;
   }
 }
 
-/* Mobile: sidebar → bottom navigation */
+/* Mobile: sidebar → bottom navigation
+   Include .fm-shell-fm variants so these rules still apply if import
+   order changes; the authoritative shell overrides live in app-fm.css. */
 @media (max-width: 768px) {
-  .fm-app {
+  .fm-app,
+  .fm-shell-fm {
     flex-direction: column;
     height: 100dvh;
   }
 
-  .fm-sidebar {
+  .fm-sidebar,
+  .fm-sidebar--collapsed,
+  .fm-shell-fm .fm-sidebar,
+  .fm-shell-fm .fm-sidebar--collapsed {
     width: 100%;
     height: auto;
+    max-height: none;
     position: fixed;
     bottom: 0;
     left: 0;
@@ -51,27 +57,35 @@
     top: auto;
     z-index: 1000;
     flex-direction: row;
+    align-items: stretch;
     padding: 0;
     border-right: none;
     border-top: 1px solid var(--color-border);
     box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.3);
     overflow-x: auto;
+    overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
   }
 
-  .fm-sidebar::-webkit-scrollbar {
+  .fm-sidebar::-webkit-scrollbar,
+  .fm-shell-fm .fm-sidebar::-webkit-scrollbar {
     display: none;
   }
 
   .fm-sidebar__header,
   .fm-sidebar__logo,
   .fm-sidebar__season,
-  .fm-sidebar__footer {
+  .fm-sidebar__footer,
+  .fm-shell-fm .fm-sidebar__header,
+  .fm-shell-fm .fm-sidebar__logo,
+  .fm-shell-fm .fm-sidebar__season,
+  .fm-shell-fm .fm-sidebar__footer {
     display: none;
   }
 
-  .fm-sidebar__nav {
+  .fm-sidebar__nav,
+  .fm-shell-fm .fm-sidebar__nav {
     flex-direction: row;
     flex: none;
     padding: 6px 8px;
@@ -79,39 +93,46 @@
     width: 100%;
   }
 
-  .fm-sidebar__item {
+  .fm-sidebar__item,
+  .fm-shell-fm .fm-sidebar__item {
     flex-direction: column;
+    justify-content: center;
+    align-items: center;
     padding: 6px 10px;
     gap: 2px;
     min-width: 60px;
-    border-left: none;
-    border-bottom: 3px solid transparent;
-    border-radius: 0;
+    border: none;
+    border-radius: 8px;
   }
 
-  .fm-sidebar__item--active {
-    border-left: none;
-    border-bottom: 3px solid var(--color-primary);
-    padding-left: 10px;
+  .fm-sidebar__item--active,
+  .fm-shell-fm .fm-sidebar__item--active {
+    border: none;
+    background: rgba(61, 123, 245, 0.14);
+    color: var(--color-primary, #3d7bf5);
   }
 
-  .fm-sidebar__item:hover {
+  .fm-sidebar__item:hover,
+  .fm-shell-fm .fm-sidebar__item:hover {
     transform: none;
   }
 
-  .fm-sidebar__item-label {
+  .fm-sidebar__item-label,
+  .fm-shell-fm .fm-sidebar__item-label {
     display: block;
     font-size: 9px;
     text-align: center;
     line-height: 1.2;
   }
 
-  .fm-sidebar__item-icon {
+  .fm-sidebar__item-icon,
+  .fm-shell-fm .fm-sidebar__item-icon {
     font-size: 16px;
     width: auto;
   }
 
-  .fm-sidebar__badge {
+  .fm-sidebar__badge,
+  .fm-shell-fm .fm-sidebar__badge {
     position: absolute;
     top: 2px;
     right: 6px;
@@ -120,10 +141,17 @@
     min-width: 14px;
   }
 
-  .fm-main {
+  .fm-sidebar__key-hint,
+  .fm-shell-fm .fm-sidebar__key-hint {
+    display: none;
+  }
+
+  .fm-main,
+  .fm-shell-fm .fm-main {
     padding-bottom: 72px; /* space for bottom nav */
     flex: 1;
     width: 100%;
+    min-height: 0;
   }
 
   .fm-squad-view,
@@ -314,8 +342,10 @@
     gap: 8px;
   }
 
-  .fm-training-calendar {
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  .fm-training-calendar__head,
+  .fm-training-row {
+    grid-template-columns: 40px repeat(3, minmax(0, 1fr));
+    gap: 8px;
   }
 }
 
@@ -472,54 +502,6 @@
   }
 }
 
-/* ===== Club View Mobile ===== */
-@media (max-width: 768px) {
-  .fm-club-view {
-    padding: 16px 12px;
-  }
-
-  .fm-club-view__info {
-    padding: 16px;
-  }
-
-  .fm-club-view__info h2 {
-    font-size: 18px;
-  }
-
-  .fm-club-view__grid {
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    gap: 8px;
-  }
-
-  .fm-club-view__stat {
-    padding: 10px 12px;
-  }
-
-  .fm-club-view__stat-value {
-    font-size: 14px;
-  }
-
-  .fm-club-view__stat-label {
-    font-size: 10px;
-  }
-
-  .fm-club-view__form-badges {
-    flex-wrap: wrap;
-    gap: 4px;
-  }
-
-  .fm-club-view__promise {
-    flex-direction: column;
-    gap: 4px;
-  }
-}
-
-@media (max-width: 480px) {
-  .fm-club-view__grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
 /* ===== Landing Page Mobile ===== */
 @media (max-width: 768px) {
   .fm-landing__topbar {
@@ -607,8 +589,7 @@
   .fm-training-view,
   .fm-dynamics-view,
   .fm-finance-view,
-  .fm-inbox-view,
-  .fm-club-view {
+  .fm-inbox-view {
     padding: 12px;
     -webkit-overflow-scrolling: touch;
   }

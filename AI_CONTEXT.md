@@ -8,6 +8,48 @@
 
 **Progresso estimado:** ~99% da especificação single-player completa (ver `IMPLMENTATION_CHECKLIST.md`). Fluxos completos documentados em `docs/fluxo.md`. Database real de 20 clubes do Brasileirão integrada (ver `DataBase jogadores/`). Sistema multi-temporada (até 3), IA adversária ativa, dinâmica de moral semanal e relatórios pós-jogo implementados. **Modo online multiplayer** (draft de clubes, salas com código, ready-check por rodada, negociações humano×humano) implementado (ver `PlanoOnline.md`).
 
+## Atualização recente — Match Live Fullscreen / FM clássico 2D (2026-07-09)
+
+- **UX:** a partida ao vivo não embute mais o pitch no scroll do Centro. Botão **"Ver partida"** (e "Iniciar Partida") abre overlay fullscreen `MatchLiveView`.
+- **Campo:** `MatchPitch2D` ganhou `variant="classic"` — vertical (casa ataca para cima), discos flat, bola amarela, apron/arquibancada; `variant="board"` mantém o horizontal antigo.
+- **HUD:** placar overlay (escudos + relógio/acréscimos), comentário flutuante, barra inferior com formação/mentalidade, strip do XI (fitness + rating provisório), gritos/subs em painéis, intervalo modal, velocidade 1x/2x/4x, Esc fecha.
+- **Sim:** `liveMatchWatching` continua o timer em background; `fullscreenOpen` controla só a UI. Stats/momentum/feed longo ficam no Centro / modal de detalhes.
+- Arquivos: `frontend/src/components/match/MatchLiveView.tsx`, `MatchLiveView.css`, `MatchPitch2D.tsx`, `MatchPitch2D.css`, `MatchCenter.tsx`, `MatchCenter.css`.
+
+## Atualização recente — Dashboard motion / impeccable animate (2026-07-09)
+
+- **Hero moment:** gauges de saúde do elenco desenham o arco (`stroke-dashoffset`) com stagger.
+- **Barras:** atmosfera / lesão / força usam `scaleX` + `--fill` (não animam `width`).
+- **Entrada:** cards, stats do hero, quick actions e performers com micro-stagger (transform only; conteúdo sempre visível).
+- **Feedback:** press scale nos botões; pulse curto no badge de inbox; `prefers-reduced-motion` desliga tudo.
+- Arquivos: `frontend/src/components/dashboard/Dashboard.tsx`, `Dashboard.css`.
+
+## Atualização recente — Sidebar polish / impeccable (2026-07-09)
+
+- **Ativo sem side-stripe:** item ativo usa tint Pitch Blue + borda 1px completa (ban do DESIGN.md / detector). Mobile bottom-nav idem (sem `border-bottom: 3px`).
+- **Hierarquia:** logo "FM WEB" em Oswald uppercase/ink (não accent); temporada em label 10px; nav body 12px; atalhos numéricos viraram hint tipográfico (não chip/badge).
+- **A11y:** `aria-label` no nav/toggle, `aria-expanded`, focus-visible, badge de inbox com label, `prefers-reduced-motion`.
+- Arquivos: `frontend/src/app-fm.css`, `frontend/src/App.tsx`, `frontend/src/styles-mobile.css`.
+
+## Atualização recente — Brand assets / escudos (2026-07-09)
+
+- **Logo FM Web:** asset raster em `frontend/public/brand/fm-web-logo.png` (favicon + apple-touch). Componente `Logo.tsx` deixou o SVG genérico e passa a usar a imagem.
+- **Escudos:** 20 badges em `frontend/public/badges/` com fundo preto removido (script `scripts/clean_badges.py`). `TeamCrest` já mapeava via `getTeamBadge`.
+- **UI:** `SaveSlot`, `LeagueTable` e mini-tabela do `Dashboard` passam a renderizar `TeamCrest` (antes ícone Shield / só texto). Empty state da seleção de clube usa `/brand/empty-clubs.png`.
+
+## Atualização recente — Mercado Bidirecional / Transfer Requests (2026-07-09)
+
+- **Ofertas da IA inteligentes:** `maybeGenerateIncomingTransfer` deixou o sorteio de 35%. `detectPositionalCrises` rastreia titulares lesionados (14/30/60+ dias) e profundidade fraca; clubes elite fazem propostas agressivas (premium) por reservas/altos CA do usuário.
+- **Pedidos de transferência:** `processTransferRequests` (após moral semanal) — moral < 28, promessas quebradas ou titular no banco insatisfeito pedem saída (Excess + desconto 15–35%). Cascata social em `teamMates`/grupo enquanto não vender; recusar oferta agrava o vestiário.
+- Campo opcional `Player.transferRequest`. UI: badge "Saída"/"Pediu saída" no elenco, dinâmica e ofertas. Testes: `transferMarketLive.test.ts`.
+
+## Atualização recente — Pacing de Treino / Curva de Idade (2026-07-09)
+
+- **Ganho base** reduzido de 0.2–1.0 para **0.05–0.25** por sessão (`baseTrainingGain` em `helpers/training.ts`).
+- **Multiplicador de idade definitivo** (`ageTrainingMultiplier`) aplica-se a atributos e CA: Sub-21 ×2.0; auge 22–28 ×0.45; 29–30 ×0.2; 31+ ×0.1.
+- **Declínio mensal 31+** (`applyMonthlyAgeDecline`): a cada 4 semanas, −0.1..0.3 em speed/stamina (e leve CA) se o foco semanal não for `medical`/`recovery`. Integrado em `advanceWeek` e `headless_sim`.
+- Docs: `docs/regras/regra-treino.md`, seção Ritmo de Evolução em `projeto.md`. Testes: `trainingPacing.test.ts`.
+
 ## Atualização recente — Motor de Partida v2 Fase 11 — Balanceamento (2026-07-09)
 
 - **Invariantes validados no v2:**
@@ -612,8 +654,8 @@ freeAgents (Player[]) — jogadores sem clube após expiração de contrato
 | League | `league.ts` | `calculateLeagueStandings` (**usa campos cumulativos do Team**, não array de partidas) |
 | Inbox | `inbox.ts` | `generateInboxMessage` |
 | Injury | `injury.ts` | `calculatePlayerInjuryRisk` (retorna 0 se já lesionado), `getRiskLevel`, `generateInjuryForPlayer` (centralizada: severity roll baseado em risk+proneness, age/fitness penalties, staff/facilities care reduction, injury type, injuryHistory, degradedCondition, fitness drop), `healInjuryForPlayer` (cura semanal: base 7 dias + staff/facilities bonus, age penalty, severity penalty no início), `applyFatigueDecayToPlayer` (recuperação semanal: fitness +5, load -5, consecutive -1, clear recoveryNeeded), `updateDegradedConditionForPlayer`, `reduceInjuryFromRecoveryTraining`, `INJURY_TYPE_LABELS` |
-| Training | `training.ts` | `applyTrainingToPlayer`, `captureSnapshot`, `updatePlayerAttributes` (recalcula CA com curva de idade: <21 ×1.5, 21-23 ×1.2, 24-27 ×0.8, 28-30 ×0.4, 31+ ×0.1; **respeita PA ceiling**: `min(potentialAbility, 200, ...)`; **usa `generateInjuryForPlayer` centralizada** para lesões em treino físico; **usa `reduceInjuryFromRecoveryTraining`** para sessões médico/recuperação; aceita `facilitiesLevel` e `staffLevel` como params) |
-| Transfer | `transfer.ts` | `maybeGenerateIncomingTransfer`, `recalcWageBill`, `reputationGapImpact` (calcula impacto do gap reputação jogador-vs-clube: willingnessAdjust, salaryMultiplier, refuseChance) |
+| Training | `training.ts` | `baseTrainingGain` (0.05–0.25), `ageTrainingMultiplier` (Sub-21 ×2 / auge ×0.45 / 31+ ×0.1), `applyMonthlyAgeDecline` (31+ −0.1..0.3 físicos/mês sem médico), `updatePlayerAttributes` (ganho × idade em atributos+CA; **respeita PA ceiling**; lesão via `generateInjuryForPlayer`; recuperação via `reduceInjuryFromRecoveryTraining`) |
+| Transfer | `transfer.ts` | `detectPositionalCrises`, `maybeGenerateIncomingTransfer` (ofertas por necessidade/crise, não 35% fixo), `processTransferRequests` (pedidos de saída + cascata), `recalcWageBill`, `reputationGapImpact` |
 | Scouting | `scouting.ts` | `maskAttributeValue`, `maskPlayerAttributes`, `getBestScout`, `generateDefaultScouts`, `processScoutMissions`, `generateScoutReportForMission`, `calculateScoutGrade` |
 | AI Manager | `aiManager.ts` | `processAIWeeklyDecisions` — orquestra `processAITransfers` (janelas 1-12 e 20-26, AI-vs-AI; **usa `reputationGapImpact`** para vontade do jogador, salário e recusa categórica), `processAITactics` (ajustes a cada 4 semanas: rebaixamento 50/30/20 attacking/balanced/defensive, título 40% attacking em boa forma, mid-table 50% defensive após derrotas; demissão de técnico com nova formação), `processAIContracts` (renovação automática), `processAIReleaseClauses` (ativa cláusulas de rescisão; **usa `reputationGapImpact`**), `processAIFreeAgentSignings` (IA assina agentes livres sem taxa, priorizando posição mais fraca; **usa `reputationGapImpact`**) |
 | Morale Dynamics | `moraleDynamics.ts` | `applyWeeklyMoraleDynamics` — 6 motores: promessas expiradas, tempo de jogo vs. status, forma do time, cascata do capitão, cascata de grupo social, regressão à média |
@@ -802,13 +844,13 @@ freeAgents (Player[]) — jogadores sem clube após expiração de contrato
 - `/caixa-de-entrada` — InboxView
 - `/imprensa` — PressCenter
 - `/financas` — FinanceView
-- `/clube` — ClubView (inline)
+- `/clube` — ClubView (`components/club/ClubView.tsx` + `club.css`, lazy)
 
 **`NAV_ITEMS`** define as 12 telas da sidebar com path, label e **ícone lucide** (`icon: NavIcon` componente, não mais emoji). Atalhos numéricos 1-9, 0 mapeados por `key`.
 
 **Lazy loading:** Todas as páginas (exceto `TeamSelection`, `OnlineHome`, `RoomView`) são carregadas via `React.lazy()` + `Suspense` com fallback de loading.
 
-**Shell dark Football Manager (`app-fm.css`, escopado em `.fm-shell-fm`):** classe `fm-shell-fm` é adicionada ao `.fm-app` quando há time selecionado. Aplica tema dark (fundo com glow verde, sidebar/actionbar dark) por cima do tema legado claro/escuro (importado por último em `main.tsx`). Paleta espelha `tactics-fm.css` (verde de acento `#3fbf6b`, azul `#3d7bf5`).
+**Shell dark Football Manager (`app-fm.css`, escopado em `.fm-shell-fm`):** classe `fm-shell-fm` é adicionada ao `.fm-app` quando há time selecionado. Aplica tema dark (fundo com glow azul, sidebar/actionbar dark) por cima do tema legado claro/escuro (importado por último em `main.tsx`). Paleta espelha `tactics-fm.css` (verde de status `#3fbf6b`, azul `#3d7bf5`). Em `≤768px` o shell redefine a sidebar como bottom nav full-width (header/logo/season/footer ocultos, itens em linha com scroll horizontal) — necessário porque `.fm-shell-fm .fm-sidebar` tem especificidade maior que `styles-mobile.css` e, sem esses overrides, a sidebar desktop colapsava num chip no canto inferior esquerdo.
 
 **CSS compartilhado (`fm-shared.css`, escopado em `.fms-page`):** extrai o padrão visual da página `/taticas` para todas as demais páginas. Define variáveis CSS (cores, bordas, painéis), e classes base reutilizáveis: `.fms-topbar` (barra superior com logo, título, subtítulo, botões de ícone, data e botão Continuar), `.fms-subtabs`/`.fms-subtab` (abas secundárias), `.fms-body--scroll` (corpo com scroll), `.fms-content` (área de conteúdo flex), `.fms-toolbar` (barra de ferramentas com filtros), `.fms-table`/`.fms-table-wrap` (tabelas com header sticky, hover, zebra), `.fms-chip`/`.fms-badge` (chips e badges coloridos), `.fms-card`/`.fms-stat-card` (cards e stat cards), `.fms-bar`/`.fms-bar__fill` (barras de progresso), `.fms-input`/`.fms-select`/`.fms-dropdown` (controles de formulário), além de utility classes (flex, gap, text colors, padding). Todas as 10 páginas (Elenco, Partidas, Classificação, Transferências, Treino, Dinâmica, Caixa de Entrada, Imprensa, Finanças, Visão do Clube) agora usam `.fms-page` como container raiz com a topbar padrão.
 
@@ -1005,11 +1047,13 @@ freeAgents (Player[]) — jogadores sem clube após expiração de contrato
 
 ### DynamicsView (`dynamics/DynamicsView.tsx`)
 
-- Pirâmide de hierarquia (Líderes → Outros)
-- Grupos sociais por `socialGroup` — cards visuais com avatar de grupo, avatares circulares com iniciais por jogador, barra de coesão (moral média), badges de posição e status, accent gradient no topo por grupo (até 6 cores)
-- Árvore social com nós de influência e conexões
-- Promessas ativas com countdown
-- Form rating com cores
+- Painel de diagnóstico do balneário com resumo de moral média, líderes naturais, grupos sociais e promessas ativas
+- Hierarquia (Líderes → Outros) e contexto competitivo apresentados lado a lado em desktop
+- Tabela ordenável de satisfação com barras para tempo de jogo, contrato, moral, forma e confiança no treinador
+- Grupos sociais por `socialGroup` com coesão média, membros, posição e estatuto
+- Rede de influência com centralizador, alcance, força das ligações e barras de influência
+- Promessas ativas com countdown e urgência semântica
+- Estilos próprios em `dynamics/dynamics.css`, baseados exclusivamente nos tokens `--t-*` do sistema `fms-*`
 
 ### FinanceView (`finance/FinanceView.tsx`)
 
@@ -1105,7 +1149,8 @@ freeAgents (Player[]) — jogadores sem clube após expiração de contrato
    ├─ Gera youth intake na semana 1
    ├─ Aplica treino semanal (se plano definido)
    ├─ Atualiza finanças (bilheteira, patrocínio, salários)
-   ├─ Gera incoming transfers (35% chance)
+   ├─ Gera incoming transfers (necessidade/crise da IA)
+   ├─ Dinâmica de moral + processTransferRequests (pedidos de saída / cascata)
    ├─ Gera inbox messages (lesões, recomendações, contexto, avisos de contrato 4/2/0 semanas)
    ├─ Processa parcelas vencidas e bônus
    ├─ Atualiza classificação (leagueTable)
@@ -1205,7 +1250,7 @@ Negociações humano×humano:
 | IA adversária | ✅ | AI Manager ativo: transferências, táticas, renovações, demissões |
 | Salários gerados | 🟡 | `playerGenerator` pode gerar salários >> 500K (cap da UI) |
 | Estado backend | 🟡 | Em memória; perdido ao reiniciar (exceto saves em disco) |
-| Mobile | 🟡 | Media queries básicas (1024/768/640/480px) |
+| Mobile | 🟡 | Bottom nav ≤768px (app-fm.css + styles-mobile); actionbar wrap; tabelas com scroll-x |
 | Modo online | 🟡 | Funcional (draft, ready-check, negociações); sem WebSocket (polling); sem persistência de salas |
 
 ---
@@ -1302,4 +1347,4 @@ Console sem erros. Ver também `IMPLMENTATION_CHECKLIST.md`.
 
 ---
 
-**Última atualização:** Julho 2026 — polish Táticas (critique): CTA Pitch Blue, sem side-stripes/chrome oco, subtabs PT (Escalação/Adversário/Bolas Paradas), confirm em Melhor XI/lesionados, labels PT. Mantido: modo online multiplayer (salas com código, draft de clubes, universo isolado por sala, estado por-jogador via `SCOPED_KEYS`, ready-check por rodada, negociações humano×humano via `HumanOffer`); `roomManager.ts` + `routes/rooms.ts` + 7 componentes online + `useRoomPolling` hook; refatoração de `storeHelpers.ts` (extractState + runAction compartilhados single-player/online); Press Center (coletiva de imprensa com perguntas contextuais, respostas tipadas, efeitos em moral/diretoria/torcida/mídia); `lineup.ts` (ensureElevenXI/healTeamsXI); lazy loading em App.tsx; novos componentes UI (Logo, TeamCrest, TacticalPitch, PageHeader, MatchEventIcon, ZoneIcon, MiniAreaChart); novos utils (matchTime, statusColors, teamColors); badges PNG reais (20 clubes); novos testes (nanGuard, prng); helpers agora são 12 (era 10); 104 schemas Zod (era 91); 12 telas na sidebar (era 11). Mantido de Junho 2026: sistema multi-temporada (até 3, `startNextSeason`, `SeasonSummary`, `gameOver`); IA adversária ativa (helper `aiManager.ts` — transferências AI-vs-AI em janelas, ajustes táticos por zona da tabela, demissão de técnico, renovações de contrato); dinâmica de moral semanal (helper `moraleDynamics.ts` — 6 motores: promessas, tempo de jogo, forma, cascata do capitão, cascata de grupo social, regressão à média); motor de partida atualizado (`simulateFullMatch`/`simulateMinute`/`initLiveMatchState` — simulação passo a passo para todas as partidas); relatório pós-jogo (`generatePostMatchReport` — mapa de calor 3×3, insights táticos, conselhos do assistente, breakdown de passes); novos tipos `PostMatchReport`, `HeatMapZone`, `TacticalInsight`, `AssistantAdvice`, `SeasonSummary`; novos componentes `PostMatchReportView` e `SeasonSummaryModal`; helpers agora são 9 (era 7); `startNextSeason` sem schema Zod; **sistema de transferências expandido:** empréstimos (`LoanDeal` — loanPlayer, recallLoanedPlayer, buyLoanedPlayer), cláusulas de rescisão (`activateReleaseClause`), guerra de ofertas (`BiddingWar` — raiseBid, withdrawBid), shortlist (`ShortlistEntry` — addToShortlist, removeFromShortlist, getShortlist), recomendações de scouts (`ScoutRecommendation` — dismissScoutRecommendation), experiência de scouts (`Scout.experience`, `Scout.missionsCompleted`); novos campos no `GameState`: `shortlist`, `scoutRecommendations`, `activeLoans`, `biddingWars`; compatibilidade de saves atualizada em `saves.ts`; 9 novos schemas Zod (total 91); UI do `TransferMarket` com 4 novas abas (Empréstimos, Shortlist, Recomendações, Guerra de Ofertas) + botões de shortlist/cláusula nos cards do mercado + painel de olheiros com experiência; **correções de bugs no mercado de transferências (#53-#58):** `maybeGenerateBiddingWar` agora é chamado em `makeOffer` ao aceitar oferta (antes nunca era invocado); `handleAcceptOffer` não re-envia `makeOffer` quando já aceito; `activateReleaseClause`/`buyLoanedPlayer`/`raiseBid` agora aguardam Promise com `await` (antes sempre mostravam sucesso); `handleQuickSalaryOffer` funciona na primeira entrada da fase de contrato; `acceptIncomingTransfer` não soma `currentWeek` duas vezes no `dueWeek` das parcelas; `negotiateCounterOffer` inclui `direction: 'receivable'` no `InstallmentClause`
+**Última atualização:** Julho 2026 — polish Visão do Clube: extraiu `ClubView` de App.tsx para `components/club/` (lazy), alinhou ao `fms-*` (identidade + atmosfera + estrutura com barras de nível + finanças + desempenho + promessas), removeu CSS legado `fm-club-view*`. Mantido: fix bottom nav ≤768px; polish Táticas; modo online; Press Center; lazy loading; badges PNG; novos testes (nanGuard, prng); helpers agora são 12 (era 10); 104 schemas Zod (era 91); 12 telas na sidebar (era 11). Mantido de Junho 2026: sistema multi-temporada (até 3, `startNextSeason`, `SeasonSummary`, `gameOver`); IA adversária ativa (helper `aiManager.ts` — transferências AI-vs-AI em janelas, ajustes táticos por zona da tabela, demissão de técnico, renovações de contrato); dinâmica de moral semanal (helper `moraleDynamics.ts` — 6 motores: promessas, tempo de jogo, forma, cascata do capitão, cascata de grupo social, regressão à média); motor de partida atualizado (`simulateFullMatch`/`simulateMinute`/`initLiveMatchState` — simulação passo a passo para todas as partidas); relatório pós-jogo (`generatePostMatchReport` — mapa de calor 3×3, insights táticos, conselhos do assistente, breakdown de passes); novos tipos `PostMatchReport`, `HeatMapZone`, `TacticalInsight`, `AssistantAdvice`, `SeasonSummary`; novos componentes `PostMatchReportView` e `SeasonSummaryModal`; helpers agora são 9 (era 7); `startNextSeason` sem schema Zod; **sistema de transferências expandido:** empréstimos (`LoanDeal` — loanPlayer, recallLoanedPlayer, buyLoanedPlayer), cláusulas de rescisão (`activateReleaseClause`), guerra de ofertas (`BiddingWar` — raiseBid, withdrawBid), shortlist (`ShortlistEntry` — addToShortlist, removeFromShortlist, getShortlist), recomendações de scouts (`ScoutRecommendation` — dismissScoutRecommendation), experiência de scouts (`Scout.experience`, `Scout.missionsCompleted`); novos campos no `GameState`: `shortlist`, `scoutRecommendations`, `activeLoans`, `biddingWars`; compatibilidade de saves atualizada em `saves.ts`; 9 novos schemas Zod (total 91); UI do `TransferMarket` com 4 novas abas (Empréstimos, Shortlist, Recomendações, Guerra de Ofertas) + botões de shortlist/cláusula nos cards do mercado + painel de olheiros com experiência; **correções de bugs no mercado de transferências (#53-#58):** `maybeGenerateBiddingWar` agora é chamado em `makeOffer` ao aceitar oferta (antes nunca era invocado); `handleAcceptOffer` não re-envia `makeOffer` quando já aceito; `activateReleaseClause`/`buyLoanedPlayer`/`raiseBid` agora aguardam Promise com `await` (antes sempre mostravam sucesso); `handleQuickSalaryOffer` funciona na primeira entrada da fase de contrato; `acceptIncomingTransfer` não soma `currentWeek` duas vezes no `dueWeek` das parcelas; `negotiateCounterOffer` inclui `direction: 'receivable'` no `InstallmentClause`

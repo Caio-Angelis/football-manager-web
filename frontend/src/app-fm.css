@@ -25,130 +25,194 @@
 
 /* ===================== SIDEBAR ===================== */
 .fm-shell-fm .fm-sidebar {
-  width: 248px;
-  background:
-    radial-gradient(120% 40% at 50% 0%, rgba(61, 123, 245, 0.06), transparent 60%),
-    var(--s-sidebar);
+  width: 232px;
+  background: var(--s-sidebar);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   border-right: 1px solid var(--s-border);
   box-shadow: none;
-  padding: 16px 0;
+  padding: 12px 0 10px;
+  overflow: hidden;
 }
 
 .fm-shell-fm .fm-sidebar__header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 4px 18px 16px;
+  gap: 10px;
+  padding: 2px 14px 12px;
   border-bottom: 1px solid var(--s-border);
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .fm-shell-fm .fm-sidebar__toggle {
-  width: 30px; height: 30px;
-  display: flex; align-items: center; justify-content: center;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: var(--s-panel-2);
   border: 1px solid var(--s-border);
-  border-radius: 8px;
+  border-radius: 6px;
   color: var(--s-text-2);
   cursor: pointer;
-  transition: all .15s;
+  transition: color 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    border-color 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    background 150ms cubic-bezier(0.25, 1, 0.5, 1);
   flex-shrink: 0;
 }
 .fm-shell-fm .fm-sidebar__toggle:hover {
   color: var(--s-text);
   border-color: var(--s-border-strong);
+  background: var(--s-panel);
+}
+.fm-shell-fm .fm-sidebar__toggle:focus-visible {
+  outline: 2px solid var(--s-accent);
+  outline-offset: 2px;
 }
 
 .fm-shell-fm .fm-sidebar__logo {
   margin: 0;
   padding: 0;
-  font-size: 18px;
+  font-size: 16px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  min-width: 0;
   -webkit-text-fill-color: initial;
   background: none;
   text-shadow: none;
 }
-.fm-shell-fm .fm-sidebar__logo-icon { color: var(--s-accent); }
-.fm-shell-fm .fm-sidebar__logo-text {
-  font-weight: 800;
-  font-size: 18px;
-  letter-spacing: -0.01em;
+.fm-shell-fm .fm-sidebar__logo-icon {
   color: var(--s-accent);
+  display: block;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+.fm-shell-fm .fm-sidebar__logo-text {
+  font-family: 'Oswald', 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--s-text);
   background: none;
-  -webkit-text-fill-color: var(--s-accent);
+  -webkit-text-fill-color: var(--s-text);
   text-shadow: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .fm-shell-fm .fm-sidebar__season {
-  padding: 0 20px 14px;
-  font-size: 11px;
+  padding: 0 16px 10px;
+  font-size: 10px;
+  font-weight: 600;
   color: var(--s-text-3);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.fm-shell-fm .fm-sidebar__nav { padding: 0 12px; gap: 2px; }
+.fm-shell-fm .fm-sidebar__nav {
+  padding: 0 8px;
+  gap: 1px;
+  overflow-y: auto;
+  min-height: 0;
+}
 
 .fm-shell-fm .fm-sidebar__item {
-  padding: 10px 14px;
-  border-radius: 9px;
+  padding: 8px 10px;
+  border-radius: 8px;
   color: var(--s-text-2);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
-  gap: 13px;
-  transition: background .15s, color .15s;
+  gap: 10px;
+  border: 1px solid transparent;
+  transition: background 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    color 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    border-color 150ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 .fm-shell-fm .fm-sidebar__item:hover {
   background: rgba(255, 255, 255, 0.04);
   color: var(--s-text);
   transform: none;
 }
+.fm-shell-fm .fm-sidebar__item:focus-visible {
+  outline: 2px solid var(--s-accent);
+  outline-offset: -2px;
+}
 .fm-shell-fm .fm-sidebar__item-icon {
-  width: 22px;
+  width: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: inherit;
+  flex-shrink: 0;
+}
+.fm-shell-fm .fm-sidebar__item-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .fm-shell-fm .fm-sidebar__item--active {
-  background: rgba(61, 123, 245, 0.10);
+  background: rgba(61, 123, 245, 0.12);
   color: var(--s-accent);
   font-weight: 600;
-  border-left: 3px solid var(--s-accent);
-  padding-left: 11px;
+  border-color: rgba(61, 123, 245, 0.28);
 }
 .fm-shell-fm .fm-sidebar__item--active:hover {
-  background: rgba(61, 123, 245, 0.14);
+  background: rgba(61, 123, 245, 0.16);
   color: var(--s-accent);
 }
 
 .fm-shell-fm .fm-sidebar__badge {
-  background: var(--s-accent);
-  color: #fff;
+  margin-left: auto;
+  background: rgba(61, 123, 245, 0.18);
+  color: var(--s-accent);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 6px;
+  min-width: 18px;
+  text-align: center;
+  line-height: 1.3;
+  flex-shrink: 0;
 }
 
 .fm-shell-fm .fm-sidebar__key-hint {
   margin-left: auto;
-  min-width: 18px;
-  height: 18px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 10px;
-  font-weight: 600;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--s-text-2);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  padding: 0 4px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--s-text-3);
+  background: none;
+  border: none;
+  border-radius: 0;
+  min-width: 0;
+  height: auto;
+  padding: 0;
   flex-shrink: 0;
+  opacity: 0.55;
+  transition: opacity 150ms cubic-bezier(0.25, 1, 0.5, 1), color 150ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+.fm-shell-fm .fm-sidebar__item:hover .fm-sidebar__key-hint {
+  opacity: 0.9;
+  color: var(--s-text-2);
+}
+.fm-shell-fm .fm-sidebar__item--active .fm-sidebar__key-hint {
+  color: var(--s-accent);
+  opacity: 0.45;
+}
+.fm-shell-fm .fm-sidebar__badge + .fm-sidebar__key-hint {
+  margin-left: 6px;
 }
 
 .fm-shell-fm .fm-sidebar__footer {
-  padding: 14px 16px 4px;
+  margin-top: auto;
+  padding: 12px 12px 2px;
   border-top: 1px solid var(--s-border);
 }
 
@@ -160,7 +224,15 @@
 .fm-shell-fm .fm-sidebar__theme .fm-theme-toggle__label { color: var(--s-text-3); }
 .fm-shell-fm .fm-sidebar__theme .fm-theme-toggle__option input:checked + .fm-theme-toggle__label {
   background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  color: var(--s-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fm-shell-fm .fm-sidebar__toggle,
+  .fm-shell-fm .fm-sidebar__item,
+  .fm-shell-fm .fm-sidebar__key-hint {
+    transition: none;
+  }
 }
 
 /* ===================== MAIN AREA ===================== */
@@ -218,6 +290,181 @@
 .fm-shell-fm .fm-button svg { flex-shrink: 0; }
 
 /* ===================== COLLAPSED ===================== */
-.fm-shell-fm .fm-sidebar--collapsed { width: 64px; }
-.fm-shell-fm .fm-sidebar--collapsed .fm-sidebar__item { justify-content: center; padding: 10px; }
-.fm-shell-fm .fm-sidebar--collapsed .fm-sidebar__item--active { border-left-width: 0; padding-left: 10px; }
+.fm-shell-fm .fm-sidebar--collapsed {
+  width: 60px;
+  overflow: hidden;
+}
+.fm-shell-fm .fm-sidebar--collapsed .fm-sidebar__header {
+  justify-content: center;
+  padding: 2px 8px 12px;
+  gap: 0;
+}
+.fm-shell-fm .fm-sidebar--collapsed .fm-sidebar__logo,
+.fm-shell-fm .fm-sidebar--collapsed .fm-sidebar__logo-text,
+.fm-shell-fm .fm-sidebar--collapsed .fm-sidebar__season,
+.fm-shell-fm .fm-sidebar--collapsed .fm-sidebar__item-label,
+.fm-shell-fm .fm-sidebar--collapsed .fm-sidebar__key-hint,
+.fm-shell-fm .fm-sidebar--collapsed .fm-sidebar__footer {
+  display: none;
+}
+.fm-shell-fm .fm-sidebar--collapsed .fm-sidebar__nav {
+  padding: 0 8px;
+}
+.fm-shell-fm .fm-sidebar--collapsed .fm-sidebar__item {
+  position: relative;
+  justify-content: center;
+  padding: 9px;
+  gap: 0;
+}
+.fm-shell-fm .fm-sidebar--collapsed .fm-sidebar__item--active {
+  padding: 9px;
+}
+.fm-shell-fm .fm-sidebar--collapsed .fm-sidebar__badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  margin-left: 0;
+  min-width: 14px;
+  padding: 1px 4px;
+  font-size: 9px;
+}
+
+/* ===================== MOBILE (≤768px) =====================
+   app-fm.css is imported after styles-mobile.css and uses .fm-shell-fm
+   (higher specificity). Without these overrides the desktop sidebar width/
+   header rules win and the "bottom nav" collapses into a broken corner chip.
+   ============================================================ */
+@media (max-width: 768px) {
+  .fm-shell-fm {
+    flex-direction: column;
+  }
+
+  .fm-shell-fm .fm-sidebar,
+  .fm-shell-fm .fm-sidebar--collapsed {
+    width: 100%;
+    height: auto;
+    max-height: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    z-index: 1000;
+    flex-direction: row;
+    align-items: stretch;
+    padding: 0;
+    border-right: none;
+    border-top: 1px solid var(--s-border);
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.35);
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    background: var(--s-sidebar);
+  }
+
+  .fm-shell-fm .fm-sidebar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .fm-shell-fm .fm-sidebar__header,
+  .fm-shell-fm .fm-sidebar__logo,
+  .fm-shell-fm .fm-sidebar__season,
+  .fm-shell-fm .fm-sidebar__footer {
+    display: none;
+  }
+
+  .fm-shell-fm .fm-sidebar__nav {
+    display: flex;
+    flex-direction: row;
+    flex: none;
+    padding: 6px 8px;
+    gap: 2px;
+    width: 100%;
+  }
+
+  .fm-shell-fm .fm-sidebar__item {
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 6px 10px;
+    gap: 2px;
+    min-width: 64px;
+    border: none;
+    border-radius: 8px;
+    font-size: 11px;
+  }
+
+  .fm-shell-fm .fm-sidebar__item--active {
+    border: none;
+    background: rgba(61, 123, 245, 0.14);
+    color: var(--s-accent);
+  }
+
+  .fm-shell-fm .fm-sidebar__item--active:hover {
+    background: rgba(61, 123, 245, 0.18);
+  }
+
+  .fm-shell-fm .fm-sidebar__item-label {
+    display: block;
+    font-size: 9px;
+    text-align: center;
+    line-height: 1.2;
+  }
+
+  .fm-shell-fm .fm-sidebar__item-icon {
+    width: auto;
+  }
+
+  .fm-shell-fm .fm-sidebar__key-hint {
+    display: none;
+  }
+
+  .fm-shell-fm .fm-sidebar__badge {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    font-size: 8px;
+    padding: 1px 5px;
+    min-width: 14px;
+  }
+
+  .fm-shell-fm .fm-main {
+    padding-bottom: 72px;
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .fm-shell-fm .fm-main__actionbar {
+    flex-wrap: wrap;
+    padding: 8px 12px;
+    gap: 6px;
+  }
+
+  .fm-shell-fm .fm-main__actionbar .fm-button {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  .fm-shell-fm .fm-button--continue {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .fm-shell-fm .fm-main__actionbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .fm-shell-fm .fm-main__actionbar .fm-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .fm-shell-fm .fm-button--continue {
+    margin-left: 0;
+    order: -1;
+  }
+}

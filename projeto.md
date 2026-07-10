@@ -318,11 +318,17 @@ Após o time aceitar a oferta, o jogador precisa concordar com o contrato. O sal
 
 ### Ofertas Recebidas (Venda de Jogadores)
 
-- A cada avanço de semana, há **35% de chance** de um time adversário fazer uma oferta por um jogador do seu elenco.
-- A oferta inclui: preço (80% a 120% do valor de mercado), proposta de contrato (salário, duração, cláusula), método de pagamento (à vista ou parcelado) e possivelmente bônus.
+- Ofertas da IA **não usam mais 35% fixo**. `maybeGenerateIncomingTransfer` rastreia crises posicionais (titular lesionado 30–60+ dias, profundidade fraca) e mira reservas/altos CA do usuário que resolvem a necessidade — clubes elite fazem propostas agressivas (premium sobre o mercado).
+- Jogadores com **pedido de transferência** (`transferRequest`) ou Excess são alvos fáceis, tipicamente abaixo do valor de mercado.
+- A oferta inclui: preço, proposta de contrato (salário, duração, cláusula), método de pagamento (à vista ou parcelado) e possivelmente bônus.
 - O usuário pode **aceitar, rejeitar, adiar ou contra-propor**.
   - **Adiar:** A oferta fica pendente e pode ser reinstada ou rejeitada depois.
   - **Contra-oferta:** O usuário propõe 20-30% **a mais** que o valor original (como vendedor, pede mais), com novo método de pagamento e bônus. A contra-oferta é enviada como mensagem informativa (`type: 'news'`) e a IA decide aceitar ou rejeitar no avanço da próxima semana, gerando uma mensagem de resposta no inbox.
+
+### Pedidos de Transferência
+
+- Jogadores com moral destruída (< 28), promessas quebradas ou titulares no banco insatisfeitos podem pedir saída via `processTransferRequests` (após a dinâmica de moral).
+- O pedido força status Excess, desconto de venda (~15–35%) e **cascata social** no vestiário até a saída ser resolvida. Recusar ofertas nesses casos agrava a moral dos colegas.
 
 ### Parcelas e Bônus
 
@@ -593,14 +599,10 @@ O filtro é feito pela função `filterSquadByGroup` no backend (`training.ts`),
 
 A cada semana, o treino é aplicado a todos os jogadores não-lesionados **dentro do `set()` batched de `advanceWeek`**, garantindo que as alterações de treino não sejam sobrescritas pelo estado local e evitando múltiplos re-renders:
 - O foco do treino (físico, técnico, coesão, médico/recuperação, leve) é passado diretamente para `updatePlayerAttributes` — cada tipo aplica seus efeitos corretamente (ex: médico restaura condição e acelera recuperação de lesão, leve faz recuperação leve).
-- A melhoria é aleatória (0.2 a 1.0 por semana), limitada a 20 (teto da escala).
-- **Current Ability (CA):** Após cada sessão de treino, o CA é recalculado com base no ganho de atributos, modulado por um **fator de idade**:
-  - < 21 anos: ×1.5 (jovens evoluem 50% mais rápido)
-  - 21-23 anos: ×1.2
-  - 24-27 anos: ×0.8
-  - 28-30 anos: ×0.4
-  - 31+ anos: ×0.1 (praticamente estagnado)
-  - Fórmula: `CA_novo = min(potentialAbility, 200, CA_anterior + (improvement × 0.5) × ageFactor)` — **respeita o teto de PA** do jogador
+- Ganho base por sessão: **0.05–0.25**, multiplicado pela curva de idade (aplica-se a atributos e CA), limitado a 20.
+- **Curva de idade:** Sub-21 ×2.0 (evolução acelerada, CA visível em ~4–6 semanas de foco); 22–28 ×0.45 (auge, ganho lento); 29–30 ×0.2; 31+ ×0.1.
+- **Declínio mensal (31+):** a cada 4 semanas, −0.1 a −0.3 em Velocidade/Resistência se o foco semanal não for médico/recuperação.
+- Fórmula CA: `CA_novo = min(potentialAbility, 200, CA_anterior + improvement × 0.5 × moraleFactor)` — **respeita o teto de PA**.
 - Snapshots semanais registram a progressão de atributos para visualização.
 
 ### Fadiga e Carga
@@ -1105,7 +1107,7 @@ O jogo suporta atalhos de teclado globais para navegação e ações rápidas. O
    - Nova partida do usuário fica pendente (jogável ao vivo)
    - Classificação é atualizada
    - Finanças, treino, fadiga, lesões e promessas são processados
-   - Ofertas de transferência podem chegar (35% de chance)
+   - Ofertas de transferência podem chegar (baseadas em necessidade/crise da IA)
    - Missões de scouting progridem
    - Mensagens do inbox são geradas
 3. **Jogar partida ao vivo** (opcional):
@@ -1137,20 +1139,12 @@ O frontend envia o objeto `Team` completo via `updateTeam`, mas o backend valida
 
 ## Ritmo de Evolução (Pacing)
 
-### Estado Atual
+### Estado Atual (calibrado para 3 temporadas)
 
-O ganho de atributos por sessão de treino é de **0.2 a 1.0 pontos** (`Math.random() * 0.8 + 0.2`) por atributo afetado. Como o plano semanal tem 7 dias × 3 períodos = até 21 sessões por semana, um jogador pode ganhar até ~21 pontos em um único atributo por semana — extremamente acelerado em comparação com a realidade.
-
-### Problema
-
-No futebol real, um jogador de 16 anos leva cerca de 4 a 5 anos para atingir o pico. Com apenas 3 temporadas (114 semanas), o sistema de base (juvenis) e desenvolvimento de promessas **praticamente não dá retorno** dentro da vida útil do save. Um juvenil promovido na temporada 1 teria apenas ~2 anos de evolução antes do fim do jogo.
-
-### Pontos de Atenção
-
-- **Multiplicador de treino:** O ritmo atual é ~20x mais rápido que a realidade. Isso pode ser intencional para tornar o jogo divertido em 3 temporadas, mas significa que juvenis evoluem rápido demais e atingem o teto (20) antes do esperado.
-- **Curva de desenvolvimento por idade:** Não existe diferenciação de ganho por idade no código atual. Jogadores de 16 e 30 anos ganham atributos no mesmo ritmo. Uma curva (jovens ganham mais, veteranos ganham menos ou até decaem) seria necessária para realismo.
-- **Teto de atributos:** Limitado a 20 por atributo. Com o ritmo atual, jogadores jovens atingem o teto rapidamente, eliminando a progressão como mecânica de longo prazo.
-- **Recomendação:** Considerar um multiplicador de desenvolvimento por idade (ex: <21 anos = 1.5x, 21-28 = 1.0x, >28 = 0.5x) e reduzir o ganho base para 0.1-0.5 por sessão, ou manter o ritmo acelerado mas documentar que o jogo é "arcade" em vez de simulação realista.
+- **Ganho base:** 0.05–0.25 por sessão de treino (`baseTrainingGain`).
+- **Curva de idade** (`ageTrainingMultiplier`): Sub-21 ×2.0; auge 22–28 ×0.45; 29–30 ×0.2; 31+ ×0.1 — aplica-se a atributos e CA.
+- **Declínio mensal 31+** (`applyMonthlyAgeDecline`): −0.1 a −0.3 em speed/stamina a cada 4 semanas, a menos que o foco seja médico/recuperação.
+- Sub-21 com treino focado vê CA/atributos subir de forma perceptível em ~4–6 semanas; veteranos no auge evoluem pouco e precisam gerir forma/recuperação.
 
 ---
 

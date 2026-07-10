@@ -253,6 +253,7 @@ export const createTransferSlice = (set: Set, get: Get) => ({
     if (player.squadStatus === 'Excess') willingness += 25;
     else if (player.squadStatus === 'Rotation') willingness += 10;
     else if (player.squadStatus === 'Key Player') willingness -= 15;
+    if (player.transferRequest?.active) willingness += 30;
     if (player.morale < 40) willingness += 20;
     else if (player.morale > 75) willingness -= 10;
     if (buyer) {
@@ -530,6 +531,7 @@ export const createTransferSlice = (set: Set, get: Get) => ({
     if (player.squadStatus === 'Excess') willingness += 25;
     else if (player.squadStatus === 'Rotation') willingness += 10;
     else if (player.squadStatus === 'Key Player') willingness -= 15;
+    if (player.transferRequest?.active) willingness += 30;
     if (player.morale < 40) willingness += 20;
     else if (player.morale > 75) willingness -= 10;
     if (buyer) {
@@ -780,13 +782,20 @@ export const createTransferSlice = (set: Set, get: Get) => ({
     const player = team.squad.find(p => p.id === playerId);
     if (!player) return;
 
-    const moraleDrop = player.squadStatus === 'Key Player' ? 15 : 10;
+    const moraleDrop = player.transferRequest?.active
+      ? (player.squadStatus === 'Key Player' || player.squadStatus === 'Excess' ? 18 : 14)
+      : (player.squadStatus === 'Key Player' ? 15 : 10);
+    const mateDrop = player.transferRequest?.active ? 8 : 5;
     const updatedSquad = team.squad.map(p => {
       if (p.id === playerId) {
         return { ...p, morale: Math.max(0, p.morale - moraleDrop) };
       }
       if (player.teamMates?.includes(p.id) && p.morale > 30) {
-        return { ...p, morale: Math.max(0, p.morale - 5) };
+        return { ...p, morale: Math.max(0, p.morale - mateDrop) };
+      }
+      // Pedido ativo: mesmo grupo social também sofre ao ver a oferta rejeitada
+      if (player.transferRequest?.active && player.socialGroup && p.socialGroup === player.socialGroup && p.id !== playerId) {
+        return { ...p, morale: Math.max(0, p.morale - 4) };
       }
       return p;
     });

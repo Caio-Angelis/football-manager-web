@@ -24,27 +24,30 @@ A cada semana, o treino é aplicado a todos os jogadores **não-lesionados** den
 
 ### Ganho de Atributos
 
-- Melhoria aleatória de **0.2 a 1.0 pontos** por atributo afetado por sessão (`Math.random() * 0.8 + 0.2`)
+- Ganho base por sessão: **0.05 a 0.25** (`Math.random() * 0.2 + 0.05`)
+- Multiplicado pela **curva de idade** (aplica-se aos atributos e ao CA)
 - Limitado a **20** (teto da escala)
 
-### Cálculo do CA (Current Ability)
+### Curva de Idade (multiplicador definitivo)
 
-Após cada sessão de treino, o CA é recalculado com base no ganho de atributos, modulado por um **fator de idade**:
-
-| Idade | Fator | Descrição |
-|-------|-------|-----------|
-| < 21 anos | ×1.5 | Jovens evoluem 50% mais rápido |
-| 21-23 anos | ×1.2 | Evolução acelerada |
-| 24-27 anos | ×0.8 | Evolução moderada |
-| 28-30 anos | ×0.4 | Evolução lenta |
-| 31+ anos | ×0.1 | Praticamente estagnado |
+| Idade | Multiplicador | Descrição |
+|-------|---------------|-----------|
+| Sub-21 (< 22) | ×2.0 | Evolução acelerada — CA/atributos visíveis em ~4–6 semanas de foco |
+| 22–28 (auge) | ×0.45 | Atributos estáveis, ganho lento; foco em manter forma |
+| 29–30 | ×0.2 | Transição |
+| 31+ | ×0.1 | Quase estagnado no treino |
 
 **Fórmula:**
 ```
-CA_novo = min(potentialAbility, 200, CA_anterior + (improvement × 0.5) × ageFactor)
+improvement = baseGain(0.05–0.25) × ageMult
+CA_novo = min(potentialAbility, 200, CA_anterior + improvement × 0.5 × moraleFactor)
 ```
 
 O CA **respeita o teto de PA** (Potential Ability) do jogador.
+
+### Declínio físico mensal (31+)
+
+A cada 4 semanas (`newWeek % 4 === 0`), jogadores com **31+ anos** perdem **0.1–0.3** em Velocidade e Resistência (e leve queda de aceleração/CA), **exceto** se o foco semanal do time for `medical` ou `recovery`.
 
 ### Fator de Moral
 
@@ -53,7 +56,7 @@ O CA também pode **diminuir** baseado na moral:
 - Moral < 50: fator 0 (neutro)
 - Moral ≥ 50: fator 1 (ganho normal)
 
-Combinado com `ageFactor`, jogadores velhos com baixa moral perdem CA.
+Combinado com o multiplicador de idade, jogadores velhos com baixa moral perdem CA.
 
 ### Snapshots Semanais
 

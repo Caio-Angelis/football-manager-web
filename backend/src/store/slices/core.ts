@@ -11,12 +11,12 @@ import type { MatchStats, MatchEvent, Match } from '../../types/game';
 import { calculateLeagueStandings } from '../helpers/league';
 import { generateInboxMessage } from '../helpers/inbox';
 import { calculatePlayerInjuryRisk, getRiskLevel, applyFatigueDecayToPlayer, updateDegradedConditionForPlayer, generateInjuryForPlayer, healInjuryForPlayer } from '../helpers/injury';
-import { maybeGenerateIncomingTransfer, recalcWageBill, processBiddingWars } from '../helpers/transfer';
+import { maybeGenerateIncomingTransfer, processTransferRequests, recalcWageBill, processBiddingWars } from '../helpers/transfer';
 import { processScoutMissions, generateDefaultScouts, decayScoutKnowledge, generateScoutRecommendations, processLoans } from '../helpers/scouting';
 import { processAIWeeklyDecisions } from '../helpers/aiManager';
 import { applyWeeklyMoraleDynamics } from '../helpers/moraleDynamics';
 import { calculateTicketRevenue, calculateSponsorshipRevenue, calculateBroadcastingRevenue, calculateFacilityCosts, calculateStaffCosts, weeklyWages, calculateSeasonFinalPrize } from '../helpers/finance';
-import { updatePlayerAttributes } from '../helpers/training';
+import { updatePlayerAttributes, applyMonthlyAgeDecline } from '../helpers/training';
 import { weeklyFanMoodDecay, weeklyMediaPressureDecay } from '../helpers/press';
 import { getFullName } from '../../utils/playerName';
 import { autoSave } from '../../services/saveService.js';
@@ -456,6 +456,14 @@ export const createCoreSlice = (set: Set, get: Get) => ({
         const result = applyWeeklyMoraleDynamics(team);
         updatedTeams[idx] = result.team;
       });
+
+      // Transfer requests on human teams at season boundary
+      for (const hid of humans) {
+        const idx = updatedTeams.findIndex(t => t.id === hid);
+        if (idx === -1) continue;
+        const result = processTransferRequests(updatedTeams[idx], 38);
+        updatedTeams[idx] = result.team;
+      }
 
       // Process active loans (#45)
       let endOfSeasonLoans = state.activeLoans;
@@ -955,6 +963,16 @@ export const createCoreSlice = (set: Set, get: Get) => ({
       return result.team;
     });
 
+    // Pedidos de transferência (após moral): moral destruída / promessas quebradas
+    // forçam lista + cascata social enquanto a saída não for resolvida
+    const transferRequestInbox: InboxMessage[] = [];
+    updatedTeams = updatedTeams.map(team => {
+      if (!humans.includes(team.id)) return team;
+      const result = processTransferRequests(team, newWeek);
+      transferRequestInbox.push(...result.inboxMessages);
+      return result.team;
+    });
+
     // Apply basic fatigue decay to AI teams (#44) — humanos já tratados no loop acima
     updatedTeams = updatedTeams.map(team => {
       if (humans.includes(team.id)) return team;
@@ -1077,6 +1095,7 @@ export const createCoreSlice = (set: Set, get: Get) => ({
     const finalInbox = [
       ...counterOfferMessages,
       ...newInboxMessages,
+      ...transferRequestInbox,
       ...scoutInboxMessages,
       ...aiResult.inboxMessages,
       inboxToSend,
@@ -1167,6 +1186,19 @@ export const createCoreSlice = (set: Set, get: Get) => ({
 
         updatedTeams[teamIdx] = team;
       }
+    }
+
+    // Declínio físico mensal (31+): -0.1..0.3 em speed/stamina se não treinou médico/recuperação
+    if (newWeek > 0 && newWeek % 4 === 0) {
+      updatedTeams = updatedTeams.map(team => {
+        const plan = trainingByTeam?.[team.id] ?? (humans.includes(team.id) ? state.trainingPlan : null);
+        const focus = plan?.teamFocus;
+        const protectedByMedical = focus === 'medical' || focus === 'recovery';
+        return {
+          ...team,
+          squad: team.squad.map(p => applyMonthlyAgeDecline(p, protectedByMedical)),
+        };
+      });
     }
 
     // Press decay — single-track (torcida/mídia do time em foco). Fase 6 refina por jogador.

@@ -3,6 +3,13 @@
    Scoped under .fms-page
    ============================================================ */
 
+/* Containing block for the absolute page shell. This cannot live only in a
+   lazy-loaded route stylesheet or direct navigation places the header behind
+   the global action bar. */
+.fm-main__content {
+  position: relative;
+}
+
 .fms-page {
   --t-bg: #14161c;
   --t-panel: #1b1e26;

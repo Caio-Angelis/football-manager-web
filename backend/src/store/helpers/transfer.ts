@@ -1,6 +1,6 @@
-// Helpers de Transferência — Scout, Incoming Transfers e Wage Bill
+// Helpers de Transferência — Scout, Incoming Transfers, Transfer Requests e Wage Bill
 
-import type { Player, Team, ScoutReport, IncomingTransfer, InstallmentClause, PlayerBonus, BiddingWar } from '../../types/game';
+import type { Player, Team, ScoutReport, IncomingTransfer, InstallmentClause, PlayerBonus, BiddingWar, InboxMessage } from '../../types/game';
 import { getFullName } from '../../utils/playerName';
 
 export function generateScoutReport(player: Player): ScoutReport {
@@ -30,92 +30,204 @@ export function generateScoutReport(player: Player): ScoutReport {
   };
 }
 
+// ============================================================
+// NECESSIDADE POSICIONAL DA IA (lesões + profundidade)
+// ============================================================
+
+interface PositionalCrisis {
+  team: Team;
+  position: string;
+  urgency: number; // 0–1+
+  bestAvailableCA: number;
+  injuredStarterDays: number;
+}
+
 /**
- * Gera ofertas recebidas de forma inteligente:
- * - IA alvo jogadores do usuário baseado em necessidade posicional, forma e reputação
- * - Jogadores em boa forma recebem mais ofertas
- * - Times maiores oferecem por jogadores de maior caliber
- * - Considera cláusula de rescisão do jogador
+ * Detecta crises posicionais: titular lesionado longo, profundidade fraca, etc.
+ * Ex.: Flamengo (rep 88) com atacante titular fora 60 dias → urgency alta em FWD.
+ */
+export function detectPositionalCrises(team: Team): PositionalCrisis[] {
+  const positions = ['GK', 'DEF', 'MID', 'FWD'];
+  const xi = new Set(team.startingXI ?? []);
+  const crises: PositionalCrisis[] = [];
+
+  for (const position of positions) {
+    const inPos = team.squad.filter(p => p.position === position);
+    if (inPos.length === 0) {
+      // Elenco real sempre tem as 4 posições; urgência moderada só se o plantel for grande o bastante
+      if (team.squad.length >= 15) {
+        crises.push({ team, position, urgency: 0.9, bestAvailableCA: 0, injuredStarterDays: 0 });
+      }
+      continue;
+    }
+
+    const injuredStarters = inPos.filter(
+      p => p.injury?.active && (xi.has(p.id) || p.squadStatus === 'Key Player' || p.squadStatus === 'Regular Starter'),
+    );
+    const maxInjuredDays = injuredStarters.reduce(
+      (m, p) => Math.max(m, p.injury?.daysRemaining ?? 0),
+      0,
+    );
+
+    const available = inPos.filter(p => !p.injury?.active);
+    const bestAvailableCA = available.length > 0
+      ? Math.max(...available.map(p => p.currentAbility))
+      : 0;
+    const avgAvailableCA = available.length > 0
+      ? available.reduce((s, p) => s + p.currentAbility, 0) / available.length
+      : 0;
+
+    let urgency = 0;
+    // Lesão longa de titular: 30+ dias já dói; 60+ é crise
+    if (maxInjuredDays >= 60) urgency += 0.55;
+    else if (maxInjuredDays >= 30) urgency += 0.35;
+    else if (maxInjuredDays >= 14) urgency += 0.2;
+
+    // Pouca profundidade disponível
+    if (available.length <= 1) urgency += 0.35;
+    else if (available.length <= 2) urgency += 0.2;
+
+    // Elenco fraco na posição (média baixa)
+    if (avgAvailableCA < 110) urgency += 0.15;
+    else if (avgAvailableCA < 125) urgency += 0.08;
+
+    // Titular chave lesionado mesmo com reposição fraca
+    if (injuredStarters.length > 0 && bestAvailableCA < (injuredStarters[0].currentAbility - 8)) {
+      urgency += 0.25;
+    }
+
+    if (urgency >= 0.25) {
+      crises.push({ team, position, urgency, bestAvailableCA, injuredStarterDays: maxInjuredDays });
+    }
+  }
+
+  return crises.sort((a, b) => b.urgency - a.urgency);
+}
+
+/**
+ * Gera ofertas recebidas de forma inteligente (substitui o sorteio de 35%):
+ * - IA rastreia crises (titular lesionado, profundidade fraca)
+ * - Mira reservas/altos CA do usuário que resolvem a crise
+ * - Ofertas agressivas (premium) quando a urgência é alta
+ * - Jogadores com transfer request são alvos fáceis (abaixo do mercado)
  */
 export function maybeGenerateIncomingTransfer(
   teams: Team[],
   selectedTeamId: string,
   currentWeek: number,
 ): IncomingTransfer | null {
-  if (Math.random() > 0.35) return null;
-
   const userTeam = teams.find(t => t.id === selectedTeamId);
   if (!userTeam || userTeam.squad.length === 0) return null;
-
-  // === LÓGICA INTELIGENTE DE SELEÇÃO DE ALVO ===
-  // 1. Identificar needs dos times AI
-  // 2. Encontrar jogadores do usuário que preenchem essas needs
-  // 3. Priorizar jogadores em boa forma e com CA alto
 
   const buyerTeams = teams.filter(t => t.id !== selectedTeamId);
   if (buyerTeams.length === 0) return null;
 
-  // Avaliar cada time AI: qual posição eles mais precisam?
-  const buyerNeeds: { team: Team; needPosition: string; needCA: number }[] = [];
+  type Candidate = {
+    player: Player;
+    buyer: Team;
+    score: number;
+    urgency: number;
+    aggressive: boolean;
+  };
+
+  const candidates: Candidate[] = [];
+
   for (const buyer of buyerTeams) {
-    const positionAvgCA: Record<string, { sum: number; count: number }> = {};
-    for (const p of buyer.squad) {
-      if (!positionAvgCA[p.position]) positionAvgCA[p.position] = { sum: 0, count: 0 };
-      positionAvgCA[p.position].sum += p.currentAbility;
-      positionAvgCA[p.position].count++;
-    }
-    const needs = Object.entries(positionAvgCA)
-      .map(([pos, { sum, count }]) => ({ position: pos, avgCA: sum / count }))
-      .sort((a, b) => a.avgCA - b.avgCA);
+    const crises = detectPositionalCrises(buyer);
+    // Sem crise clara: ainda pode ter necessidade fraca (média baixa)
+    const needs = crises.length > 0
+      ? crises
+      : (['GK', 'DEF', 'MID', 'FWD'] as const).map(position => {
+          const inPos = buyer.squad.filter(p => p.position === position && !p.injury?.active);
+          const avg = inPos.length
+            ? inPos.reduce((s, p) => s + p.currentAbility, 0) / inPos.length
+            : 0;
+          return {
+            team: buyer,
+            position,
+            urgency: Math.max(0.1, (130 - avg) / 200),
+            bestAvailableCA: inPos.length ? Math.max(...inPos.map(p => p.currentAbility)) : 0,
+            injuredStarterDays: 0,
+          };
+        }).filter(n => n.urgency >= 0.12);
 
-    if (needs.length > 0) {
-      buyerNeeds.push({ team: buyer, needPosition: needs[0].position, needCA: needs[0].avgCA });
-    }
-  }
+    for (const need of needs) {
+      for (const player of userTeam.squad) {
+        if (player.position !== need.position) continue;
+        if (player.injury?.active) continue;
 
-  // Para cada need, encontrar jogadores do usuário que seriam upgrades
-  const candidates: { player: Player; buyer: Team; upgradeScore: number }[] = [];
-  for (const { team: buyer, needPosition, needCA } of buyerNeeds) {
-    for (const player of userTeam.squad) {
-      if (player.position !== needPosition) continue;
-      if (player.injury?.active) continue;
+        const isListed = player.transferRequest?.active || player.squadStatus === 'Excess';
+        const caUpgrade = player.currentAbility - need.bestAvailableCA;
+        // Sem upgrade e sem lista → ignora (exceto crise extrema)
+        if (caUpgrade < 3 && !isListed && need.urgency < 0.45) continue;
+        if (caUpgrade < -5 && !isListed) continue;
 
-      // Score: quanto o jogador é melhor que a média do comprador na posição
-      const caDiff = player.currentAbility - needCA;
-      if (caDiff < 5) continue; // só oferece se for um upgrade real
+        // Reserva de alto CA no banco do usuário é o alvo clássico
+        const isUserReserve =
+          !(userTeam.startingXI ?? []).includes(player.id)
+          && (player.squadStatus === 'Rotation' || player.squadStatus === 'Young Talent' || player.squadStatus === 'Excess');
+        const reserveBonus = isUserReserve && player.currentAbility >= 125 ? 18 : isUserReserve ? 8 : 0;
 
-      // Forma aumenta a atratividade
-      const formBonus = (player.form - 50) * 0.1;
-      // Reputação do comprador vs vendedor afasta interesse se for muito menor
-      const repFactor = (buyer.reputation - userTeam.reputation) * 0.2;
+        const formBonus = (player.form - 50) * 0.12;
+        const repPull = (buyer.reputation - userTeam.reputation) * 0.25;
+        const listedBonus = isListed ? 25 : 0;
+        const urgencyScore = need.urgency * 40;
 
-      const upgradeScore = caDiff + formBonus + repFactor;
-      if (upgradeScore > 0) {
-        candidates.push({ player, buyer, upgradeScore });
+        // Orçamento: precisa conseguir pagar
+        const discount = player.transferRequest?.askingPriceDiscount ?? 1;
+        const estPrice = player.marketValue * discount * (need.urgency >= 0.45 ? 1.2 : 1);
+        if (buyer.budget < estPrice * 0.7) continue;
+
+        const score = caUpgrade + reserveBonus + formBonus + repPull + listedBonus + urgencyScore;
+        if (score <= 0) continue;
+
+        candidates.push({
+          player,
+          buyer,
+          score,
+          urgency: need.urgency,
+          aggressive: need.urgency >= 0.4 || (buyer.reputation >= 80 && caUpgrade >= 5),
+        });
       }
     }
   }
 
   if (candidates.length === 0) {
-    // Fallback: oferta aleatória (comportamento original)
-    const player = userTeam.squad[Math.floor(Math.random() * userTeam.squad.length)];
+    // Fallback raro (~12%): oferta oportunista aleatória
+    if (Math.random() > 0.12) return null;
+    const listed = userTeam.squad.filter(p => p.transferRequest?.active || p.squadStatus === 'Excess');
+    const pool = listed.length > 0 ? listed : userTeam.squad;
+    const player = pool[Math.floor(Math.random() * pool.length)];
     const buyer = buyerTeams[Math.floor(Math.random() * buyerTeams.length)];
-    if (!buyer) return null;
-
-    const offerPrice = Math.round(player.marketValue * (0.8 + Math.random() * 0.4) * 10) / 10;
+    if (!buyer || buyer.budget < player.marketValue * 0.5) return null;
+    const discount = player.transferRequest?.askingPriceDiscount ?? 1;
+    const offerPrice = Math.round(player.marketValue * discount * (0.85 + Math.random() * 0.25) * 10) / 10;
     return buildIncomingTransfer(player, buyer, offerPrice, currentWeek);
   }
 
-  // Ordenar por upgradeScore e pegar um dos top 5 aleatoriamente
-  candidates.sort((a, b) => b.upgradeScore - a.upgradeScore);
-  const topCandidates = candidates.slice(0, Math.min(5, candidates.length));
-  const selected = topCandidates[Math.floor(Math.random() * topCandidates.length)];
+  // Chance de oferta escala com o melhor score (não mais 35% fixo)
+  candidates.sort((a, b) => b.score - a.score);
+  const best = candidates[0];
+  const offerChance = Math.min(0.85, 0.18 + best.score / 120 + (best.aggressive ? 0.15 : 0));
+  if (Math.random() > offerChance) return null;
 
-  // Oferta baseada no valor de mercado, ajustada pela forma e reputação
-  const formMultiplier = 1 + (selected.player.form - 50) * 0.003; // ±15%
-  const repMultiplier = 1 + (selected.buyer.reputation - userTeam.reputation) * 0.002;
-  const basePrice = selected.player.marketValue * formMultiplier * repMultiplier;
-  const offerPrice = Math.round(Math.max(basePrice * 0.85, selected.player.marketValue * 0.8) * 10) / 10;
+  const top = candidates.slice(0, Math.min(5, candidates.length));
+  const selected = top[Math.floor(Math.random() * top.length)];
+
+  const discount = selected.player.transferRequest?.askingPriceDiscount ?? 1;
+  let priceMult: number;
+  if (selected.player.transferRequest?.active) {
+    // Jogador pedindo saída: IA baixa a oferta (abaixo do mercado)
+    priceMult = discount * (0.9 + Math.random() * 0.1);
+  } else if (selected.aggressive) {
+    // Crise: proposta agressiva (premium)
+    priceMult = 1.15 + Math.min(0.25, selected.urgency * 0.35) + Math.random() * 0.1;
+  } else {
+    priceMult = 0.9 + Math.random() * 0.25;
+  }
+
+  const formMultiplier = 1 + (selected.player.form - 50) * 0.002;
+  const offerPrice = Math.round(selected.player.marketValue * priceMult * formMultiplier * 10) / 10;
 
   return buildIncomingTransfer(selected.player, selected.buyer, offerPrice, currentWeek);
 }
@@ -182,6 +294,169 @@ function buildIncomingTransfer(
     installmentClause,
     bonuses,
   };
+}
+
+// ============================================================
+// PEDIDOS DE TRANSFERÊNCIA (Transfer Request)
+// ============================================================
+
+export interface TransferRequestResult {
+  team: Team;
+  newRequests: Player[];
+  cascadeEvents: { playerId: string; playerName: string; change: number }[];
+  inboxMessages: InboxMessage[];
+}
+
+/**
+ * Jogadores com moral destruída ou promessas quebradas pedem transferência.
+ * Pedidos ativos não resolvidos causam cascata social no vestiário.
+ */
+export function processTransferRequests(
+  team: Team,
+  currentWeek: number,
+): TransferRequestResult {
+  const inboxMessages: InboxMessage[] = [];
+  const newRequests: Player[] = [];
+  const cascadeEvents: TransferRequestResult['cascadeEvents'] = [];
+
+  let squad = team.squad.map(player => {
+    // Já tem pedido ativo → cascata semanal se não vendido
+    if (player.transferRequest?.active) {
+      const weeksOpen = Math.max(0, currentWeek - player.transferRequest.weekRequested);
+      const selfDrop = weeksOpen >= 2 ? 3 : 1;
+      const updated = {
+        ...player,
+        morale: Math.max(0, player.morale - selfDrop),
+        squadStatus: player.squadStatus === 'Key Player' || player.squadStatus === 'Regular Starter'
+          ? 'Excess'
+          : player.squadStatus,
+      };
+      return updated;
+    }
+
+    // Disparo: moral muito baixa OU promessas quebradas (marcadas fulfilled após penalidade)
+    const brokenPromises = player.promises.filter(p => p.fulfilled && p.deadline <= 0);
+    const lowMorale = player.morale < 28;
+    const unhappyBench =
+      player.morale < 35
+      && (player.squadStatus === 'Excess' || !(team.startingXI ?? []).includes(player.id))
+      && (player.squadStatus === 'Key Player' || player.squadStatus === 'Regular Starter');
+
+    // Ambition alta + moral baixa acelera o pedido
+    const ambitious = (player.hidden?.ambition ?? 3) >= 4 && player.morale < 32;
+    const afterBrokenPromise = brokenPromises.length > 0 && player.morale < 40;
+
+    if (!lowMorale && !unhappyBench && !ambitious && !afterBrokenPromise) return player;
+
+    // Chance: moral 20 → ~70%; moral 27 → ~40%; pós-promessa quebrada → +20pp
+    let chance = lowMorale
+      ? Math.min(0.75, 0.35 + (28 - player.morale) * 0.04)
+      : unhappyBench
+        ? 0.35
+        : afterBrokenPromise
+          ? 0.45
+          : 0.25;
+    if (afterBrokenPromise) chance = Math.min(0.85, chance + 0.2);
+
+    if (Math.random() > chance) return player;
+
+    const reason: 'low_morale' | 'broken_promise' =
+      brokenPromises.length > 0 ? 'broken_promise' : 'low_morale';
+    // Desconto: quanto pior a moral, mais barato o clube é forçado a vender
+    const askingPriceDiscount = Math.max(0.65, Math.min(0.85, 0.7 + player.morale / 500));
+
+    const requested: Player = {
+      ...player,
+      squadStatus: 'Excess',
+      transferRequest: {
+        active: true,
+        weekRequested: currentWeek,
+        reason,
+        askingPriceDiscount,
+      },
+    };
+    newRequests.push(requested);
+    return requested;
+  });
+
+  // Cascata social: pedidos ativos contaminam colegas (teamMates + mesmo grupo)
+  const activeRequesters = squad.filter(p => p.transferRequest?.active);
+  if (activeRequesters.length > 0) {
+    const requesterIds = new Set(activeRequesters.map(p => p.id));
+    const allyIds = new Set<string>();
+    for (const r of activeRequesters) {
+      for (const id of r.teamMates ?? []) allyIds.add(id);
+      if (r.socialGroup) {
+        for (const p of squad) {
+          if (p.socialGroup === r.socialGroup && p.id !== r.id) allyIds.add(p.id);
+        }
+      }
+    }
+
+    squad = squad.map(p => {
+      if (requesterIds.has(p.id)) return p;
+      if (!allyIds.has(p.id)) return p;
+      // Influência: líderes/Key Players pedindo saída doem mais
+      const influencer = activeRequesters.find(
+        r => (r.teamMates ?? []).includes(p.id) || r.socialGroup === p.socialGroup,
+      );
+      const severity = influencer?.squadStatus === 'Key Player' ? 6
+        : influencer && (influencer.mental?.leadership ?? 0) >= 14 ? 5
+        : 3;
+      cascadeEvents.push({
+        playerId: p.id,
+        playerName: getFullName(p),
+        change: -severity,
+      });
+      return { ...p, morale: Math.max(0, p.morale - severity) };
+    });
+  }
+
+  for (const player of newRequests) {
+    const reasonText = player.transferRequest?.reason === 'broken_promise'
+      ? 'promessas quebradas e insatisfação acumulada'
+      : 'moral destruída no vestiário';
+    const discountPct = Math.round((1 - (player.transferRequest?.askingPriceDiscount ?? 0.75)) * 100);
+    inboxMessages.push({
+      id: `tr_req_${player.id}_${currentWeek}_${Date.now()}`,
+      type: 'transfer',
+      subject: `🚨 Pedido de transferência: ${getFullName(player)}`,
+      body: `${getFullName(player)} veio a público e pediu para ser colocado na lista de transferências (${reasonText}). `
+        + `O ambiente no vestiário está contaminado — quanto mais demorar a venda, pior a cascata social. `
+        + `O mercado já sabe da situação: espere ofertas ~${discountPct}% abaixo do valor de mercado. `
+        + `Recusar propostas ou segurar o jogador agrava a moral dos colegas.`,
+      timestamp: Date.now(),
+      read: false,
+      priority: 'high',
+      relatedPlayerId: player.id,
+    });
+  }
+
+  if (activeRequesters.length > 0 && newRequests.length === 0 && cascadeEvents.length > 0) {
+    const names = activeRequesters.map(p => getFullName(p)).join(', ');
+    inboxMessages.push({
+      id: `tr_cascade_${team.id}_${currentWeek}_${Date.now()}`,
+      type: 'news',
+      subject: `Vestiário abalado — pedidos de saída pendentes`,
+      body: `${names} continua(m) na lista de transferências. Colegas próximos perderam moral esta semana. Resolva as saídas antes que a cascata se espalhe.`,
+      timestamp: Date.now(),
+      read: false,
+      priority: 'medium',
+    });
+  }
+
+  return {
+    team: { ...team, squad },
+    newRequests,
+    cascadeEvents,
+    inboxMessages,
+  };
+}
+
+export function clearTransferRequest(player: Player): Player {
+  if (!player.transferRequest?.active) return player;
+  const { transferRequest: _removed, ...rest } = player;
+  return { ...rest, transferRequest: undefined };
 }
 
 /**
@@ -259,9 +534,9 @@ export function processBiddingWars(
   teams: Team[],
   selectedTeamId: string,
   currentWeek: number,
-): { updatedBiddingWars: BiddingWar[]; inboxMessages: import('../../types/game').InboxMessage[] } {
+): { updatedBiddingWars: BiddingWar[]; inboxMessages: InboxMessage[] } {
   const updatedBiddingWars: BiddingWar[] = [];
-  const inboxMessages: import('../../types/game').InboxMessage[] = [];
+  const inboxMessages: InboxMessage[] = [];
 
   for (const war of biddingWars) {
     if (war.status !== 'active') {

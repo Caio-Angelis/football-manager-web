@@ -1549,9 +1549,12 @@ body {
 }
 
 .fm-team-crest svg,
-.fm-team-crest__svg {
+.fm-team-crest__svg,
+.fm-team-crest__img {
   width: 100%;
   height: 100%;
+  object-fit: contain;
+  display: block;
 }
 
 .fm-team-card__hero-text {
@@ -1739,9 +1742,11 @@ body {
 }
 
 .fm-team-selection__empty-ball {
-  width: 64px;
-  height: 64px;
+  width: 88px;
+  height: 88px;
   margin-bottom: 4px;
+  object-fit: contain;
+  border-radius: 50%;
   filter: none;
   animation: fm-ball-bounce 3s ease-in-out infinite;
 }
@@ -3485,6 +3490,15 @@ input:focus-visible {
   display: flex;
   gap: var(--t-space-2);
   flex-wrap: wrap;
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  /* Sangra até as bordas da seção pra virar um rodapé real */
+  margin: var(--t-space-4) calc(-1 * var(--t-space-4)) calc(-1 * var(--t-space-4));
+  padding: var(--t-space-3) var(--t-space-4);
+  background: var(--t-panel);
+  border-top: 1px solid var(--t-border);
+  border-radius: 0 0 8px 8px;
 }
 
 .fm-training-view__target-group {
@@ -3587,41 +3601,55 @@ input:focus-visible {
   color: var(--t-text-2);
 }
 
+/* Agenda semanal transposta: dias em LINHAS, blocos (Manhã/Tarde/Noite) em 3
+   colunas. Cabe folgado na coluna do plano — cada select recebe ~1/3 da largura
+   em vez de espremer 7 dias lado a lado. */
 .fm-training-calendar {
+  display: flex;
+  flex-direction: column;
+}
+
+.fm-training-calendar__head,
+.fm-training-row {
   display: grid;
-  grid-template-columns: repeat(7, minmax(104px, 1fr));
-  gap: var(--t-space-2);
+  grid-template-columns: 52px repeat(3, minmax(0, 1fr));
+  gap: var(--t-space-3);
+  align-items: center;
 }
 
-.fm-training-day {
-  background: var(--t-panel-2);
-  border: 1px solid var(--t-border);
-  border-radius: 8px;
-  padding: var(--t-space-3);
-  min-width: 0;
+.fm-training-calendar__head {
+  padding: 0 0 var(--t-space-2);
 }
 
-.fm-training-day__title {
-  font-size: 13px;
+.fm-training-calendar__col-label {
+  font-size: var(--t-font-xs);
   font-weight: 600;
-  margin-bottom: 8px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--t-text-3);
 }
 
-.fm-training-block {
-  margin-bottom: var(--t-space-2);
+.fm-training-row {
+  padding: var(--t-space-2) 0;
+  border-top: 1px solid var(--t-border);
 }
 
-.fm-training-block__label {
-  display: block;
-  font-size: var(--t-font-sm);
+.fm-training-row__day {
+  font-size: var(--t-font-md);
+  font-weight: 600;
   color: var(--t-text-2);
-  margin-bottom: 4px;
 }
 
-.fm-training-block__select {
+.fm-training-row__select {
   width: 100%;
-  min-height: 32px;
+  min-width: 0;
+  min-height: 34px;
   font-size: var(--t-font-base);
+}
+
+/* Dia em descanso fica visualmente recuado — o que tem treino salta à vista */
+.fm-training-row__select--rest {
+  color: var(--t-text-3);
 }
 
 /* ===== Dynamics View ===== */
@@ -4072,9 +4100,35 @@ input:focus-visible {
 }
 
 /* ===== Finance View ===== */
-.fm-finance-view {
-  max-width: 900px;
+.fm-finance-layout {
+  max-width: 1180px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--t-space-4);
+}
+
+/* Layout de fluxo de caixa: extrato à esquerda, folha + fôlego à direita.
+   auto-fit + minmax colapsa para 1 coluna sozinho em telas estreitas. */
+.fm-finance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--t-space-4);
+  align-items: start;
+}
+
+.fm-finance-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--t-space-4);
+}
+
+/* Caixa de seção alinhada ao design system --t-* (igual a Treino/Táticas) */
+.fm-finance-section {
+  background: var(--t-panel);
+  border: 1px solid var(--t-border);
+  border-radius: 8px;
+  padding: var(--t-space-4);
 }
 
 .fm-finance-view__header {
@@ -4089,8 +4143,8 @@ input:focus-visible {
 .fm-finance-view__summary {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
+  gap: var(--t-space-3);
+  margin-bottom: 0;
 }
 
 .fm-finance-view__summary-card {
@@ -4871,6 +4925,19 @@ input:focus-visible {
 .fm-save-slot__team-icon {
   color: rgba(255, 255, 255, 0.4);
   flex-shrink: 0;
+}
+
+.fm-save-slot__team-crest {
+  flex-shrink: 0;
+  width: 28px !important;
+  height: 32px !important;
+}
+
+.fm-save-slot__team-crest .fm-team-crest__img,
+.fm-save-slot__team-crest .fm-team-crest__svg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .fm-save-slot__team-text {

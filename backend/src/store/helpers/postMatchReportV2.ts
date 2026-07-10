@@ -3,7 +3,7 @@
 // Relatório separa chances por origem: lateral / centro / bola parada / transição.
 // Conselho do assistente é acionável (ex: "o meio deles teve superioridade; use um volante a mais").
 
-import type { Team, LiveMatchState, PostMatchReport, TacticalInsight, AssistantAdvice } from '../../types/game';
+import type { Team, LiveMatchState, TacticalInsight } from '../../types/game';
 import { getDuelLog, duelStatsByPlayer } from './zones';
 
 // ============================================================
@@ -56,24 +56,19 @@ export function generateDuelInsights(homeTeam: Team, awayTeam: Team): TacticalIn
     const player = [...homeTeam.squad, ...awayTeam.squad].find(p => p.id === playerId);
     if (!player) continue;
 
-    const team = homeTeam.squad.find(p => p.id === playerId) ? homeTeam : awayTeam;
-    const side = homeTeam.squad.find(p => p.id === playerId) ? 'home' : 'away';
-
     if (winRate < 0.35 && total >= 5) {
       insights.push({
-        type: 'duelWeakness',
-        team: side,
+        category: 'negative',
+        icon: '⚔️',
         title: `${player.name} perdeu ${stat.lost} de ${total} duelos`,
         description: `${player.name} (${player.position}) teve apenas ${(winRate * 100).toFixed(0)}% de sucesso nos duelos. Considere reforçar esta zona.`,
-        severity: 'warning',
       });
     } else if (winRate > 0.70 && total >= 5) {
       insights.push({
-        type: 'duelStrength',
-        team: side,
+        category: 'positive',
+        icon: '💪',
         title: `${player.name} dominou nos duelos (${stat.won}/${total})`,
         description: `${player.name} teve ${(winRate * 100).toFixed(0)}% de sucesso nos duelos — referência da partida.`,
-        severity: 'positive',
       });
     }
   }
@@ -114,12 +109,18 @@ export function summarizeChancesByOrigin(state: LiveMatchState): ChanceOriginSum
 /**
  * Gera conselho tático acionável baseado nos duelos, chances e placar.
  */
+export interface AssistantAdviceV2Result {
+  summary: string;
+  recommendations: string[];
+  keyInsights: TacticalInsight[];
+}
+
 export function generateAssistantAdviceV2(
   homeTeam: Team,
   awayTeam: Team,
   state: LiveMatchState,
   isUserHome: boolean,
-): AssistantAdvice {
+): AssistantAdviceV2Result {
   const userTeam = isUserHome ? homeTeam : awayTeam;
   const oppTeam = isUserHome ? awayTeam : homeTeam;
   const userSide = isUserHome ? 'home' : 'away';

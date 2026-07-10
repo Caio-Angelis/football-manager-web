@@ -80,11 +80,33 @@ Após o time aceitar a oferta, o jogador precisa concordar com o contrato. O sal
 
 ## Ofertas Recebidas (Venda de Jogadores)
 
-- A cada avanço de semana, há **35% de chance** de um time adversário fazer uma oferta por um jogador do seu elenco.
-- A oferta inclui: preço (80% a 120% do valor de mercado), proposta de contrato (salário, duração, cláusula), método de pagamento (à vista ou parcelado) e possivelmente bônus.
-- O usuário pode **aceitar, rejeitar, adiar ou contra-propor**:
-  - **Adiar:** A oferta fica pendente e pode ser reinstada ou rejeitada depois.
-  - **Contra-oferta:** O usuário propõe 20-30% menos que o valor original, com novo método de pagamento e bônus.
+Ofertas da IA pelo elenco do usuário **não usam mais 35% fixo**. A cada semana, `maybeGenerateIncomingTransfer` avalia crises posicionais dos clubes AI:
+
+- **Crise posicional** (`detectPositionalCrises`): titular lesionado (14/30/60+ dias), profundidade baixa, reserva muito inferior ao titular fora.
+- **Alvos preferidos:** reservas/altos CA do usuário que resolvem a crise; jogadores com `transferRequest` ativo ou status Excess.
+- **Chance de oferta** escala com o score (urgência + upgrade de CA + reputação), tipicamente 18–85% quando há candidato forte.
+- **Preço agressivo:** crise alta ou clube elite (rep ≥ 80) → premium ~115–140% do mercado; jogador pedindo saída → desconto (`askingPriceDiscount`, tipicamente 65–85% do mercado).
+- Fallback raro (~12%): oferta oportunista se não houver match de necessidade.
+- O usuário pode **aceitar, rejeitar, adiar ou contra-propor**. Recusar oferta de jogador com pedido ativo agrava a cascata social.
+
+---
+
+## Pedidos de Transferência (Transfer Request)
+
+Jogadores com moral destruída ou promessas quebradas podem pedir saída publicamente (`processTransferRequests`, após a dinâmica de moral semanal):
+
+| Gatilho | Chance aproximada |
+|---------|-------------------|
+| Moral < 28 | 35–75% (pior moral = mais chance) |
+| Titular chave/regular no banco com moral < 35 | ~35% |
+| Ambition alta + moral < 32 | ~25% |
+| Promessa quebrada + moral < 40 | +20pp |
+
+Efeitos:
+- Status vira **Excess**; `transferRequest.active = true` com desconto de venda.
+- Inbox de alta prioridade anuncia o pedido.
+- Enquanto não vender: moral do jogador continua caindo; **cascata** em `teamMates` e mesmo `socialGroup` (−3 a −6/semana).
+- IA mira esses jogadores com ofertas abaixo do mercado; recusar ofertas piora ainda mais o vestiário.
 
 ---
 

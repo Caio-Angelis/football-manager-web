@@ -9,7 +9,6 @@ import { OnlineTransfers } from './components/online/OnlineTransfers';
 import { OnlineRoundResult } from './components/online/OnlineRoundResult';
 import './components/online/online.css';
 import { Button } from './components/ui/Button';
-import { PageHeader } from './components/ui/PageHeader';
 import { SaveSlot } from './components/saves/SaveSlot';
 import { Logo } from './components/ui/Logo';
 import { TacticalPitch } from './components/ui/TacticalPitch';
@@ -20,11 +19,11 @@ import { useRoomPolling } from './hooks/useRoomPolling';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { SeasonSummaryModal } from './components/season/SeasonSummaryModal';
 import './components/dashboard/Dashboard.css';
-import type { SaveSlotMetadata, Team, Match } from './types/game';
+import type { SaveSlotMetadata, Match } from './types/game';
 import {
   FolderOpen, Users, Calendar, BarChart3, ArrowLeftRight, ClipboardList,
   Dumbbell, Activity, Inbox, Mic, Wallet, Building2, LayoutDashboard,
-  ArrowLeft, Home, Save, ArrowRight, Play,
+  ArrowLeft, Home, Save, ArrowRight, Play, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 
 const SquadView = lazy(() => import('./components/squad/SquadView').then(m => ({ default: m.SquadView })));
@@ -38,8 +37,9 @@ const LeagueTable = lazy(() => import('./components/league/LeagueTable').then(m 
 const PressCenter = lazy(() => import('./components/press/PressCenter').then(m => ({ default: m.PressCenter })));
 const TransferMarketComponent = lazy(() => import('./components/transfer/TransferMarket').then(m => ({ default: m.TransferMarket })));
 const Dashboard = lazy(() => import('./components/dashboard/Dashboard').then(m => ({ default: m.Dashboard })));
+const ClubView = lazy(() => import('./components/club/ClubView').then(m => ({ default: m.ClubView })));
 
-type NavIcon = React.ComponentType<{ size?: number | string }>;
+type NavIcon = React.ComponentType<{ size?: number | string; strokeWidth?: number | string }>;
 
 const NAV_ITEMS: { id: string; path: string; label: string; icon: NavIcon; badge?: boolean; key?: string }[] = [
   { id: 'dashboard', path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, key: '1' },
@@ -61,161 +61,6 @@ const LeagueTableWrapper: React.FC = () => {
   return <LeagueTable standings={leagueTable} userTeamId={selectedTeam} />;
 };
 
-const EXPECTATION_LABELS: Record<string, string> = {
-  relegation: 'Evitar rebaixamento',
-  midtable: 'Meio da tabela',
-  top4: 'G4',
-  title: 'Título',
-};
-
-const FORM_LABELS: Record<string, string> = {
-  W: 'V',
-  D: 'E',
-  L: 'D',
-};
-
-const ClubView: React.FC<{ team?: Team }> = ({ team }) => {
-  const navigate = useNavigate();
-  if (!team) {
-    return (
-      <div className="fms-page">
-        <div style={{ margin: 'auto', color: 'var(--t-text-2)' }}>Selecione um time para ver a visão do clube.</div>
-      </div>
-    );
-  }
-
-  const squadCount = team.squad?.length ?? 0;
-  const expectationLabel = EXPECTATION_LABELS[team.boardExpectation] ?? team.boardExpectation;
-  const goalDifference = team.goalsFor - team.goalsAgainst;
-  const formItems = (team.leagueForm ?? []).map(f => FORM_LABELS[f] ?? f);
-
-  return (
-    <div className="fms-page">
-      <PageHeader
-        title="Visão do Clube"
-        subtitle={`${team.name} — ${team.division}`}
-        teamName={team.name}
-        teamReputation={team.reputation}
-        actions={[
-          { icon: <Users size={15} />, title: 'Elenco', onClick: () => navigate('/elenco') },
-          { icon: <BarChart3 size={15} />, title: 'Classificação', onClick: () => navigate('/classificacao') },
-        ]}
-      />
-
-      <div className="fms-body--scroll">
-      <div className="fm-club-view__info">
-        <h2>{team.name}</h2>
-        <p>{team.division} — {team.league}</p>
-        <p>Reputação: {team.reputation}/100</p>
-        <p>Expectativa da diretoria: {expectationLabel}</p>
-      </div>
-
-      <div className="fm-club-view__section">
-        <h3 className="fm-club-view__section-title">Estrutura</h3>
-        <div className="fm-club-view__grid">
-          <div className="fm-club-view__stat">
-            <span className="fm-club-view__stat-label">Instalações</span>
-            <span className="fm-club-view__stat-value">Nível {team.facilitiesLevel}</span>
-          </div>
-          <div className="fm-club-view__stat">
-            <span className="fm-club-view__stat-label">Base Juvenil</span>
-            <span className="fm-club-view__stat-value">Nível {team.youthFacilitiesLevel}</span>
-          </div>
-          <div className="fm-club-view__stat">
-            <span className="fm-club-view__stat-label">Scouting</span>
-            <span className="fm-club-view__stat-value">Nível {team.scoutingLevel}</span>
-          </div>
-          <div className="fm-club-view__stat">
-            <span className="fm-club-view__stat-label">Equipa Técnica</span>
-            <span className="fm-club-view__stat-value">Nível {team.staffLevel}</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="fm-club-view__section">
-        <h3 className="fm-club-view__section-title">Finanças</h3>
-        <div className="fm-club-view__grid">
-          <div className="fm-club-view__stat">
-            <span className="fm-club-view__stat-label">Orçamento</span>
-            <span className="fm-club-view__stat-value">R$ {team.budget.toFixed(1)}M</span>
-          </div>
-          <div className="fm-club-view__stat">
-            <span className="fm-club-view__stat-label">Folha Salarial</span>
-            <span className="fm-club-view__stat-value">R$ {team.wageBill.toFixed(1)}M</span>
-          </div>
-          <div className="fm-club-view__stat">
-            <span className="fm-club-view__stat-label">Jogadores</span>
-            <span className="fm-club-view__stat-value">{squadCount}</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="fm-club-view__section">
-        <h3 className="fm-club-view__section-title">Desempenho</h3>
-        <div className="fm-club-view__grid">
-          <div className="fm-club-view__stat">
-            <span className="fm-club-view__stat-label">Posição</span>
-            <span className="fm-club-view__stat-value">{team.leaguePosition}º</span>
-          </div>
-          <div className="fm-club-view__stat">
-            <span className="fm-club-view__stat-label">Pontos</span>
-            <span className="fm-club-view__stat-value">{team.points}</span>
-          </div>
-          <div className="fm-club-view__stat">
-            <span className="fm-club-view__stat-label">Jogos</span>
-            <span className="fm-club-view__stat-value">{team.played}</span>
-          </div>
-          <div className="fm-club-view__stat">
-            <span className="fm-club-view__stat-label">V / E / D</span>
-            <span className="fm-club-view__stat-value">{team.won} / {team.drawn} / {team.lost}</span>
-          </div>
-          <div className="fm-club-view__stat">
-            <span className="fm-club-view__stat-label">Gols Marcados</span>
-            <span className="fm-club-view__stat-value">{team.goalsFor}</span>
-          </div>
-          <div className="fm-club-view__stat">
-            <span className="fm-club-view__stat-label">Gols Sofridos</span>
-            <span className="fm-club-view__stat-value">{team.goalsAgainst}</span>
-          </div>
-          <div className="fm-club-view__stat">
-            <span className="fm-club-view__stat-label">Saldo de Gols</span>
-            <span className="fm-club-view__stat-value">{goalDifference >= 0 ? '+' : ''}{goalDifference}</span>
-          </div>
-        </div>
-        {formItems.length > 0 && (
-          <div className="fm-club-view__form">
-            <span className="fm-club-view__stat-label">Últimos jogos:</span>
-            <div className="fm-club-view__form-badges">
-              {formItems.map((f, i) => (
-                <span key={i} className={`fm-club-view__form-badge fm-club-view__form-badge--${(team.leagueForm ?? [])[i]?.toLowerCase() ?? ''}`}>
-                  {f}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {team.boardPromises && team.boardPromises.length > 0 && (
-        <div className="fm-club-view__section">
-          <h3 className="fm-club-view__section-title">Promessas da Diretoria</h3>
-          <div className="fm-club-view__promises">
-            {team.boardPromises.map((p, i) => (
-              <div key={i} className={`fm-club-view__promise ${p.fulfilled ? 'fm-club-view__promise--done' : ''}`}>
-                <span className="fm-club-view__promise-goal">{p.goal}</span>
-                <span className="fm-club-view__promise-deadline">
-                  {p.fulfilled ? 'Cumprida' : `Prazo: ${p.deadline} sem.`}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-      </div>
-    </div>
-  );
-};
-
 export const App: React.FC = () => {
   const { selectedTeam, inbox, teams, currentWeek, currentSeason, advanceWeek, isAdvancing, matchBlockMessage, seasonSummary, gameOver, toasts, pushToast, dismissToast } = useGameStore();
   const navigate = useNavigate();
@@ -223,7 +68,6 @@ export const App: React.FC = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
 
   const unreadCount = inbox.filter(m => !m.read).length;
-  const team = teams.find(t => t.id === selectedTeam);
 
   // ── Modo online: polling único com backoff (C5) ──
   const online = getActiveRoom();
@@ -406,38 +250,45 @@ export const App: React.FC = () => {
 
   return (
     <div className="fm-app fm-shell-fm">
-      <nav className={`fm-sidebar ${sidebarCollapsed ? 'fm-sidebar--collapsed' : ''}`}>
+      <nav
+        className={`fm-sidebar ${sidebarCollapsed ? 'fm-sidebar--collapsed' : ''}`}
+        aria-label="Navegação principal"
+      >
         <div className="fm-sidebar__header">
           <button
+            type="button"
             className="fm-sidebar__toggle"
             onClick={() => setSidebarCollapsed(prev => !prev)}
-            title={sidebarCollapsed ? 'Expandir' : 'Recolher'}
+            title={sidebarCollapsed ? 'Expandir menu' : 'Recolher menu'}
+            aria-label={sidebarCollapsed ? 'Expandir menu' : 'Recolher menu'}
+            aria-expanded={!sidebarCollapsed}
           >
-            {sidebarCollapsed ? '→' : '←'}
+            {sidebarCollapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
           </button>
           <div className="fm-sidebar__logo">
-            <Logo size={26} className="fm-sidebar__logo-icon" />
+            <Logo size={22} className="fm-sidebar__logo-icon" />
             <span className="fm-sidebar__logo-text">FM Web</span>
           </div>
         </div>
-        <div className="fm-sidebar__season">
+        <div className="fm-sidebar__season" aria-live="polite">
           T{currentSeason} — Semana {currentWeek}
         </div>
-        <div className="fm-sidebar__nav">
+        <div className="fm-sidebar__nav" role="list">
           {NAV_ITEMS.map((item) => (
             <NavLink
               key={item.id}
               to={item.path}
+              role="listitem"
               className={({ isActive }) => `fm-sidebar__item ${isActive ? 'fm-sidebar__item--active' : ''}`}
               title={item.key ? `${item.label} (${item.key})` : item.label}
             >
-              <span className="fm-sidebar__item-icon"><item.icon size={18} /></span>
+              <span className="fm-sidebar__item-icon" aria-hidden="true"><item.icon size={16} strokeWidth={1.75} /></span>
               <span className="fm-sidebar__item-label">{item.label}</span>
               {item.badge && unreadCount > 0 && (
-                <span className="fm-sidebar__badge">{unreadCount}</span>
+                <span className="fm-sidebar__badge" aria-label={`${unreadCount} não lidas`}>{unreadCount}</span>
               )}
               {item.key && !sidebarCollapsed && (
-                <span className="fm-sidebar__key-hint">{item.key}</span>
+                <span className="fm-sidebar__key-hint" aria-hidden="true">{item.key}</span>
               )}
             </NavLink>
           ))}
@@ -555,7 +406,7 @@ export const App: React.FC = () => {
           <Route path="/imprensa" element={<PressCenter />} />
           <Route path="/financas" element={<FinanceView />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/clube" element={<ClubView team={team} />} />
+          <Route path="/clube" element={<ClubView />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
         </Suspense>
