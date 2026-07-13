@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { Match, MatchEvent, MatchAction, Player, Team } from '../../types/game';
 import { MatchPitch2D } from './MatchPitch2D';
 import { TeamCrest } from '../ui/TeamCrest';
@@ -191,8 +192,9 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
   const formation = userSideTeam?.formation ?? '—';
   const canSub = subsUsed < 5 && !!outId && !!inId;
 
-  return (
+  return createPortal(
     <div className="fm-mlv" role="dialog" aria-modal="true" aria-label="Partida ao vivo">
+      <div className="fm-mlv__stage">
       <div className="fm-mlv__pitch">
         <MatchPitch2D
           homeTeam={homeTeam}
@@ -208,6 +210,8 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
           ballHolderId={match.liveMatchState?.ballHolderId}
           possessionSide={match.liveMatchState?.possession}
           speed={matchSpeed}
+          actions={actions}
+          paused={atHT}
           variant="classic"
           showTacticalLines={false}
         />
@@ -388,6 +392,8 @@ export const MatchLiveView: React.FC<MatchLiveViewProps> = ({
           )}
         </div>
       )}
-    </div>
+      </div>
+    </div>,
+    document.body,
   );
 };

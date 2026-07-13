@@ -101,6 +101,7 @@ Moral extrema tende ao centro:
 
 Após a dinâmica semanal de moral, `processTransferRequests` pode forçar um pedido público de saída:
 
+- **Apenas times humanos** são processados (times AI não geram pedidos de transferência).
 - Moral < 28, titular no banco insatisfeito, ambition alta, ou promessa quebrada recente.
 - Jogador vai para status Excess + `transferRequest` (desconto de 15–35% no valor de venda).
 - Cascata social: colegas (`teamMates` / mesmo `socialGroup`) perdem moral enquanto o pedido não for resolvido.

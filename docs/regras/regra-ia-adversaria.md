@@ -21,6 +21,46 @@ Os 19 clubes controlados pela IA tomam **decisões ativas** a cada avanço de se
 
 ---
 
+## Ativação de Cláusulas de Rescisão
+
+- Ocorre apenas durante **janelas de transferência**.
+- Cada time AI tem **5% de chance por semana** de tentar ativar uma cláusula de rescisão.
+- O time identifica sua posição mais fraca e busca jogadores em outros clubes com cláusula acessível (≤ orçamento do comprador).
+- A cláusula deve ser **≤ 150% do valor de mercado** do jogador para ser considerada.
+- O jogador deve ser um upgrade (CA > média da posição + 5).
+- Vontade do jogador considera diferença de reputação entre clubes e entre jogador e clube comprador (via `reputationGapImpact`).
+- Se o jogador for do time do usuário, o inbox notifica com prioridade alta.
+- Transferências notáveis (CA > 130) também geram inbox.
+
+---
+
+## Empréstimos AI-vs-AI
+
+- Ocorrem apenas durante **janelas de transferência**.
+- Cada time AI tem **8% de chance por semana** de tentar um empréstimo.
+- O time busca jogadores com status **Excess** ou **Young Talent** em outros clubes (excluindo o time do usuário como cedente).
+- O jogador deve ter CA ≥ média da posição - 5.
+- **Taxa de empréstimo:** 5-15% do valor de mercado.
+- **Duração:** 16-26 semanas.
+- **Cláusula de compra opcional:** 50% de chance, valor de 110-130% do mercado (não obrigatória).
+- **Contribuição salarial:** 50-100% do salário do jogador.
+- Empréstimos de jogadores com CA > 120 geram mensagens no inbox.
+
+---
+
+## Assinatura de Agentes Livres
+
+- Ocorre apenas durante **janelas de transferência**.
+- Cada time AI tem **20% de chance por semana** de tentar assinar um agente livre.
+- Máximo de **30 jogadores** por elenco.
+- O time identifica sua posição mais fraca e busca agentes livres que preencham a necessidade (CA ≥ média da posição - 5).
+- Verifica reputação: jogador de rep alta pode recusar clube de rep baixa.
+- A folha salarial não pode exceder **50% do orçamento** após a assinatura.
+- **Contrato:** 52-156 semanas (1-3 temporadas).
+- Assinaturas de jogadores com CA > 120 geram mensagens no inbox.
+
+---
+
 ## Ajustes Táticos
 
 A cada **4 semanas**, os times AI ajustam táticas com base na posição na tabela e forma recente:

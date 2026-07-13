@@ -59,10 +59,15 @@ Após a rodada 38 da **3ª temporada**, o jogo seta `gameOver = true` e exibe o 
    - Partida pendente do usuário é auto-finalizada (se não jogou)
    - Partidas dos outros times são simuladas automaticamente
    - Nova partida do usuário fica pendente (jogável ao vivo)
+   - Finanças, fadiga, lesões e contratos são processados
+   - Ofertas de transferência podem chegar (sistema inteligente baseado em crises posicionais da IA)
+   - IA adversária toma decisões (transferências, táticas, renovações, empréstimos, agentes livres)
+   - Dinâmica de moral e pedidos de transferência são processados
+   - Missões de scouting progridem e conhecimento decai
+   - Guerras de ofertas e empréstimos ativos são processados
+   - Humor da torcida e pressão midiática decaem
+   - Treino semanal é aplicado e snapshots de atributos são capturados
    - Classificação é atualizada
-   - Finanças, treino, fadiga, lesões e promessas são processados
-   - Ofertas de transferência podem chegar (35% de chance)
-   - Missões de scouting progridem
    - Mensagens do inbox são geradas
 3. **Jogar partida ao vivo** (opcional):
    - Intelligence Center (opcional, pré-jogo): análise preditiva via Monte Carlo
@@ -79,23 +84,33 @@ Após a rodada 38 da **3ª temporada**, o jogo seta `gameOver = true` e exibe o 
 
 Ordem de processamento a cada avanço de semana:
 
-1. Se semana > 38: gera `SeasonSummary`, seta `gameOver` se temporada 3, return
-2. Auto-finaliza partida pendente do usuário (continua simulação se ao vivo, ou simula do zero)
-3. Simula partidas dos outros times via `simulateFullMatch()` (passo a passo, 90 min)
-4. Deixa a partida do usuário **PENDENTE** (jogável ao vivo)
-5. Gera youth intake na semana 1
-6. Aplica treino semanal (se plano definido)
-7. Atualiza finanças (bilheteira, patrocínio, salários)
-8. Gera incoming transfers (35% chance)
-9. Gera inbox messages (lesões, recomendações, contexto)
-10. Processa parcelas vencidas e bônus
-11. Atualiza classificação (leagueTable)
-12. `processAIWeeklyDecisions()` — IA adversária
-13. `applyWeeklyMoraleDynamics()` — dinâmica de moral (6 motores)
-14. `processScoutMissions()` — progresso de olheiros
-15. `updatePromiseCountdown()` + `captureWeeklyAttributeSnapshot()`
-16. `processWeeklyPressDecay()` — humor da torcida e pressão midiática
-17. Incrementa `currentWeek`
+1. **Guarda:** Se `isAdvancing`, `seasonSummary` ou `gameOver` → return
+2. **Bloqueio por lesão:** Se jogador lesionado no XI titular → `matchBlockMessage`, return
+3. **Valida XI:** `healTeamsXI` garante que todos os times tenham XI válido
+4. Se semana > 38: gera `SeasonSummary`, seta `gameOver` se temporada 3, return
+5. **Partidas:** Auto-finaliza partida pendente do usuário, simula partidas AI via `simulateFullMatch()`, deixa partida do usuário **PENDENTE**
+6. **Youth intake:** Gera juvenis na semana 1 (se `youthIntakeCompleted` é false)
+7. **Finanças:** Atualiza receitas (bilheteira, patrocínio, transmissão) e despesas (salários, facilities, staff) + prêmio por partida
+8. **Incoming transfers:** `maybeGenerateIncomingTransfer()` — sistema inteligente baseado em crises posicionais da IA (não mais 35% fixo)
+9. **Fadiga e lesões (times humanos):** `applyFatigueDecayToPlayer`, `healInjuryForPlayer`, decremento de contrato com avisos (4 e 2 semanas)
+10. **Condição degradada:** `updateDegradedConditionForPlayer` para todos os jogadores
+11. **Risco de lesão:** Calcula risco e gera lesões semanais (0.5% base + risk×0.03%), gera recomendações no inbox
+12. **Parcelas e bônus:** Processa parcelas vencidas (auto-paga ou marca default), verifica triggers de bônus
+13. **Classificação:** `calculateLeagueStandings()` e sincroniza `leaguePosition` em todos os times
+14. **Contratos AI:** Decrementa `contractEnd` dos jogadores dos times AI
+15. **IA adversária:** `processAIWeeklyDecisions()` — transferências AI-vs-AI, cláusulas de rescisão, empréstimos, ajustes táticos, renovações, agentes livres
+16. **Contra-ofertas:** Resolve contra-ofertas pendentes (IA aceita/rejeita baseado em preço vs valor de mercado)
+17. **Dinâmica de moral:** `applyWeeklyMoraleDynamics()` em todos os times (6 motores: promessas, tempo de jogo, forma, cascata capitão, grupo social, regressão à média)
+18. **Pedidos de transferência:** `processTransferRequests()` — apenas times humanos
+19. **Fadiga AI:** `applyFatigueDecayToPlayer` para times AI
+20. **Scouting:** `processScoutMissions()`, `decayScoutKnowledge()`, `generateScoutRecommendations()`
+21. **Guerras de ofertas:** `processBiddingWars()` — IA aumenta lances ou desiste
+22. **Empréstimos:** `processLoans()` — decrementa semanas, retorna jogadores, executa compras obrigatórias
+23. **Press:** `weeklyFanMoodDecay()` e `weeklyMediaPressureDecay()` — humor da torcida e pressão midiática
+24. **Promessas e snapshots:** `updatePromiseCountdown()` + `captureWeeklyAttributeSnapshot()`
+25. **Treino semanal:** Aplica plano de treino a jogadores não-lesionados (se definido)
+26. **Declínio mensal:** `applyMonthlyAgeDecline()` a cada 4 semanas para jogadores 31+
+27. **Incrementa `currentWeek`**
 
 **Lock anti-concorrência:** `isAdvancing` impede chamadas concorrentes de `advanceWeek`.
 

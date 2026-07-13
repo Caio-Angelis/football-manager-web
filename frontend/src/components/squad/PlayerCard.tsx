@@ -2,6 +2,7 @@ import React from 'react';
 import type { Player } from '../../types/game';
 import { StatBar } from '../ui/StatBar';
 import { Button } from '../ui/Button';
+import { PlayerAvatar } from '../ui/PlayerAvatar';
 import { getFullName } from '../../utils/player';
 import { getPositionColor, getRatingColor } from '../../utils/statusColors';
 
@@ -28,6 +29,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
   return (
     <div className="fm-player-card">
       <div className="fm-player-card__header">
+        <PlayerAvatar player={player} size={44} className="fm-player-card__photo" />
         <div className="fm-player-card__position" style={{ backgroundColor: getPositionColor(player.position) }}>
           {player.position}
         </div>

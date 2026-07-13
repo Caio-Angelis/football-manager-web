@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { Team, Player, MatchEvent } from '../../types/game';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { Team, Player, MatchEvent, MatchAction } from '../../types/game';
 import { getFullName } from '../../utils/player';
 import { getTeamDiscColor as getTeamColor } from '../../utils/teamColors';
 import { fmtMinute } from '../../utils/matchTime';
 import { MatchEventIcon } from '../ui/MatchEventIcon';
+import { PitchMotion, type MotionPlayer } from './pitchMotion';
 import './MatchPitch2D.css';
 
 // ============================================================
@@ -56,136 +57,6 @@ function buildPositions(team: Team, side: 'home' | 'away'): DiscPos[] {
     });
   });
   return result;
-}
-
-const clamp = (v: number, min: number, max: number) =>
-  Math.max(min, Math.min(max, v));
-
-const POS_RANGE: Record<string, { xMin: number; xMax: number; yMin: number; yMax: number }> = {
-  GK: { xMin: 1, xMax: 14, yMin: 30, yMax: 70 },
-  DEF: { xMin: 5, xMax: 60, yMin: 2, yMax: 98 },
-  MID: { xMin: 18, xMax: 82, yMin: 2, yMax: 98 },
-  FWD: { xMin: 30, xMax: 95, yMin: 5, yMax: 95 },
-};
-
-function computeShiftedPositions(
-  base: DiscPos[],
-  side: 'home' | 'away',
-  ballX: number,
-  ballY: number,
-  hasBall: boolean,
-): DiscPos[] {
-  const attackDir = side === 'home' ? 1 : -1;
-  const ballAttackProgress =
-    side === 'home' ? ballX / 100 : (100 - ballX) / 100;
-
-  const dists = base.map((d, i) => ({
-    i,
-    dist: Math.hypot(d.x - ballX, d.y - ballY),
-  }));
-  const sorted = [...dists].sort((a, b) => a.dist - b.dist);
-  const closestIdx = sorted[0]?.i ?? 0;
-  const secondClosestIdx = sorted[1]?.i ?? -1;
-
-  return base.map((d, i) => {
-    const pos = d.player.position;
-    const range = POS_RANGE[pos] ?? POS_RANGE.MID;
-
-    let blockShiftX: number;
-    if (hasBall) {
-      blockShiftX = attackDir * ballAttackProgress * 22;
-    } else {
-      blockShiftX = -attackDir * (1 - ballAttackProgress) * 20;
-    }
-
-    const blockShiftY = (ballY - 50) * 0.22;
-
-    let indivX = 0;
-    let indivY = 0;
-
-    if (pos === 'GK') {
-      indivY = (ballY - 50) * 0.25;
-      if (!hasBall && ballAttackProgress < 0.2) {
-        indivX = attackDir * 4;
-      }
-    } else if (pos === 'DEF') {
-      if (hasBall) {
-        indivX = attackDir * ballAttackProgress * 18;
-        const sideFactor = d.y > 50 ? 1 : -1;
-        if (Math.abs(d.y - 50) > 20) {
-          indivY = sideFactor * ballAttackProgress * 8;
-          indivX += attackDir * 6;
-        }
-      } else {
-        indivX = -attackDir * (1 - ballAttackProgress) * 8;
-        indivY = (ballY - d.y) * 0.15;
-      }
-    } else if (pos === 'MID') {
-      if (hasBall) {
-        indivX = attackDir * ballAttackProgress * 28;
-        const ballSide = ballY > 50 ? 1 : -1;
-        const playerSide = d.y > 50 ? 1 : -1;
-        if (playerSide === ballSide) {
-          indivY = ballSide * 6;
-        }
-      } else {
-        indivX = -attackDir * (1 - ballAttackProgress) * 14;
-        if (i === closestIdx) {
-          indivX += (ballX - d.x) * 0.35;
-          indivY += (ballY - d.y) * 0.35;
-        }
-      }
-    } else if (pos === 'FWD') {
-      if (hasBall) {
-        indivX = attackDir * (ballAttackProgress * 10 + 8);
-        const playerSide = d.y > 50 ? 1 : -1;
-        indivY = playerSide * Math.sin(ballAttackProgress * Math.PI) * 5;
-      } else {
-        indivX = -attackDir * (1 - ballAttackProgress) * 25;
-        if (i === closestIdx) {
-          indivX += (ballX - d.x) * 0.4;
-          indivY += (ballY - d.y) * 0.4;
-        }
-      }
-    }
-
-    if (i === closestIdx && pos !== 'GK') {
-      const dx = ballX - d.x;
-      const dy = ballY - d.y;
-      const pursuit = hasBall ? 0.5 : 0.55;
-      indivX += dx * pursuit;
-      indivY += dy * pursuit;
-    } else if (i === secondClosestIdx && !hasBall && pos !== 'GK') {
-      const dx = ballX - d.x;
-      const dy = ballY - d.y;
-      indivX += dx * 0.25;
-      indivY += dy * 0.25;
-    }
-
-    if (i !== closestIdx && i !== secondClosestIdx) {
-      const ballSide = ballY > 50 ? 1 : -1;
-      const playerSide = d.y > 50 ? 1 : -1;
-      if (playerSide !== ballSide) {
-        indivY -= ballSide * 4;
-      }
-    }
-
-    indivX += (Math.random() - 0.5) * 2;
-    indivY += (Math.random() - 0.5) * 2;
-
-    const rawX = d.x + blockShiftX + indivX;
-    const rawY = d.y + blockShiftY + indivY;
-
-    const adjRange = side === 'home'
-      ? range
-      : { xMin: 100 - range.xMax, xMax: 100 - range.xMin, yMin: range.yMin, yMax: range.yMax };
-
-    return {
-      ...d,
-      x: clamp(rawX, adjRange.xMin, adjRange.xMax),
-      y: clamp(rawY, adjRange.yMin, adjRange.yMax),
-    };
-  });
 }
 
 /** Map internal (length, width) → CSS % for board (horizontal) or classic (vertical). */
@@ -291,6 +162,86 @@ const TacticalLines: React.FC<{ homeTeam: Team; awayTeam: Team; isLive: boolean;
   );
 };
 
+const TRAIL_LEN = 6;
+
+// ============================================================
+// CAMADA DE ATORES — discos + bola (+ rastro).
+// Renderizada uma vez (estável); ao vivo, o PitchMotion escreve left/top
+// direto no DOM via refs, sem que o React reposicione (evita teleporte).
+// ============================================================
+
+interface PitchActorsProps {
+  homePositions: DiscPos[];
+  awayPositions: DiscPos[];
+  homeColor: string;
+  awayColor: string;
+  classic: boolean;
+  isLive: boolean;
+  staticBall: { left: number; top: number };
+  motion: PitchMotion;
+  trailRefs: React.MutableRefObject<HTMLDivElement[]>;
+}
+
+const PitchActors: React.FC<PitchActorsProps> = React.memo(({
+  homePositions, awayPositions, homeColor, awayColor, classic, isLive, staticBall, motion, trailRefs,
+}) => {
+  const renderTeam = (positions: DiscPos[], color: string) =>
+    positions.map(d => {
+      const screen = toScreen(d.x, d.y, classic);
+      const style: React.CSSProperties = classic
+        ? { background: color }
+        : { background: `radial-gradient(circle at 35% 30%, ${color}, color-mix(in srgb, ${color} 70%, #000))` };
+      if (!isLive) {
+        style.left = `${screen.left}%`;
+        style.top = `${screen.top}%`;
+      }
+      return (
+        <div
+          key={d.player.id}
+          ref={isLive ? (el => motion.registerNode(d.player.id, el)) : undefined}
+          className="fm-pitch2d__player"
+          style={style}
+          title={`${getFullName(d.player)} (${d.player.position})`}
+        >
+          {d.number}
+        </div>
+      );
+    });
+
+  return (
+    <>
+      {isLive && (
+        <div className="fm-pitch2d__trail-layer">
+          {Array.from({ length: TRAIL_LEN }).map((_, i) => (
+            <div
+              key={i}
+              ref={el => { if (el) trailRefs.current[i] = el; }}
+              className="fm-pitch2d__trail"
+              style={{ opacity: 0 }}
+            />
+          ))}
+        </div>
+      )}
+      {renderTeam(homePositions, homeColor)}
+      {renderTeam(awayPositions, awayColor)}
+      <div
+        ref={isLive ? (el => motion.registerBall(el)) : undefined}
+        className="fm-pitch2d__ball"
+        style={isLive ? undefined : { left: `${staticBall.left}%`, top: `${staticBall.top}%` }}
+      />
+    </>
+  );
+}, (prev, next) =>
+  prev.homePositions === next.homePositions &&
+  prev.awayPositions === next.awayPositions &&
+  prev.homeColor === next.homeColor &&
+  prev.awayColor === next.awayColor &&
+  prev.classic === next.classic &&
+  prev.isLive === next.isLive &&
+  prev.motion === next.motion &&
+  (next.isLive || (prev.staticBall.left === next.staticBall.left && prev.staticBall.top === next.staticBall.top)),
+);
+
 export type MatchPitchVariant = 'board' | 'classic';
 
 interface MatchPitch2DProps {
@@ -307,6 +258,10 @@ interface MatchPitch2DProps {
   ballHolderId?: string;
   possessionSide?: 'home' | 'away';
   speed?: number;
+  /** Sequência de ações do minuto (passes/dribles/chutes) — usada para animar a bola. */
+  actions?: MatchAction[];
+  /** Congela a animação (ex.: intervalo) — tudo para na tela. */
+  paused?: boolean;
   /** board = horizontal with chrome; classic = vertical FM-style field only */
   variant?: MatchPitchVariant;
   showTacticalLines?: boolean;
@@ -314,146 +269,113 @@ interface MatchPitch2DProps {
 
 export const MatchPitch2D: React.FC<MatchPitch2DProps> = ({
   homeTeam, awayTeam, homeGoals, awayGoals, minute, possession, events, isLive,
-  ballPos, ballPosY, ballHolderId, possessionSide, speed = 1,
+  ballPos, ballPosY, ballHolderId, possessionSide, speed = 1, actions, paused = false,
   variant = 'board',
   showTacticalLines = true,
 }) => {
   const classic = variant === 'classic';
-  const homePositions = useMemo(() => buildPositions(homeTeam, 'home'), [homeTeam]);
-  const awayPositions = useMemo(() => buildPositions(awayTeam, 'away'), [awayTeam]);
+
+  // Posições base ESTÁVEIS por referência (só recomputa em troca real de escalação).
+  const homeSig = `${homeTeam.id}|${(homeTeam.startingXI ?? []).join(',')}`;
+  const awaySig = `${awayTeam.id}|${(awayTeam.startingXI ?? []).join(',')}`;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const homePositions = useMemo(() => buildPositions(homeTeam, 'home'), [homeSig]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const awayPositions = useMemo(() => buildPositions(awayTeam, 'away'), [awaySig]);
 
   const homeColor = getTeamColor(homeTeam.name, homeTeam.reputation);
   let awayColor = getTeamColor(awayTeam.name, awayTeam.reputation);
   if (awayColor === homeColor) awayColor = getTeamColor(awayTeam.name, awayTeam.reputation, 3);
   if (awayColor === homeColor) awayColor = '#d64545';
 
-  const [ball, setBall] = useState({ x: 50, y: 50 });
-  const [celebration, setCelebration] = useState<{ side: 'home' | 'away'; scorer?: string; minute: number } | null>(null);
-  const [flashName, setFlashName] = useState<string | undefined>();
-  const [homeDyn, setHomeDyn] = useState<DiscPos[]>(homePositions);
-  const [awayDyn, setAwayDyn] = useState<DiscPos[]>(awayPositions);
+  const [celebration, setCelebration] = useState<{ scorer?: string } | null>(null);
   const scoreRef = useRef({ h: homeGoals, a: awayGoals });
-  const celebratingRef = useRef(false);
   const eventsRef = useRef(events);
   eventsRef.current = events;
 
-  useEffect(() => { setHomeDyn(homePositions); }, [homePositions]);
-  useEffect(() => { setAwayDyn(awayPositions); }, [awayPositions]);
+  const motionRef = useRef<PitchMotion | null>(null);
+  if (!motionRef.current) motionRef.current = new PitchMotion(classic);
+  const motion = motionRef.current;
+  const trailRefs = useRef<HTMLDivElement[]>([]);
+  const processedRef = useRef(0);
+  const goalScoreRef = useRef({ h: homeGoals, a: awayGoals });
 
+  // Sincroniza variante/escalação e posiciona tudo ANTES do primeiro paint
+  // (layout effect) — evita flash em 0,0 e garante que setPlayers preceda snapAll.
+  useLayoutEffect(() => {
+    motion.setClassic(classic);
+    if (!isLive) return;
+    const players: MotionPlayer[] = [
+      ...homePositions.map(d => ({ id: d.player.id, side: 'home' as const, baseX: d.x, baseY: d.y, position: d.player.position })),
+      ...awayPositions.map(d => ({ id: d.player.id, side: 'away' as const, baseX: d.x, baseY: d.y, position: d.player.position })),
+    ];
+    motion.setPlayers(players);
+    motion.registerTrail(trailRefs.current.slice(0, TRAIL_LEN));
+    motion.snapAll();
+  }, [motion, classic, isLive, homePositions, awayPositions]);
+
+  // Liga/desliga o loop de animação conforme a partida está ao vivo (e não pausada).
+  useEffect(() => {
+    if (!isLive || paused) { motion.stop(); return; }
+    motion.start();
+    return () => motion.stop();
+  }, [motion, isLive, paused]);
+
+  // Cada minuto do motor → alimenta o controlador com os toques do lance.
   useEffect(() => {
     if (!isLive) return;
+    const acts = actions ?? [];
+    const fresh = acts.length >= processedRef.current ? acts.slice(processedRef.current) : acts;
+    processedRef.current = acts.length;
 
-    if (ballPos !== undefined) {
-      const targetX = ballPos * 100;
-      const targetY = ballPosY !== undefined ? ballPosY * 100 : 20 + Math.random() * 60;
-      setBall({ x: targetX, y: targetY });
-      const homeHasBall = possessionSide === 'home';
-      setHomeDyn(computeShiftedPositions(homePositions, 'home', targetX, targetY, homeHasBall));
-      setAwayDyn(computeShiftedPositions(awayPositions, 'away', targetX, targetY, !homeHasBall));
-      return;
-    }
+    const pv = goalScoreRef.current;
+    let goal: 'home' | 'away' | undefined;
+    if (homeGoals > pv.h) goal = 'home';
+    else if (awayGoals > pv.a) goal = 'away';
+    goalScoreRef.current = { h: homeGoals, a: awayGoals };
 
-    const homeBias = (possession || 50) / 100;
-    const id = setInterval(() => {
-      if (celebratingRef.current) return;
-      const homeHasBall = Math.random() < homeBias;
-      const positions = homeHasBall ? homePositions : awayPositions;
-      if (positions.length === 0) return;
+    motion.pushTick({
+      possession: possessionSide ?? 'home',
+      ballHolderId,
+      ballX: ballPos !== undefined ? ballPos * 100 : 50,
+      ballY: ballPosY !== undefined ? ballPosY * 100 : 50,
+      touches: fresh.map(a => ({ playerId: a.playerId, side: a.team, x: Math.max(1, Math.min(99, a.ballPos * 100)) })),
+      durationMs: Math.max(300, (2000 / (speed || 1)) * 1.15),
+      goal,
+    });
+  }, [motion, isLive, minute, ballPos, ballPosY, ballHolderId, possessionSide, speed, actions, homeGoals, awayGoals]);
 
-      let newBallX = 50;
-      let newBallY = 50;
-      const advance = Math.random();
-      if (advance < 0.35) {
-        newBallX = homeHasBall ? 88 + Math.random() * 8 : 4 + Math.random() * 8;
-        newBallY = 30 + Math.random() * 40;
-      } else {
-        const sorted = [...positions].sort((a, b) =>
-          homeHasBall ? b.x - a.x : a.x - b.x,
-        );
-        const pickPool = sorted.slice(0, Math.max(4, Math.ceil(sorted.length * 0.6)));
-        const target = pickPool[Math.floor(Math.random() * pickPool.length)];
-        if (target) {
-          newBallX = target.x + (Math.random() * 4 - 2);
-          newBallY = target.y + (Math.random() * 6 - 3);
-        }
-      }
-
-      setBall({ x: newBallX, y: newBallY });
-      setHomeDyn(computeShiftedPositions(homePositions, 'home', newBallX, newBallY, homeHasBall));
-      setAwayDyn(computeShiftedPositions(awayPositions, 'away', newBallX, newBallY, !homeHasBall));
-    }, 700 / speed);
-    return () => clearInterval(id);
-  }, [isLive, possession, homePositions, awayPositions, ballPos, ballPosY, possessionSide, speed]);
-
+  // Celebração de gol (overlay) — não mexe nos discos; o rAF continua.
+  // Deps só do placar (NÃO de `events`, que muda todo tick e cancelaria o
+  // timeout que esconde o "GOL!", deixando-o preso na tela).
   useEffect(() => {
     const prev = scoreRef.current;
     if (homeGoals > prev.h || awayGoals > prev.a) {
       const side: 'home' | 'away' = homeGoals > prev.h ? 'home' : 'away';
       const goalEvents = eventsRef.current.filter(e => e.type === 'goal' && e.team === side);
       const last = goalEvents[goalEvents.length - 1];
-      celebratingRef.current = true;
-      const goalX = side === 'home' ? 97 : 3;
-      setBall({ x: goalX, y: 50 });
-      setCelebration({ side, scorer: last?.player, minute });
-      setFlashName(last?.player);
-      setHomeDyn(computeShiftedPositions(homePositions, 'home', goalX, 50, side === 'home'));
-      setAwayDyn(computeShiftedPositions(awayPositions, 'away', goalX, 50, side === 'away'));
+      const scorer = last?.player;
+      scoreRef.current = { h: homeGoals, a: awayGoals };
+      // atrasa um pouco para o "GOL!" aparecer quando a bola chega à rede
+      const t1 = setTimeout(() => setCelebration({ scorer }), 420);
+      const t2 = setTimeout(() => setCelebration(null), 420 + 2400);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
     }
     scoreRef.current = { h: homeGoals, a: awayGoals };
-  }, [homeGoals, awayGoals, minute, homePositions, awayPositions]);
-
-  useEffect(() => {
-    if (!celebration) return;
-    if (minute >= celebration.minute + 2) {
-      celebratingRef.current = false;
-      setCelebration(null);
-      setFlashName(undefined);
-      setBall({ x: 50, y: 50 });
-      setHomeDyn(homePositions);
-      setAwayDyn(awayPositions);
-    }
-  }, [minute, celebration, homePositions, awayPositions]);
+  }, [homeGoals, awayGoals]);
 
   const lastEvent = events.length > 0 ? events[events.length - 1] : null;
   const awayPossession = 100 - Math.round(possession || 50);
   const homePossessionRounded = Math.round(possession || 50);
-  const labeledId = ballHolderId
-    ?? (lastEvent?.player
-      ? [...homeDyn, ...awayDyn].find(d => d.player.name === lastEvent.player)?.player.id
-      : undefined);
 
-  const renderDiscs = (positions: DiscPos[], color: string) =>
-    positions.map(d => {
-      const isFlashing = flashName && d.player.name === flashName;
-      const hasBall = isLive && ballHolderId === d.player.id;
-      const showLabel = classic && labeledId === d.player.id;
-      const screen = toScreen(d.x, d.y, classic);
-      const discStyle = classic
-        ? { left: `${screen.left}%`, top: `${screen.top}%`, background: color }
-        : {
-            left: `${screen.left}%`,
-            top: `${screen.top}%`,
-            background: `radial-gradient(circle at 35% 30%, ${color}, color-mix(in srgb, ${color} 70%, #000))`,
-          };
-      return (
-        <div
-          key={d.player.id}
-          className={`fm-pitch2d__player${isFlashing ? ' fm-pitch2d__player--flash' : ''}${hasBall ? ' fm-pitch2d__player--ball' : ''}`}
-          style={discStyle}
-          title={`${getFullName(d.player)} (${d.player.position})`}
-        >
-          {d.number}
-          {showLabel && (
-            <span className="fm-pitch2d__player-label">{d.player.name.split(' ').pop()}</span>
-          )}
-        </div>
-      );
-    });
-
-  const ballScreen = toScreen(ball.x, ball.y, classic);
+  const staticBall = useMemo(() => {
+    const bx = ballPos !== undefined ? ballPos * 100 : 50;
+    const by = ballPosY !== undefined ? ballPosY * 100 : 50;
+    return toScreen(bx, by, classic);
+  }, [ballPos, ballPosY, classic]);
 
   return (
-    <div className={`fm-pitch2d${classic ? ' fm-pitch2d--classic' : ''}`}>
+    <div className={`fm-pitch2d${classic ? ' fm-pitch2d--classic' : ''}${isLive ? ' fm-pitch2d--anim' : ''}`}>
       {!classic && (
         <div className="fm-pitch2d__scoreboard">
           <div className="fm-pitch2d__team">
@@ -479,9 +401,17 @@ export const MatchPitch2D: React.FC<MatchPitch2DProps> = ({
         {showTacticalLines && !classic && (
           <TacticalLines homeTeam={homeTeam} awayTeam={awayTeam} isLive={isLive} classic={classic} />
         )}
-        {renderDiscs(isLive ? homeDyn : homePositions, homeColor)}
-        {renderDiscs(isLive ? awayDyn : awayPositions, awayColor)}
-        <div className="fm-pitch2d__ball" style={{ left: `${ballScreen.left}%`, top: `${ballScreen.top}%` }} />
+        <PitchActors
+          homePositions={homePositions}
+          awayPositions={awayPositions}
+          homeColor={homeColor}
+          awayColor={awayColor}
+          classic={classic}
+          isLive={isLive}
+          staticBall={staticBall}
+          motion={motion}
+          trailRefs={trailRefs}
+        />
         {celebration && (
           <div className="fm-pitch2d__goal-flash">
             <span className="fm-pitch2d__goal-text">GOL!</span>

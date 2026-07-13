@@ -374,6 +374,36 @@
   z-index: 1;
 }
 
+/* Durante a partida ao vivo o posicionamento é dirigido por requestAnimationFrame
+   (escreve left/top a cada frame). As transições/animações CSS de left/top
+   brigariam com o rAF e causariam lag — por isso desligamos aqui. */
+.fm-pitch2d--anim .fm-pitch2d__player,
+.fm-pitch2d--anim .fm-pitch2d__ball,
+.fm-pitch2d--anim.fm-pitch2d--classic .fm-pitch2d__player,
+.fm-pitch2d--anim.fm-pitch2d--classic .fm-pitch2d__ball {
+  transition: box-shadow 0.2s ease;
+  animation: none;
+  will-change: left, top;
+}
+
+/* Rastro da bola */
+.fm-pitch2d__trail-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.fm-pitch2d__trail {
+  position: absolute;
+  width: clamp(5px, 0.9vmin, 8px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: #facc15;
+  pointer-events: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .fm-pitch2d__player,
   .fm-pitch2d__ball,

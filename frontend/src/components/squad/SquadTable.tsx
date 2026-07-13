@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import type { Player } from '../../types/game';
 import { getFullName } from '../../utils/player';
+import { PlayerAvatar } from '../ui/PlayerAvatar';
 import { useSortable } from '../../hooks/useSortable';
 import { getPositionColor, getPositionTint, getRatingColor } from '../../utils/statusColors';
 
@@ -179,19 +180,25 @@ export const SquadTable: React.FC<SquadTableProps> = ({
                   onClick={() => onPlayerSelect(player.id)}
                 >
                   <td>
-                    <span style={{
-                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      width: 28, height: 20, borderRadius: 4, fontSize: 10, fontWeight: 700,
-                      backgroundColor: getPositionTint(player.position),
-                      color: getPositionColor(player.position),
-                    }}>
-                      {player.position}
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                      {isNarrow && <PlayerAvatar player={player} size={26} />}
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        width: 28, height: 20, borderRadius: 4, fontSize: 10, fontWeight: 700,
+                        backgroundColor: getPositionTint(player.position),
+                        color: getPositionColor(player.position),
+                      }}>
+                        {player.position}
+                      </span>
                     </span>
                   </td>
                   {!isNarrow && (
                     <td>
-                      <span className="fms-bold">{getFullName(player)}</span>
-                      <span className="fms-text-3" style={{ marginLeft: 8, fontSize: 10 }}>({overall})</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                        <PlayerAvatar player={player} size={28} />
+                        <span className="fms-bold">{getFullName(player)}</span>
+                        <span className="fms-text-3" style={{ fontSize: 10 }}>({overall})</span>
+                      </span>
                     </td>
                   )}
                   {!isNarrow && <td className="fms-text-2">{player.age}</td>}

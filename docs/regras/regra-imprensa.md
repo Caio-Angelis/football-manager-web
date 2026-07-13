@@ -52,11 +52,11 @@ O treinador escolhe uma resposta entre 5 tons possíveis, cada um com 3 variante
 
 | Tom | Moral | Torcida | Diretoria | Mídia |
 |-----|-------|---------|-----------|-------|
-| **Elogiar (praise)** | +3 | +2 | — | -1 |
-| **Defensivo (defensive)** | 0 | — | — | +1 |
-| **Crítico (critical)** | -4 | -2 | — | +3 |
-| **Diplomático (diplomatic)** | +1 | — | +2 | -2 |
-| **Desviar (deflect)** | -1 | — | -1 | +2 |
+| **Elogiar (praise)** | +3 | +2 | +1 | -1 |
+| **Defensivo (defensive)** | 0 | -1 | 0 | +1 |
+| **Crítico (critical)** | -4 | -2 | +1 | +3 |
+| **Diplomático (diplomatic)** | +1 | +1 | +2 | -2 |
+| **Desviar (deflect)** | -1 | -2 | -1 | +2 |
 
 ---
 
@@ -64,13 +64,17 @@ O treinador escolhe uma resposta entre 5 tons possíveis, cada um com 3 variante
 
 | Situação | Modificador |
 |-----------|-------------|
-| Crítico a pergunta agressiva/provocativa | +2 pressão midiática |
+| Crítico a pergunta agressiva/provocativa | +2 pressão midiática, -1 humor da torcida |
 | Diplomático a pergunta agressiva | -1 pressão midiática, +1 diretoria |
 | Evasivo a pergunta agressiva | +2 pressão midiática |
-| Elogiar em resposta a pergunta amigável | +2 moral extra |
-| Elogiar jogador específico | +2 moral extra para aquele jogador |
-| Criticar jogador específico | -3 moral extra para aquele jogador |
-| Postura firme em clássico (elogiar/crítico) | +2 humor da torcida |
+| Elogiar em resposta a pergunta amigável | +2 moral extra, +1 humor da torcida |
+| Elogiar jogador específico (player_form) | +2 moral extra para aquele jogador (isolado) |
+| Criticar jogador específico (player_form) | -3 moral extra para aquele jogador (isolado) |
+| Postura firme em clássico (rivalry: elogiar/crítico) | +2 humor da torcida |
+| Diplomático em pergunta sobre diretoria (board) | +2 diretoria extra |
+| Crítico em pergunta sobre diretoria (board) | -3 diretoria |
+| Crítico em pergunta de controvérsia | +3 pressão midiática, +1 humor da torcida |
+| Evasivo em pergunta de controvérsia | +1 pressão midiática |
 
 ---
 
@@ -128,7 +132,7 @@ Resultados recentes afetam o humor:
 
 ## Pressão Midiática (Media Pressure)
 
-- Valor de **0 a 100** (**50 = inicial/neutro**)
+- Valor de **0 a 100** (**20 = inicial**)
 - **Níveis:**
 
 | Range | Nível |
@@ -138,7 +142,7 @@ Resultados recentes afetam o humor:
 | 50-74 | Alta |
 | 75+ | Intensa |
 
-- **Valor inicial do jogo:** 50 (baixa)
+- **Valor inicial do jogo:** 20 (baixa)
 
 ### Decaimento Semanal
 

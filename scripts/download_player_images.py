@@ -33,8 +33,10 @@ USER_AGENT = "FootballManagerWeb/1.0 (https://github.com/caioangelis/football-ma
 # User-Agent for image download (upload.wikimedia.org blocks custom UAs)
 BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-DB_DIR = r"c:\Users\caioa\Desktop\football-manager-web\DataBase jogadores"
-OUTPUT_DIR = r"c:\Users\caioa\Desktop\football-manager-web\frontend\public\players"
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_DIR = os.path.dirname(_SCRIPT_DIR)
+DB_DIR = os.path.join(_PROJECT_DIR, "DataBase jogadores")
+OUTPUT_DIR = os.path.join(_PROJECT_DIR, "frontend", "public", "players")
 MAPPING_DIR = os.path.join(OUTPUT_DIR, "_mappings")
 
 # Wikipedia API endpoint (Portuguese)
@@ -212,7 +214,34 @@ def download_image(url: str, filepath: str) -> bool:
     return False
 
 
-def process_team(team_name: str):
+def find_existing_real_image(slug: str) -> str | None:
+    """Verifica se ja existe uma imagem real (jpg/png/webp) para o slug."""
+    for ext in [".jpg", ".png", ".webp"]:
+        filepath = os.path.join(OUTPUT_DIR, f"{slug}{ext}")
+        if os.path.exists(filepath) and os.path.getsize(filepath) > 100:
+            return f"{slug}{ext}"
+    return None
+
+
+def load_existing_mapping(team_name: str) -> dict:
+    """Carrega mapeamento existente do time (do _mappings/ ou do player_images.json)."""
+    team_mapping_file = os.path.join(MAPPING_DIR, f"{team_name}.json")
+    if os.path.exists(team_mapping_file):
+        with open(team_mapping_file, encoding="utf-8") as f:
+            return json.load(f)
+
+    # Fallback: carregar do player_images.json global
+    global_file = os.path.join(OUTPUT_DIR, "player_images.json")
+    if os.path.exists(global_file):
+        with open(global_file, encoding="utf-8") as f:
+            global_mapping = json.load(f)
+        prefix = f"{team_name}/"
+        return {k: v for k, v in global_mapping.items() if k.startswith(prefix)}
+
+    return {}
+
+
+def process_team(team_name: str, retry_fallback: bool = True):
     """Processa um unico time: busca e baixa imagens de todos os jogadores."""
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     os.makedirs(MAPPING_DIR, exist_ok=True)
@@ -220,10 +249,7 @@ def process_team(team_name: str):
     team_mapping_file = os.path.join(MAPPING_DIR, f"{team_name}.json")
 
     # Carregar mapeamento existente do time
-    existing = {}
-    if os.path.exists(team_mapping_file):
-        with open(team_mapping_file, encoding="utf-8") as f:
-            existing = json.load(f)
+    existing = load_existing_mapping(team_name)
 
     # Carregar dados do time
     team_file = os.path.join(DB_DIR, f"{team_name}.json")
@@ -237,23 +263,45 @@ def process_team(team_name: str):
     team = data["time"]
     players = data["jogadores"]
     mapping = dict(existing)
-    stats = {"found": 0, "fallback": 0, "skipped": 0}
+    stats = {"found": 0, "fallback": 0, "skipped": 0, "reused": 0}
 
     print(f"\n=== {team} ({len(players)} jogadores) ===")
 
     for i, player in enumerate(players, 1):
         name = player["nome"]
         slug = slugify(name)
-        mapping_key = f"{team}/{name}"
+        mapping_key = f"{team_name}/{name}"
 
-        # Pular se ja processado e arquivo existe
+        # Pular se ja tem foto real da Wikipedia e arquivo existe
         if mapping_key in existing:
-            existing_file = existing[mapping_key]["file"]
-            if os.path.exists(os.path.join(OUTPUT_DIR, existing_file)):
-                mapping[mapping_key] = existing[mapping_key]
+            entry = existing[mapping_key]
+            existing_file = entry["file"]
+            if entry.get("source") == "wikipedia" and os.path.exists(os.path.join(OUTPUT_DIR, existing_file)):
+                mapping[mapping_key] = entry
                 stats["skipped"] += 1
-                print(f"  [{i}/{len(players)}] {name} -> SKIP")
+                print(f"  [{i}/{len(players)}] {name} -> SKIP (wikipedia)")
                 continue
+
+            # Se e fallback mas ja existe imagem real baixada, reusar
+            if entry.get("source") == "fallback" and not retry_fallback:
+                real_img = find_existing_real_image(slug)
+                if real_img:
+                    mapping[mapping_key] = {"file": real_img, "source": "wikipedia", "wiki_title": "", "wiki_url": ""}
+                    stats["reused"] += 1
+                    print(f"  [{i}/{len(players)}] {name} -> REUSE -> {real_img}")
+                    continue
+                mapping[mapping_key] = entry
+                stats["skipped"] += 1
+                print(f"  [{i}/{len(players)}] {name} -> SKIP (fallback)")
+                continue
+
+        # Antes de ir na Wikipedia, checar se ja existe imagem real
+        real_img = find_existing_real_image(slug)
+        if real_img:
+            mapping[mapping_key] = {"file": real_img, "source": "wikipedia", "wiki_title": "", "wiki_url": ""}
+            stats["reused"] += 1
+            print(f"  [{i}/{len(players)}] {name} -> REUSE -> {real_img}")
+            continue
 
         print(f"  [{i}/{len(players)}] {name} -> ", end="", flush=True)
 
@@ -273,6 +321,10 @@ def process_team(team_name: str):
             filepath = os.path.join(OUTPUT_DIR, filename)
 
             if download_image(img_url, filepath):
+                # Remover SVG antigo se existir
+                old_svg = os.path.join(OUTPUT_DIR, f"{slug}.svg")
+                if os.path.exists(old_svg) and ext != ".svg":
+                    os.remove(old_svg)
                 mapping[mapping_key] = {
                     "file": filename,
                     "source": "wikipedia",
@@ -302,7 +354,7 @@ def process_team(team_name: str):
     with open(team_mapping_file, "w", encoding="utf-8") as f:
         json.dump(mapping, f, ensure_ascii=False, indent=2)
 
-    print(f"  [{team}] found={stats['found']} fallback={stats['fallback']} skipped={stats['skipped']}")
+    print(f"  [{team}] found={stats['found']} fallback={stats['fallback']} skipped={stats['skipped']} reused={stats['reused']}")
     return stats
 
 
@@ -323,7 +375,7 @@ def merge_mappings():
     return merged
 
 
-def run_parallel(num_workers: int):
+def run_parallel(num_workers: int, retry_fallback: bool = True):
     """Lanca N processos em paralelo, cada um processando um time."""
     json_files = sorted(glob.glob(os.path.join(DB_DIR, "*.json")))
     teams = [os.path.basename(f).replace(".json", "") for f in json_files]
@@ -340,8 +392,11 @@ def run_parallel(num_workers: int):
         while team_queue and len(processes) < num_workers:
             team = team_queue.pop(0)
             print(f">>> Iniciando: {team}")
+            cmd = [sys.executable, script_path, "--team", team]
+            if retry_fallback:
+                cmd.append("--retry-fallback")
             p = subprocess.Popen(
-                [sys.executable, script_path, "--team", team],
+                cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -354,9 +409,7 @@ def run_parallel(num_workers: int):
             if p.poll() is not None:
                 completed += 1
                 output = p.stdout.read() if p.stdout else ""
-                # Mostrar apenas as ultimas linhas (resumo)
                 lines = output.strip().split("\n")
-                summary_lines = [l for l in lines if "found=" or "===" in l]
                 print(f"<<< Concluido ({completed}/{len(teams)}): {team}")
                 for l in lines[-3:]:
                     print(f"    {l}")
@@ -382,21 +435,24 @@ def run_parallel(num_workers: int):
 
 def main():
     args = sys.argv[1:]
+    retry_fallback = "--retry-fallback" in args
+    if retry_fallback:
+        args.remove("--retry-fallback")
 
     if "--parallel" in args:
         idx = args.index("--parallel")
         num_workers = int(args[idx + 1]) if idx + 1 < len(args) else 10
-        run_parallel(num_workers)
+        run_parallel(num_workers, retry_fallback=retry_fallback)
     elif "--team" in args:
         idx = args.index("--team")
         team = args[idx + 1]
-        process_team(team)
+        process_team(team, retry_fallback=retry_fallback)
     else:
         # Modo sequencial (todos os times)
         json_files = sorted(glob.glob(os.path.join(DB_DIR, "*.json")))
         teams = [os.path.basename(f).replace(".json", "") for f in json_files]
         for team in teams:
-            process_team(team)
+            process_team(team, retry_fallback=retry_fallback)
         print("\n>>> Juntando mapeamentos...")
         merged = merge_mappings()
         found = sum(1 for v in merged.values() if v.get("source") == "wikipedia")

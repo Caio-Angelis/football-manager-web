@@ -118,10 +118,18 @@ Esta lógica é centralizada no helper `applyFatigueDecayToPlayer` (em `backend/
 
 ### Estado Atual
 
-O ganho de atributos por sessão é de 0.2 a 1.0 pontos. Com até 21 sessões por semana, um jogador pode ganhar até ~21 pontos em um único atributo por semana — **extremamente acelerado** em comparação com a realidade.
+O ganho de atributos por sessão é de **0.05 a 0.25** pontos (`baseTrainingGain`), multiplicado pelo multiplicador de idade. Para um sub-21 (×2.0), o ganho efetivo por sessão é **0.1 a 0.5** pontos. Com até 21 sessões semanais, um jogador jovem pode ganhar até ~10 pontos em um atributo por semana no cenário mais extremo — ainda acelerado, mas significativamente mais controlado que o sistema anterior (0.2–1.0 base).
 
-### Problemas
+### Calibração
 
-- O ritmo atual é ~20x mais rápido que a realidade
-- Jogadores jovens atingem o teto (20) rapidamente, eliminando a progressão como mecânica de longo prazo
-- Com apenas 3 temporadas (114 semanas), o sistema de base juvenil praticamente não dá retorno dentro da vida útil do save
+- **Base reduzida** de 0.2–1.0 para 0.05–0.25 (80% de redução)
+- **Multiplicador de idade definitivo**: sub-21 ×2.0, auge ×0.45, transição ×0.2, declínio ×0.1
+- **CA respeita teto de PA** e é limitado a 200
+- **Moral baixa (< 30)** reverte ganho de CA (fator -0.5)
+- **Declínio físico mensal** (31+) contrabalança ganhos em jogadores veteranos
+
+### Notas
+
+- Jogadores jovens ainda evoluem rapidamente, mas o teto de PA e a curva de idade garantem que a progressão desacelera naturalmente
+- Com 3 temporadas (114 semanas), o sistema de base juvenil tem tempo limitado para dar retorno — o foco deve ser em jogadores sub-21 com PA alto
+- O declínio físico mensal (31+) e a estagnação no treino (×0.1) garantem que veteranos não progridem indefinidamente

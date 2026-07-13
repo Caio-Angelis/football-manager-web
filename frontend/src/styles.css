@@ -5913,3 +5913,36 @@ input:focus-visible {
   color: #ef4444;
   margin-bottom: 16px;
 }
+
+/* ============================================================
+   AVATAR DO JOGADOR — foto real (Wikipedia) com fallback de iniciais
+   ============================================================ */
+.fm-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border-radius: 50%;
+  overflow: hidden;
+  font-weight: 700;
+  line-height: 1;
+  user-select: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.fm-avatar__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  display: block;
+}
+
+.fm-avatar__initials {
+  letter-spacing: 0.02em;
+}
+
+/* Foto grande no painel de detalhes do jogador */
+.fm-player-detail-panel__photo {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}

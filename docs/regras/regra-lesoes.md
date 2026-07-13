@@ -97,7 +97,7 @@ Aleatório entre: `muscle`, `ligament`, `joint`, `ankle`, `knee`, `groin`
 | Fonte | Trigger | Função |
 |-------|---------|--------|
 | Treino físico | Chance baseada em proneness, carga e fitness | `generateInjuryForPlayer` com source `training` |
-| Roll semanal (advanceWeek) | 2% base + `risk × 0.08%` por jogador não lesionado | `generateInjuryForPlayer` com source `random` |
+| Roll semanal (advanceWeek) | 0.5% base + `risk × 0.03%` por jogador não lesionado | `generateInjuryForPlayer` com source `random` |
 | Inbox | **Não gera mais lesões** (case `injury` removido de `generateInboxMessage`) | — |
 
 Lesões geradas pelo roll semanal geram mensagem no inbox com tipo, severidade e dias.

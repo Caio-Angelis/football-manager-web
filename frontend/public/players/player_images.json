@@ -1,199 +1,819 @@
 {
-  "atletico_mineiro/Everson": {
-    "file": "everson.svg",
+  "sao_paulo/Rafael": {
+    "file": "rafael.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Rafael (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=1912793"
+  },
+  "sao_paulo/Luciano": {
+    "file": "luciano.svg",
     "source": "fallback"
   },
-  "atletico_mineiro/Gustavo Scarpa": {
-    "file": "gustavo_scarpa.svg",
+  "sao_paulo/Enzo Díaz": {
+    "file": "enzo_díaz.svg",
     "source": "fallback"
   },
-  "atletico_mineiro/Natanael": {
-    "file": "natanael.svg",
+  "sao_paulo/Alisson": {
+    "file": "alisson.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Muriel (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=1496422"
+  },
+  "sao_paulo/Robert Arboleda": {
+    "file": "robert_arboleda.svg",
     "source": "fallback"
   },
-  "atletico_mineiro/Hulk": {
-    "file": "hulk.svg",
+  "sao_paulo/Alan Franco": {
+    "file": "alan_franco.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "sao_paulo/André Silva": {
+    "file": "andré_silva.jpg",
+    "source": "wikipedia",
+    "wiki_title": "André Silva (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=4825744"
+  },
+  "sao_paulo/Nahuel Ferraresi": {
+    "file": "nahuel_ferraresi.svg",
     "source": "fallback"
   },
-  "atletico_mineiro/Junior Alonso": {
-    "file": "junior_alonso.svg",
+  "sao_paulo/Cédric Soares": {
+    "file": "cédric_soares.jpg",
+    "source": "wikipedia",
+    "wiki_title": "1996",
+    "wiki_url": "https://pt.wikipedia.org/?curid=11367"
+  },
+  "sao_paulo/Oscar": {
+    "file": "oscar.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Óscar Romero (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=4444810"
+  },
+  "sao_paulo/Ferreira": {
+    "file": "ferreira.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Paulo Ferreira (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=255513"
+  },
+  "sao_paulo/Lucas Moura": {
+    "file": "lucas_moura.svg",
     "source": "fallback"
   },
-  "atletico_mineiro/Rony": {
-    "file": "rony.svg",
+  "sao_paulo/Calleri": {
+    "file": "calleri.svg",
     "source": "fallback"
   },
-  "atletico_mineiro/Igor Gomes": {
-    "file": "igor_gomes.svg",
+  "sao_paulo/Bobadilla": {
+    "file": "bobadilla.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Bobadilla",
+    "wiki_url": "https://pt.wikipedia.org/?curid=138953"
+  },
+  "sao_paulo/Marcos Antônio": {
+    "file": "marcos_antônio.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Marcos Antônio de Lima",
+    "wiki_url": "https://pt.wikipedia.org/?curid=497142"
+  },
+  "sao_paulo/Pablo Maia": {
+    "file": "pablo_maia.jpg",
+    "source": "wikipedia",
+    "wiki_title": "1993",
+    "wiki_url": "https://pt.wikipedia.org/?curid=11369"
+  },
+  "sao_paulo/Aráoz": {
+    "file": "aráoz.svg",
     "source": "fallback"
   },
-  "atletico_mineiro/Alan Franco": {
-    "file": "alan_franco.svg",
+  "sao_paulo/Welington": {
+    "file": "welington.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Welington",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7294816"
+  },
+  "sao_paulo/Júnior": {
+    "file": "júnior.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Júnior (futebolista, 1954)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=1064"
+  },
+  "sao_paulo/Ryan Francisco": {
+    "file": "ryan_francisco.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Viktor Gyökeres",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7053231"
+  },
+  "ceara/Fernando Miguel": {
+    "file": "fernando_miguel.jpg",
+    "source": "wikipedia",
+    "wiki_title": "André Silva (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=4825744"
+  },
+  "ceara/Bruno Ferreira": {
+    "file": "bruno_ferreira.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Pepe (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=358484"
+  },
+  "ceara/Antonio Galeano": {
+    "file": "antonio_galeano.svg",
     "source": "fallback"
   },
-  "atletico_mineiro/Bernard": {
-    "file": "bernard.svg",
+  "ceara/Lourenço": {
+    "file": "lourenço.svg",
     "source": "fallback"
   },
-  "atletico_mineiro/Guilherme Arana": {
-    "file": "guilherme_arana.svg",
+  "ceara/Willian Machado": {
+    "file": "willian_machado.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Estêvão (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7251036"
+  },
+  "ceara/Lucas Mugni": {
+    "file": "lucas_mugni.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Lucas Mugni",
+    "wiki_url": "https://pt.wikipedia.org/?curid=4283086"
+  },
+  "ceara/Dieguinho": {
+    "file": "dieguinho.png",
+    "source": "wikipedia",
+    "wiki_title": "Sport Club Corinthians Paulista",
+    "wiki_url": "https://pt.wikipedia.org/?curid=620"
+  },
+  "ceara/Fernando Sobral": {
+    "file": "fernando_sobral.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Fernando Sobral",
+    "wiki_url": "https://pt.wikipedia.org/?curid=6369431"
+  },
+  "ceara/Fabiano Souza": {
+    "file": "fabiano_souza.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Estêvão (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7251036"
+  },
+  "ceara/Pedro Raul": {
+    "file": "pedro_raul.svg",
     "source": "fallback"
   },
-  "atletico_mineiro/Gabriel Menino": {
-    "file": "gabriel_menino.svg",
+  "ceara/Pedro Henrique": {
+    "file": "pedro_henrique.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Pedro Lima (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7549121"
+  },
+  "ceara/Aylon": {
+    "file": "aylon.svg",
     "source": "fallback"
   },
-  "atletico_mineiro/Lyanco": {
-    "file": "lyanco.svg",
+  "ceara/Fernandinho": {
+    "file": "fernandinho.svg",
     "source": "fallback"
   },
-  "atletico_mineiro/Tomás Cuello": {
-    "file": "tomás_cuello.svg",
+  "ceara/Matheus Bahia": {
+    "file": "matheus_bahia.png",
+    "source": "wikipedia",
+    "wiki_title": "Matheus Reis",
+    "wiki_url": "https://pt.wikipedia.org/?curid=6582019"
+  },
+  "ceara/Marllon": {
+    "file": "marllon.svg",
     "source": "fallback"
   },
-  "atletico_mineiro/Caio": {
-    "file": "caio.svg",
-    "source": "fallback"
+  "ceara/Nicolas": {
+    "file": "nicolas.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Nicolas Jackson",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7157081"
   },
-  "atletico_mineiro/Vitor Hugo": {
-    "file": "vitor_hugo.svg",
-    "source": "fallback"
-  },
-  "atletico_mineiro/Saravia": {
-    "file": "saravia.svg",
-    "source": "fallback"
-  },
-  "atletico_mineiro/Rubens": {
-    "file": "rubens.svg",
-    "source": "fallback"
-  },
-  "atletico_mineiro/Alexsander": {
-    "file": "alexsander.svg",
-    "source": "fallback"
-  },
-  "atletico_mineiro/Júnior Santos": {
-    "file": "júnior_santos.svg",
-    "source": "fallback"
-  },
-  "atletico_mineiro/Dudu": {
-    "file": "dudu.svg",
-    "source": "fallback"
-  },
-  "bahia/Ronaldo": {
-    "file": "ronaldo.svg",
-    "source": "fallback"
-  },
-  "bahia/Gilberto": {
-    "file": "gilberto.svg",
-    "source": "fallback"
-  },
-  "bahia/David Duarte": {
-    "file": "david_duarte.svg",
-    "source": "fallback"
-  },
-  "bahia/Ramos Mingo": {
-    "file": "ramos_mingo.svg",
-    "source": "fallback"
-  },
-  "bahia/Luciano Juba": {
-    "file": "luciano_juba.svg",
-    "source": "fallback"
-  },
-  "bahia/Acevedo": {
-    "file": "acevedo.svg",
-    "source": "fallback"
-  },
-  "bahia/Jean Lucas": {
-    "file": "jean_lucas.svg",
-    "source": "fallback"
-  },
-  "bahia/Everton Ribeiro": {
-    "file": "everton_ribeiro.svg",
-    "source": "fallback"
-  },
-  "bahia/Ademir": {
-    "file": "ademir.svg",
-    "source": "fallback"
-  },
-  "bahia/Pulga": {
-    "file": "pulga.svg",
-    "source": "fallback"
-  },
-  "bahia/Willian José": {
-    "file": "willian_josé.svg",
-    "source": "fallback"
-  },
-  "bahia/Cauly": {
-    "file": "cauly.svg",
-    "source": "fallback"
-  },
-  "bahia/Estupiñán": {
-    "file": "estupiñán.svg",
-    "source": "fallback"
-  },
-  "bahia/Luciano Rodríguez": {
-    "file": "luciano_rodríguez.svg",
-    "source": "fallback"
-  },
-  "bahia/Caio Alexandre": {
-    "file": "caio_alexandre.svg",
-    "source": "fallback"
-  },
-  "bahia/Everaldo": {
-    "file": "everaldo.svg",
-    "source": "fallback"
-  },
-  "bahia/Vitor Hugo": {
-    "file": "vitor_hugo.svg",
-    "source": "fallback"
-  },
-  "bahia/Nestor": {
-    "file": "nestor.svg",
-    "source": "fallback"
-  },
-  "bahia/Marcos Felipe": {
-    "file": "marcos_felipe.svg",
-    "source": "fallback"
-  },
-  "bahia/Rafael Ramos": {
+  "ceara/Rafael Ramos": {
     "file": "rafael_ramos.svg",
     "source": "fallback"
   },
-  "botafogo/John Victor": {
-    "file": "john_victor.svg",
+  "ceara/Matheus Araújo": {
+    "file": "matheus_araújo.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Denílson",
+    "wiki_url": "https://pt.wikipedia.org/?curid=323968"
+  },
+  "ceara/Vinicius": {
+    "file": "vinicius.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Vinícius Júnior",
+    "wiki_url": "https://pt.wikipedia.org/?curid=5364029"
+  },
+  "ceara/Richard": {
+    "file": "richard.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Richard Ríos",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7094702"
+  },
+  "internacional/Rochet": {
+    "file": "rochet.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "internacional/Anthoni": {
+    "file": "anthoni.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "internacional/Braian Aguirre": {
+    "file": "braian_aguirre.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "internacional/Vitão": {
+    "file": "vitão.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "internacional/Alexandro Bernabei": {
+    "file": "alexandro_bernabei.svg",
     "source": "fallback"
+  },
+  "internacional/Alan Patrick": {
+    "file": "alan_patrick.png",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "internacional/Thiago Maia": {
+    "file": "thiago_maia.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "internacional/Vitinho": {
+    "file": "vitinho.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "internacional/Bruno Henrique": {
+    "file": "bruno_henrique.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "internacional/Rafael Borré": {
+    "file": "rafael_borré.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "internacional/Wesley": {
+    "file": "wesley.svg",
+    "source": "fallback"
+  },
+  "internacional/Carbonero": {
+    "file": "carbonero.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "internacional/Bruno Tabata": {
+    "file": "bruno_tabata.png",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "internacional/Ronaldo": {
+    "file": "ronaldo.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "internacional/Victor Gabriel": {
+    "file": "victor_gabriel.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Gabriel (futebolista, 1990)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=3740652"
+  },
+  "internacional/Valencia": {
+    "file": "valencia.svg",
+    "source": "fallback"
+  },
+  "internacional/Mercado": {
+    "file": "mercado.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Futebolista",
+    "wiki_url": "https://pt.wikipedia.org/?curid=217508"
+  },
+  "internacional/Fernando": {
+    "file": "fernando.svg",
+    "source": "fallback"
+  },
+  "internacional/Bruno Gomes": {
+    "file": "bruno_gomes.svg",
+    "source": "fallback"
+  },
+  "internacional/Rômulo": {
+    "file": "rômulo.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Rômulo (futebolista, 2002)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7322726"
+  },
+  "sport_recife/Caíque França": {
+    "file": "caíque_frança.svg",
+    "source": "fallback"
+  },
+  "sport_recife/Thiago Couto": {
+    "file": "thiago_couto.jpg",
+    "source": "wikipedia",
+    "wiki_title": "1987",
+    "wiki_url": "https://pt.wikipedia.org/?curid=11385"
+  },
+  "sport_recife/Ramon Menezes": {
+    "file": "ramon_menezes.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Ramon Menezes",
+    "wiki_url": "https://pt.wikipedia.org/?curid=290285"
+  },
+  "sport_recife/Matheus Alexandre": {
+    "file": "matheus_alexandre.svg",
+    "source": "fallback"
+  },
+  "sport_recife/Aderlan": {
+    "file": "aderlan.svg",
+    "source": "fallback"
+  },
+  "sport_recife/Rafael Thyere": {
+    "file": "rafael_thyere.svg",
+    "source": "fallback"
+  },
+  "sport_recife/João Silva": {
+    "file": "joão_silva.svg",
+    "source": "fallback"
+  },
+  "sport_recife/Chico": {
+    "file": "chico.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Júnior (futebolista, 1954)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=1064"
+  },
+  "sport_recife/Igor Cariús": {
+    "file": "igor_cariús.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Operação Penalidade Máxima",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7126272"
+  },
+  "sport_recife/Christian Rivera": {
+    "file": "christian_rivera.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Marcelo Gallardo",
+    "wiki_url": "https://pt.wikipedia.org/?curid=818037"
+  },
+  "sport_recife/Sérgio Oliveira": {
+    "file": "sérgio_oliveira.svg",
+    "source": "fallback"
+  },
+  "sport_recife/Du Queiroz": {
+    "file": "du_queiroz.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Du Queiroz",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7003145"
+  },
+  "sport_recife/Lucas Lima": {
+    "file": "lucas_lima.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Lucas Lima (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=4018425"
+  },
+  "sport_recife/Chrystian Barletta": {
+    "file": "chrystian_barletta.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Nenê (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=2095654"
+  },
+  "sport_recife/Lenny Lobato": {
+    "file": "lenny_lobato.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Copa do Nordeste de Futebol de 2025",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7500749"
+  },
+  "sport_recife/Pablo": {
+    "file": "pablo.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "sport_recife/Carlos Alberto": {
+    "file": "carlos_alberto.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Roberto Carlos (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=3356186"
+  },
+  "sport_recife/Carlos de Pena": {
+    "file": "carlos_de_pena.png",
+    "source": "wikipedia",
+    "wiki_title": "Carlos de Pena",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7056264"
+  },
+  "sport_recife/Zé Lucas": {
+    "file": "zé_lucas.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Zé Roberto (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=198551"
+  },
+  "sport_recife/Gonçalo Paciência": {
+    "file": "gonçalo_paciência.svg",
+    "source": "fallback"
+  },
+  "mirassol/Walter": {
+    "file": "walter.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Walter Casagrande",
+    "wiki_url": "https://pt.wikipedia.org/?curid=156116"
+  },
+  "mirassol/Jemmes": {
+    "file": "jemmes.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Jemmes",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7766116"
+  },
+  "mirassol/João Victor": {
+    "file": "joão_victor.jpg",
+    "source": "wikipedia",
+    "wiki_title": "João Victor (futebolista, 1998)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7202330"
+  },
+  "mirassol/Reinaldo": {
+    "file": "reinaldo.jpg",
+    "source": "wikipedia",
+    "wiki_title": "José Reinaldo de Lima",
+    "wiki_url": "https://pt.wikipedia.org/?curid=63204"
+  },
+  "mirassol/Lucas Ramon": {
+    "file": "lucas_ramon.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Lucas Barrios",
+    "wiki_url": "https://pt.wikipedia.org/?curid=2162020"
+  },
+  "mirassol/Daniel Borges": {
+    "file": "daniel_borges.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Júnior (futebolista, 1954)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=1064"
+  },
+  "mirassol/Negueba": {
+    "file": "negueba.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Negueba",
+    "wiki_url": "https://pt.wikipedia.org/?curid=3731147"
+  },
+  "mirassol/Gabriel": {
+    "file": "gabriel.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Gabriel (futebolista, 1990)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=3740652"
+  },
+  "mirassol/Danielzinho": {
+    "file": "danielzinho.png",
+    "source": "wikipedia",
+    "wiki_title": "São Paulo Futebol Clube",
+    "wiki_url": "https://pt.wikipedia.org/?curid=1752"
+  },
+  "mirassol/Chico Kim": {
+    "file": "chico_kim.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Francisco Hyun-sol Kim",
+    "wiki_url": "https://pt.wikipedia.org/?curid=5909731"
+  },
+  "mirassol/Iury Castilho": {
+    "file": "iury_castilho.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Iury Castilho",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7329512"
+  },
+  "mirassol/Léo Gamalho": {
+    "file": "léo_gamalho.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Léo Gamalho",
+    "wiki_url": "https://pt.wikipedia.org/?curid=4147866"
+  },
+  "mirassol/Edson Carioca": {
+    "file": "edson_carioca.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Júnior (futebolista, 1954)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=1064"
+  },
+  "mirassol/Igor Formiga": {
+    "file": "igor_formiga.svg",
+    "source": "fallback"
+  },
+  "mirassol/Nathan Fogaça": {
+    "file": "nathan_fogaça.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Nathan Fogaça",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7732951"
+  },
+  "mirassol/Matheus Davó": {
+    "file": "matheus_davó.svg",
+    "source": "fallback"
+  },
+  "mirassol/Cristian Renato": {
+    "file": "cristian_renato.svg",
+    "source": "fallback"
+  },
+  "mirassol/Guilherme Pato": {
+    "file": "guilherme_pato.svg",
+    "source": "fallback"
+  },
+  "mirassol/Yago": {
+    "file": "yago.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Yago Pikachu",
+    "wiki_url": "https://pt.wikipedia.org/?curid=4864095"
+  },
+  "mirassol/Felipe": {
+    "file": "felipe.png",
+    "source": "wikipedia",
+    "wiki_title": "Felipe (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=3909204"
+  },
+  "juventude/Gustavo": {
+    "file": "gustavo.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Luiz Gustavo (futebolista, 1987)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=2122617"
+  },
+  "juventude/Jadson": {
+    "file": "jadson.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Jadson",
+    "wiki_url": "https://pt.wikipedia.org/?curid=1790228"
+  },
+  "juventude/Ewerthon": {
+    "file": "ewerthon.svg",
+    "source": "fallback"
+  },
+  "juventude/Batalla": {
+    "file": "batalla.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Augusto Batalla",
+    "wiki_url": "https://pt.wikipedia.org/?curid=5800129"
+  },
+  "juventude/Giraldo": {
+    "file": "giraldo.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Daniel Giraldo",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7604377"
+  },
+  "juventude/Abner": {
+    "file": "abner.png",
+    "source": "wikipedia",
+    "wiki_title": "Abner Vinícius",
+    "wiki_url": "https://pt.wikipedia.org/?curid=6045743"
+  },
+  "juventude/Mandaca": {
+    "file": "mandaca.png",
+    "source": "wikipedia",
+    "wiki_title": "Esporte Clube Juventude",
+    "wiki_url": "https://pt.wikipedia.org/?curid=50225"
+  },
+  "juventude/Ênio": {
+    "file": "ênio.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Júnior (futebolista, 1954)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=1064"
+  },
+  "juventude/Alan Ruschel": {
+    "file": "alan_ruschel.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Alan Ruschel",
+    "wiki_url": "https://pt.wikipedia.org/?curid=4273824"
+  },
+  "juventude/Marcos Paulo": {
+    "file": "marcos_paulo.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Marcos Paulo (ator)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=309370"
+  },
+  "juventude/Erick Farias": {
+    "file": "erick_farias.png",
+    "source": "wikipedia",
+    "wiki_title": "Temporada do Clube de Regatas do Flamengo de 2026",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7771698"
+  },
+  "juventude/Felipinho": {
+    "file": "felipinho.svg",
+    "source": "fallback"
+  },
+  "juventude/Taliari": {
+    "file": "taliari.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Copa do Brasil de Futebol de 2026",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7720814"
+  },
+  "juventude/Adriano Martins": {
+    "file": "adriano_martins.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Adriano Martins (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=1133297"
+  },
+  "juventude/Jean Carlos": {
+    "file": "jean_carlos.svg",
+    "source": "fallback"
+  },
+  "juventude/Giovanny": {
+    "file": "giovanny.svg",
+    "source": "fallback"
+  },
+  "juventude/Wilker Ángel": {
+    "file": "wilker_ángel.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Wilker Ángel",
+    "wiki_url": "https://pt.wikipedia.org/?curid=4781308"
+  },
+  "juventude/Gilberto": {
+    "file": "gilberto.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "juventude/Nenê": {
+    "file": "nenê.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Nenê (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=2095654"
+  },
+  "juventude/Moreschi": {
+    "file": "moreschi.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Campo di Verano",
+    "wiki_url": "https://pt.wikipedia.org/?curid=3836371"
+  },
+  "fortaleza/João Ricardo": {
+    "file": "joão_ricardo.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "fortaleza/Pikachu": {
+    "file": "pikachu.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "fortaleza/Breno Lopes": {
+    "file": "breno_lopes.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Danilo (futebolista, 2001)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=6479843"
+  },
+  "fortaleza/Lucero": {
+    "file": "lucero.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "fortaleza/Mancuso": {
+    "file": "mancuso.png",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "fortaleza/Lucas Sasha": {
+    "file": "lucas_sasha.svg",
+    "source": "fallback"
+  },
+  "fortaleza/Gastón Ávila": {
+    "file": "gastón_ávila.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "fortaleza/Brítez": {
+    "file": "brítez.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "fortaleza/Deyverson": {
+    "file": "deyverson.svg",
+    "source": "fallback"
+  },
+  "fortaleza/Bareiro": {
+    "file": "bareiro.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "fortaleza/Pochettino": {
+    "file": "pochettino.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "fortaleza/Marinho": {
+    "file": "marinho.png",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "fortaleza/Bruno Pacheco": {
+    "file": "bruno_pacheco.svg",
+    "source": "fallback"
+  },
+  "fortaleza/Martínez": {
+    "file": "martínez.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "fortaleza/Tinga": {
+    "file": "tinga.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "fortaleza/Marcelo Benevenuto": {
+    "file": "marcelo_benevenuto.png",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "fortaleza/Thiago Galhardo": {
+    "file": "thiago_galhardo.svg",
+    "source": "fallback"
+  },
+  "fortaleza/Moisés": {
+    "file": "moisés.png",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "fortaleza/Kevyson": {
+    "file": "kevyson.svg",
+    "source": "fallback"
+  },
+  "fortaleza/Edinho": {
+    "file": "edinho.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "botafogo/John Victor": {
+    "file": "john_victor.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
   },
   "botafogo/Gregore": {
-    "file": "gregore.svg",
-    "source": "fallback"
+    "file": "gregore.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Gregor Kobel",
+    "wiki_url": "https://pt.wikipedia.org/?curid=6598339"
   },
   "botafogo/Igor Jesus": {
-    "file": "igor_jesus.svg",
-    "source": "fallback"
+    "file": "igor_jesus.jpg",
+    "source": "wikipedia",
+    "wiki_title": "João Pedro (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7157023"
   },
   "botafogo/Marlon Freitas": {
-    "file": "marlon_freitas.svg",
-    "source": "fallback"
+    "file": "marlon_freitas.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
   },
   "botafogo/Vitinho": {
-    "file": "vitinho.svg",
-    "source": "fallback"
+    "file": "vitinho.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
   },
   "botafogo/Alex Telles": {
-    "file": "alex_telles.svg",
-    "source": "fallback"
+    "file": "alex_telles.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
   },
   "botafogo/Jair": {
-    "file": "jair.svg",
-    "source": "fallback"
+    "file": "jair.png",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
   },
   "botafogo/Savarino": {
-    "file": "savarino.svg",
-    "source": "fallback"
+    "file": "savarino.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
   },
   "botafogo/Alexander Barboza": {
-    "file": "alexander_barboza.svg",
-    "source": "fallback"
+    "file": "alexander_barboza.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
   },
   "botafogo/Patrick de Paula": {
     "file": "patrick_de_paula.svg",
@@ -232,96 +852,20 @@
     "source": "fallback"
   },
   "botafogo/Danilo Santos": {
-    "file": "danilo_santos.svg",
-    "source": "fallback"
+    "file": "danilo_santos.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Danilo (futebolista, 2001)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=6479843"
   },
   "botafogo/Bastos": {
     "file": "bastos.svg",
     "source": "fallback"
   },
-  "ceara/Fernando Miguel": {
-    "file": "fernando_miguel.svg",
-    "source": "fallback"
-  },
-  "ceara/Bruno Ferreira": {
-    "file": "bruno_ferreira.svg",
-    "source": "fallback"
-  },
-  "ceara/Antonio Galeano": {
-    "file": "antonio_galeano.svg",
-    "source": "fallback"
-  },
-  "ceara/Lourenço": {
-    "file": "lourenço.svg",
-    "source": "fallback"
-  },
-  "ceara/Willian Machado": {
-    "file": "willian_machado.svg",
-    "source": "fallback"
-  },
-  "ceara/Lucas Mugni": {
-    "file": "lucas_mugni.svg",
-    "source": "fallback"
-  },
-  "ceara/Dieguinho": {
-    "file": "dieguinho.svg",
-    "source": "fallback"
-  },
-  "ceara/Fernando Sobral": {
-    "file": "fernando_sobral.svg",
-    "source": "fallback"
-  },
-  "ceara/Fabiano Souza": {
-    "file": "fabiano_souza.svg",
-    "source": "fallback"
-  },
-  "ceara/Pedro Raul": {
-    "file": "pedro_raul.svg",
-    "source": "fallback"
-  },
-  "ceara/Pedro Henrique": {
-    "file": "pedro_henrique.svg",
-    "source": "fallback"
-  },
-  "ceara/Aylon": {
-    "file": "aylon.svg",
-    "source": "fallback"
-  },
-  "ceara/Fernandinho": {
-    "file": "fernandinho.svg",
-    "source": "fallback"
-  },
-  "ceara/Matheus Bahia": {
-    "file": "matheus_bahia.svg",
-    "source": "fallback"
-  },
-  "ceara/Marllon": {
-    "file": "marllon.svg",
-    "source": "fallback"
-  },
-  "ceara/Nicolas": {
-    "file": "nicolas.svg",
-    "source": "fallback"
-  },
-  "ceara/Rafael Ramos": {
-    "file": "rafael_ramos.svg",
-    "source": "fallback"
-  },
-  "ceara/Matheus Araújo": {
-    "file": "matheus_araújo.svg",
-    "source": "fallback"
-  },
-  "ceara/Vinicius": {
-    "file": "vinicius.svg",
-    "source": "fallback"
-  },
-  "ceara/Richard": {
-    "file": "richard.svg",
-    "source": "fallback"
-  },
   "corinthians/Hugo Souza": {
-    "file": "hugo_souza.svg",
-    "source": "fallback"
+    "file": "hugo_souza.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Sócrates (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=190915"
   },
   "corinthians/Yuri Alberto": {
     "file": "yuri_alberto.svg",
@@ -332,28 +876,36 @@
     "source": "fallback"
   },
   "corinthians/Breno Bidon": {
-    "file": "breno_bidon.svg",
-    "source": "fallback"
+    "file": "breno_bidon.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Vitinho (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=3972685"
   },
   "corinthians/Romero": {
     "file": "romero.svg",
     "source": "fallback"
   },
   "corinthians/André Carrillo": {
-    "file": "andré_carrillo.svg",
-    "source": "fallback"
+    "file": "andré_carrillo.jpg",
+    "source": "wikipedia",
+    "wiki_title": "André Carrillo",
+    "wiki_url": "https://pt.wikipedia.org/?curid=3253144"
   },
   "corinthians/Raniele": {
     "file": "raniele.svg",
     "source": "fallback"
   },
   "corinthians/José Martínez": {
-    "file": "josé_martínez.svg",
-    "source": "fallback"
+    "file": "josé_martínez.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Josef Martínez (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=4781317"
   },
   "corinthians/Memphis Depay": {
-    "file": "memphis_depay.svg",
-    "source": "fallback"
+    "file": "memphis_depay.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Memphis Depay",
+    "wiki_url": "https://pt.wikipedia.org/?curid=4413770"
   },
   "corinthians/Matheus Bidu": {
     "file": "matheus_bidu.svg",
@@ -368,8 +920,10 @@
     "source": "fallback"
   },
   "corinthians/Maycon": {
-    "file": "maycon.svg",
-    "source": "fallback"
+    "file": "maycon.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Maycon de Andrade Barberan",
+    "wiki_url": "https://pt.wikipedia.org/?curid=5293456"
   },
   "corinthians/Fabrizio Angileri": {
     "file": "fabrizio_angileri.svg",
@@ -388,200 +942,158 @@
     "source": "fallback"
   },
   "corinthians/Cacá": {
-    "file": "cacá.svg",
-    "source": "fallback"
+    "file": "cacá.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Cacá Bueno",
+    "wiki_url": "https://pt.wikipedia.org/?curid=791188"
   },
   "corinthians/João Pedro": {
-    "file": "joão_pedro.svg",
-    "source": "fallback"
+    "file": "joão_pedro.jpg",
+    "source": "wikipedia",
+    "wiki_title": "João Pedro (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7157023"
   },
   "corinthians/Félix Torres": {
     "file": "félix_torres.svg",
     "source": "fallback"
   },
-  "cruzeiro/Cássio": {
-    "file": "cássio.svg",
+  "vasco_da_gama/Léo Jardim": {
+    "file": "léo_jardim.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Léo Jardim",
+    "wiki_url": "https://pt.wikipedia.org/?curid=4784113"
+  },
+  "vasco_da_gama/João Victor": {
+    "file": "joão_victor.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "vasco_da_gama/Lucas Piton": {
+    "file": "lucas_piton.svg",
     "source": "fallback"
   },
-  "cruzeiro/Lucas Romero": {
-    "file": "lucas_romero.svg",
+  "vasco_da_gama/Pablo Vegetti": {
+    "file": "pablo_vegetti.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Pablo Vegetti",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7192950"
+  },
+  "vasco_da_gama/Hugo Moura": {
+    "file": "hugo_moura.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Sócrates (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=190915"
+  },
+  "vasco_da_gama/Paulo Henrique": {
+    "file": "paulo_henrique.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Paulo Henrique (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=6721533"
+  },
+  "vasco_da_gama/Philippe Coutinho": {
+    "file": "philippe_coutinho.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Philippe Coutinho",
+    "wiki_url": "https://pt.wikipedia.org/?curid=2068318"
+  },
+  "vasco_da_gama/Tchê Tchê": {
+    "file": "tchê_tchê.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Lucas Lima (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=4018425"
+  },
+  "vasco_da_gama/Rayan": {
+    "file": "rayan.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Rayan",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7640235"
+  },
+  "vasco_da_gama/Lucas Freitas": {
+    "file": "lucas_freitas.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Lucas Paquetá",
+    "wiki_url": "https://pt.wikipedia.org/?curid=5750496"
+  },
+  "vasco_da_gama/Léo": {
+    "file": "léo.svg",
     "source": "fallback"
   },
-  "cruzeiro/Fabrício Bruno": {
-    "file": "fabrício_bruno.svg",
+  "vasco_da_gama/Hugo": {
+    "file": "hugo.svg",
     "source": "fallback"
   },
-  "cruzeiro/Kaiki": {
-    "file": "kaiki.svg",
+  "vasco_da_gama/Payet": {
+    "file": "payet.svg",
     "source": "fallback"
   },
-  "cruzeiro/William": {
-    "file": "william.svg",
+  "vasco_da_gama/Vegetti II": {
+    "file": "vegetti_ii.svg",
     "source": "fallback"
   },
-  "cruzeiro/Lucas Silva": {
-    "file": "lucas_silva.svg",
+  "vasco_da_gama/Coutinho": {
+    "file": "coutinho.svg",
     "source": "fallback"
   },
-  "cruzeiro/Walace": {
-    "file": "walace.svg",
+  "vasco_da_gama/Maicon": {
+    "file": "maicon.svg",
     "source": "fallback"
   },
-  "cruzeiro/Matheus Pereira": {
-    "file": "matheus_pereira.svg",
-    "source": "fallback"
+  "vasco_da_gama/Marlon": {
+    "file": "marlon.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
   },
-  "cruzeiro/Eduardo": {
-    "file": "eduardo.svg",
-    "source": "fallback"
+  "vasco_da_gama/Garrido": {
+    "file": "garrido.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Antonio Adán",
+    "wiki_url": "https://pt.wikipedia.org/?curid=1860543"
   },
-  "cruzeiro/Kaio Jorge": {
-    "file": "kaio_jorge.svg",
-    "source": "fallback"
+  "vasco_da_gama/Léo Pereira": {
+    "file": "léo_pereira.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Léo Pereira",
+    "wiki_url": "https://pt.wikipedia.org/?curid=4483329"
   },
-  "cruzeiro/Gabigol": {
-    "file": "gabigol.svg",
-    "source": "fallback"
-  },
-  "cruzeiro/Dante": {
-    "file": "dante.svg",
-    "source": "fallback"
-  },
-  "cruzeiro/Marlon": {
-    "file": "marlon.svg",
-    "source": "fallback"
-  },
-  "cruzeiro/Fernando Henrique": {
-    "file": "fernando_henrique.svg",
-    "source": "fallback"
-  },
-  "cruzeiro/Lucas Villalba": {
-    "file": "lucas_villalba.svg",
-    "source": "fallback"
-  },
-  "cruzeiro/Araújo": {
-    "file": "araújo.svg",
-    "source": "fallback"
-  },
-  "cruzeiro/Giovani": {
-    "file": "giovani.svg",
-    "source": "fallback"
-  },
-  "cruzeiro/Cristian": {
-    "file": "cristian.svg",
-    "source": "fallback"
-  },
-  "cruzeiro/Rafael Cabral": {
-    "file": "rafael_cabral.svg",
-    "source": "fallback"
-  },
-  "cruzeiro/Matheus Pereira II": {
-    "file": "matheus_pereira_ii.svg",
-    "source": "fallback"
-  },
-  "flamengo/Rossi": {
-    "file": "rossi.svg",
-    "source": "fallback"
-  },
-  "flamengo/Léo Pereira": {
-    "file": "léo_pereira.svg",
-    "source": "fallback"
-  },
-  "flamengo/Léo Ortiz": {
-    "file": "léo_ortiz.svg",
-    "source": "fallback"
-  },
-  "flamengo/Wesley": {
-    "file": "wesley.svg",
-    "source": "fallback"
-  },
-  "flamengo/Ayrton Lucas": {
-    "file": "ayrton_lucas.svg",
-    "source": "fallback"
-  },
-  "flamengo/Pulgar": {
-    "file": "pulgar.svg",
-    "source": "fallback"
-  },
-  "flamengo/De La Cruz": {
-    "file": "de_la_cruz.svg",
-    "source": "fallback"
-  },
-  "flamengo/Gerson": {
-    "file": "gerson.svg",
-    "source": "fallback"
-  },
-  "flamengo/Arrascaeta": {
-    "file": "arrascaeta.svg",
-    "source": "fallback"
-  },
-  "flamengo/Pedro": {
-    "file": "pedro.svg",
-    "source": "fallback"
-  },
-  "flamengo/Bruno Henrique": {
-    "file": "bruno_henrique.svg",
-    "source": "fallback"
-  },
-  "flamengo/Léo Pereira II": {
-    "file": "léo_pereira_ii.svg",
-    "source": "fallback"
-  },
-  "flamengo/Pablo": {
-    "file": "pablo.svg",
-    "source": "fallback"
-  },
-  "flamengo/Plata": {
-    "file": "plata.svg",
-    "source": "fallback"
-  },
-  "flamengo/Everton Cebolinha": {
-    "file": "everton_cebolinha.svg",
-    "source": "fallback"
-  },
-  "flamengo/Lyanco": {
-    "file": "lyanco.svg",
-    "source": "fallback"
-  },
-  "flamengo/Thiago Maia": {
-    "file": "thiago_maia.svg",
-    "source": "fallback"
-  },
-  "flamengo/Matheus Cunha": {
-    "file": "matheus_cunha.svg",
-    "source": "fallback"
-  },
-  "flamengo/Filipe Luís": {
-    "file": "filipe_luís.svg",
-    "source": "fallback"
-  },
-  "flamengo/Michael": {
-    "file": "michael.svg",
-    "source": "fallback"
+  "vasco_da_gama/Jorginho": {
+    "file": "jorginho.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Jorge Luiz Frello Filho",
+    "wiki_url": "https://pt.wikipedia.org/?curid=4590645"
   },
   "fluminense/Fábio": {
-    "file": "fábio.svg",
-    "source": "fallback"
+    "file": "fábio.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Fabinho (futebolista, 1993)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=4083638"
   },
   "fluminense/Hércules": {
-    "file": "hércules.svg",
-    "source": "fallback"
+    "file": "hércules.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Brito (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=193891"
   },
   "fluminense/Kevin Serna": {
     "file": "kevin_serna.svg",
     "source": "fallback"
   },
   "fluminense/Martinelli": {
-    "file": "martinelli.svg",
-    "source": "fallback"
+    "file": "martinelli.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Gabriel Martinelli",
+    "wiki_url": "https://pt.wikipedia.org/?curid=6033040"
   },
   "fluminense/Juan Freytes": {
     "file": "juan_freytes.svg",
     "source": "fallback"
   },
   "fluminense/Agustín Canobbio": {
-    "file": "agustín_canobbio.svg",
-    "source": "fallback"
+    "file": "agustín_canobbio.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Agustín Canobbio",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7001296"
   },
   "fluminense/Everaldo": {
     "file": "everaldo.svg",
@@ -604,359 +1116,1035 @@
     "source": "fallback"
   },
   "fluminense/Lima": {
-    "file": "lima.svg",
-    "source": "fallback"
+    "file": "lima.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Pedro Lima (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7549121"
   },
   "fluminense/Thiago Silva": {
     "file": "thiago_silva.svg",
     "source": "fallback"
   },
   "fluminense/Nonato": {
-    "file": "nonato.svg",
-    "source": "fallback"
+    "file": "nonato.png",
+    "source": "wikipedia",
+    "wiki_title": "Gustavo Nonato",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7181005"
   },
   "fluminense/Ignácio": {
     "file": "ignácio.svg",
     "source": "fallback"
   },
   "fluminense/Guga": {
-    "file": "guga.svg",
-    "source": "fallback"
+    "file": "guga.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Gustavo Kuerten",
+    "wiki_url": "https://pt.wikipedia.org/?curid=71569"
   },
   "fluminense/Keno": {
-    "file": "keno.svg",
-    "source": "fallback"
+    "file": "keno.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Keno (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=4570586"
   },
   "fluminense/Jhon Arias": {
-    "file": "jhon_arias.svg",
-    "source": "fallback"
+    "file": "jhon_arias.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Jhon Arias",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7108096"
   },
   "fluminense/Gabriel Fuentes": {
-    "file": "gabriel_fuentes.svg",
-    "source": "fallback"
+    "file": "gabriel_fuentes.png",
+    "source": "wikipedia",
+    "wiki_title": "O Melhor Amigo (2025)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7563616"
   },
   "fluminense/PH Ganso": {
     "file": "ph_ganso.svg",
     "source": "fallback"
   },
-  "fortaleza/João Ricardo": {
-    "file": "joão_ricardo.svg",
+  "red_bull_bragantino/Cleiton": {
+    "file": "cleiton.svg",
     "source": "fallback"
   },
-  "fortaleza/Pikachu": {
-    "file": "pikachu.svg",
+  "red_bull_bragantino/Jhon Jhon": {
+    "file": "jhon_jhon.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Jhon Arias",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7108096"
+  },
+  "red_bull_bragantino/Eduardo Sasha": {
+    "file": "eduardo_sasha.svg",
     "source": "fallback"
   },
-  "fortaleza/Breno Lopes": {
-    "file": "breno_lopes.svg",
+  "red_bull_bragantino/Guzmán Rodríguez": {
+    "file": "guzmán_rodríguez.png",
+    "source": "wikipedia",
+    "wiki_title": "Copa do Mundo FIFA de 2026",
+    "wiki_url": "https://pt.wikipedia.org/?curid=3001852"
+  },
+  "red_bull_bragantino/Pedro Henrique": {
+    "file": "pedro_henrique.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "red_bull_bragantino/Gabriel": {
+    "file": "gabriel.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "red_bull_bragantino/Eric Faria": {
+    "file": "eric_faria.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Norman Whiteside",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7594824"
+  },
+  "red_bull_bragantino/Vinícius Tobias": {
+    "file": "vinícius_tobias.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Vinicius Tobias",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7292461"
+  },
+  "red_bull_bragantino/Helinho": {
+    "file": "helinho.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Helinho (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7727424"
+  },
+  "red_bull_bragantino/Alerrandro": {
+    "file": "alerrandro.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Carlinhos (futebolista, 1997)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7327231"
+  },
+  "red_bull_bragantino/Lucas Evangelista": {
+    "file": "lucas_evangelista.svg",
     "source": "fallback"
   },
-  "fortaleza/Lucero": {
-    "file": "lucero.svg",
+  "red_bull_bragantino/Raul": {
+    "file": "raul.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Raúl González Blanco",
+    "wiki_url": "https://pt.wikipedia.org/?curid=226606"
+  },
+  "red_bull_bragantino/Mosquera": {
+    "file": "mosquera.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Cristhian Mosquera",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7484132"
+  },
+  "red_bull_bragantino/Juninho Capixaba": {
+    "file": "juninho_capixaba.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Juninho Capixaba",
+    "wiki_url": "https://pt.wikipedia.org/?curid=5845220"
+  },
+  "red_bull_bragantino/Henry Vargas": {
+    "file": "henry_vargas.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Chiquititas (2013)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=3839971"
+  },
+  "red_bull_bragantino/Bruno Praxedes": {
+    "file": "bruno_praxedes.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Campeonato Carioca de Futebol de 2024",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7254420"
+  },
+  "red_bull_bragantino/Luan Cândido": {
+    "file": "luan_cândido.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Maurício (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=6414620"
+  },
+  "red_bull_bragantino/Savio": {
+    "file": "savio.svg",
     "source": "fallback"
   },
-  "fortaleza/Mancuso": {
-    "file": "mancuso.svg",
-    "source": "fallback"
+  "red_bull_bragantino/Aderlandio": {
+    "file": "aderlandio.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Joqueta",
+    "wiki_url": "https://pt.wikipedia.org/?curid=1749773"
   },
-  "fortaleza/Lucas Sasha": {
-    "file": "lucas_sasha.svg",
-    "source": "fallback"
-  },
-  "fortaleza/Gastón Ávila": {
-    "file": "gastón_ávila.svg",
-    "source": "fallback"
-  },
-  "fortaleza/Brítez": {
-    "file": "brítez.svg",
-    "source": "fallback"
-  },
-  "fortaleza/Deyverson": {
-    "file": "deyverson.svg",
-    "source": "fallback"
-  },
-  "fortaleza/Bareiro": {
-    "file": "bareiro.svg",
-    "source": "fallback"
-  },
-  "fortaleza/Pochettino": {
-    "file": "pochettino.svg",
-    "source": "fallback"
-  },
-  "fortaleza/Marinho": {
-    "file": "marinho.svg",
-    "source": "fallback"
-  },
-  "fortaleza/Bruno Pacheco": {
-    "file": "bruno_pacheco.svg",
-    "source": "fallback"
-  },
-  "fortaleza/Martínez": {
-    "file": "martínez.svg",
-    "source": "fallback"
-  },
-  "fortaleza/Tinga": {
-    "file": "tinga.svg",
-    "source": "fallback"
-  },
-  "fortaleza/Marcelo Benevenuto": {
-    "file": "marcelo_benevenuto.svg",
-    "source": "fallback"
-  },
-  "fortaleza/Thiago Galhardo": {
-    "file": "thiago_galhardo.svg",
-    "source": "fallback"
-  },
-  "fortaleza/Moisés": {
-    "file": "moisés.svg",
-    "source": "fallback"
-  },
-  "fortaleza/Kevyson": {
-    "file": "kevyson.svg",
-    "source": "fallback"
-  },
-  "fortaleza/Edinho": {
-    "file": "edinho.svg",
+  "red_bull_bragantino/Wanderson": {
+    "file": "wanderson.svg",
     "source": "fallback"
   },
   "gremio/Marchesín": {
-    "file": "marchesín.svg",
-    "source": "fallback"
+    "file": "marchesín.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
   },
   "gremio/Tiago Volpi": {
-    "file": "tiago_volpi.svg",
-    "source": "fallback"
+    "file": "tiago_volpi.png",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
   },
   "gremio/Dodi": {
-    "file": "dodi.svg",
-    "source": "fallback"
+    "file": "dodi.png",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
   },
   "gremio/Edenilson": {
-    "file": "edenilson.svg",
-    "source": "fallback"
+    "file": "edenilson.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
   },
   "gremio/Cristaldo": {
-    "file": "cristaldo.svg",
-    "source": "fallback"
+    "file": "cristaldo.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
   },
   "gremio/Pavón": {
-    "file": "pavón.svg",
-    "source": "fallback"
+    "file": "pavón.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
   },
   "gremio/Wagner Leonardo": {
-    "file": "wagner_leonardo.svg",
-    "source": "fallback"
+    "file": "wagner_leonardo.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
   },
   "gremio/Alysson": {
-    "file": "alysson.svg",
-    "source": "fallback"
+    "file": "alysson.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
   },
   "gremio/Cristian Olivera": {
-    "file": "cristian_olivera.svg",
-    "source": "fallback"
+    "file": "cristian_olivera.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
   },
   "gremio/Aravena": {
-    "file": "aravena.svg",
-    "source": "fallback"
+    "file": "aravena.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Alexander Aravena",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7599399"
   },
   "gremio/André Henrique": {
-    "file": "andré_henrique.svg",
-    "source": "fallback"
+    "file": "andré_henrique.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
   },
   "gremio/Marlon": {
-    "file": "marlon.svg",
-    "source": "fallback"
+    "file": "marlon.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
   },
   "gremio/Braithwaite": {
-    "file": "braithwaite.svg",
-    "source": "fallback"
+    "file": "braithwaite.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
   },
   "gremio/Villasanti": {
-    "file": "villasanti.svg",
-    "source": "fallback"
+    "file": "villasanti.png",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
   },
   "gremio/Balbuena": {
-    "file": "balbuena.svg",
-    "source": "fallback"
+    "file": "balbuena.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
   },
   "gremio/Soteldo": {
-    "file": "soteldo.svg",
-    "source": "fallback"
+    "file": "soteldo.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
   },
   "gremio/Arezo": {
-    "file": "arezo.svg",
-    "source": "fallback"
+    "file": "arezo.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
   },
   "gremio/Jhonata Robert": {
-    "file": "jhonata_robert.svg",
-    "source": "fallback"
+    "file": "jhonata_robert.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
   },
   "gremio/Rodrigues": {
     "file": "rodrigues.svg",
     "source": "fallback"
   },
   "gremio/Arthur": {
-    "file": "arthur.svg",
+    "file": "arthur.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "cruzeiro/Cássio": {
+    "file": "cássio.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Sócrates (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=190915"
+  },
+  "cruzeiro/Lucas Romero": {
+    "file": "lucas_romero.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Lucas Romero",
+    "wiki_url": "https://pt.wikipedia.org/?curid=4737874"
+  },
+  "cruzeiro/Fabrício Bruno": {
+    "file": "fabrício_bruno.svg",
     "source": "fallback"
   },
-  "internacional/Rochet": {
-    "file": "rochet.svg",
+  "cruzeiro/Kaiki": {
+    "file": "kaiki.svg",
     "source": "fallback"
   },
-  "internacional/Anthoni": {
-    "file": "anthoni.svg",
+  "cruzeiro/William": {
+    "file": "william.svg",
     "source": "fallback"
   },
-  "internacional/Braian Aguirre": {
-    "file": "braian_aguirre.svg",
+  "cruzeiro/Lucas Silva": {
+    "file": "lucas_silva.svg",
     "source": "fallback"
   },
-  "internacional/Vitão": {
-    "file": "vitão.svg",
+  "cruzeiro/Walace": {
+    "file": "walace.svg",
     "source": "fallback"
   },
-  "internacional/Alexandro Bernabei": {
-    "file": "alexandro_bernabei.svg",
+  "cruzeiro/Matheus Pereira": {
+    "file": "matheus_pereira.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Matheus Pereira",
+    "wiki_url": "https://pt.wikipedia.org/?curid=5035253"
+  },
+  "cruzeiro/Eduardo": {
+    "file": "eduardo.svg",
     "source": "fallback"
   },
-  "internacional/Alan Patrick": {
-    "file": "alan_patrick.svg",
+  "cruzeiro/Kaio Jorge": {
+    "file": "kaio_jorge.jpg",
+    "source": "wikipedia",
+    "wiki_title": "João Pedro (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7157023"
+  },
+  "cruzeiro/Gabigol": {
+    "file": "gabigol.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Nenê (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=2095654"
+  },
+  "cruzeiro/Dante": {
+    "file": "dante.svg",
     "source": "fallback"
   },
-  "internacional/Thiago Maia": {
-    "file": "thiago_maia.svg",
+  "cruzeiro/Marlon": {
+    "file": "marlon.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "cruzeiro/Fernando Henrique": {
+    "file": "fernando_henrique.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "cruzeiro/Lucas Villalba": {
+    "file": "lucas_villalba.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "cruzeiro/Araújo": {
+    "file": "araújo.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "cruzeiro/Giovani": {
+    "file": "giovani.svg",
     "source": "fallback"
   },
-  "internacional/Vitinho": {
-    "file": "vitinho.svg",
+  "cruzeiro/Cristian": {
+    "file": "cristian.svg",
     "source": "fallback"
   },
-  "internacional/Bruno Henrique": {
-    "file": "bruno_henrique.svg",
+  "cruzeiro/Rafael Cabral": {
+    "file": "rafael_cabral.svg",
     "source": "fallback"
   },
-  "internacional/Rafael Borré": {
-    "file": "rafael_borré.svg",
+  "cruzeiro/Matheus Pereira II": {
+    "file": "matheus_pereira_ii.svg",
     "source": "fallback"
   },
-  "internacional/Wesley": {
+  "vitoria/Lucas Arcanjo": {
+    "file": "lucas_arcanjo.svg",
+    "source": "fallback"
+  },
+  "vitoria/Lucas Halter": {
+    "file": "lucas_halter.svg",
+    "source": "fallback"
+  },
+  "vitoria/Ronald": {
+    "file": "ronald.svg",
+    "source": "fallback"
+  },
+  "vitoria/Gabriel Baralhas": {
+    "file": "gabriel_baralhas.png",
+    "source": "wikipedia",
+    "wiki_title": "Esporte Clube Vitória",
+    "wiki_url": "https://pt.wikipedia.org/?curid=50218"
+  },
+  "vitoria/Matheuzinho": {
+    "file": "matheuzinho.svg",
+    "source": "fallback"
+  },
+  "vitoria/Osvaldo": {
+    "file": "osvaldo.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Júnior (futebolista, 1954)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=1064"
+  },
+  "vitoria/Zé Marcos": {
+    "file": "zé_marcos.svg",
+    "source": "fallback"
+  },
+  "vitoria/Raúl Cáceres": {
+    "file": "raúl_cáceres.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Raúl Cáceres",
+    "wiki_url": "https://pt.wikipedia.org/?curid=5904023"
+  },
+  "vitoria/Erick": {
+    "file": "erick.png",
+    "source": "wikipedia",
+    "wiki_title": "Erick Pulgar",
+    "wiki_url": "https://pt.wikipedia.org/?curid=5107633"
+  },
+  "vitoria/Renato Kayzer": {
+    "file": "renato_kayzer.jpg",
+    "source": "wikipedia",
+    "wiki_title": "1996",
+    "wiki_url": "https://pt.wikipedia.org/?curid=11367"
+  },
+  "vitoria/Aitor Cantalapiedra": {
+    "file": "aitor_cantalapiedra.png",
+    "source": "wikipedia",
+    "wiki_title": "Esporte Clube Vitória",
+    "wiki_url": "https://pt.wikipedia.org/?curid=50218"
+  },
+  "vitoria/Janderson": {
+    "file": "janderson.png",
+    "source": "wikipedia",
+    "wiki_title": "Temporada do Clube de Regatas do Flamengo de 2024",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7260916"
+  },
+  "vitoria/Gustavo Mosquito": {
+    "file": "gustavo_mosquito.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Gustavo Mosquito",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7213914"
+  },
+  "vitoria/Wellington Rato": {
+    "file": "wellington_rato.svg",
+    "source": "fallback"
+  },
+  "vitoria/Thiago Couto": {
+    "file": "thiago_couto.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "vitoria/Edu": {
+    "file": "edu.svg",
+    "source": "fallback"
+  },
+  "vitoria/Camutanga": {
+    "file": "camutanga.png",
+    "source": "wikipedia",
+    "wiki_title": "Esporte Clube Vitória",
+    "wiki_url": "https://pt.wikipedia.org/?curid=50218"
+  },
+  "vitoria/Ramon": {
+    "file": "ramon.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Maurício (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=6414620"
+  },
+  "vitoria/Willian Oliveira": {
+    "file": "willian_oliveira.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Estêvão (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7251036"
+  },
+  "vitoria/Carlinhos": {
+    "file": "carlinhos.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Carlinhos (futebolista, 1997)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7327231"
+  },
+  "santos/Gabriel Brazão": {
+    "file": "gabriel_brazão.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Gabriel Brazão",
+    "wiki_url": "https://pt.wikipedia.org/?curid=6819639"
+  },
+  "santos/Guilherme": {
+    "file": "guilherme.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Guilherme Augusto Vieira dos Santos",
+    "wiki_url": "https://pt.wikipedia.org/?curid=5355442"
+  },
+  "santos/João Schmidt": {
+    "file": "joão_schmidt.jpg",
+    "source": "wikipedia",
+    "wiki_title": "João Gomes (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=6503307"
+  },
+  "santos/Zé Ivaldo": {
+    "file": "zé_ivaldo.png",
+    "source": "wikipedia",
+    "wiki_title": "Santos Futebol Clube",
+    "wiki_url": "https://pt.wikipedia.org/?curid=20248"
+  },
+  "santos/Gonzalo Escobar": {
+    "file": "gonzalo_escobar.svg",
+    "source": "fallback"
+  },
+  "santos/Soteldo": {
+    "file": "soteldo.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "santos/Diego Pituca": {
+    "file": "diego_pituca.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Diego Pituca",
+    "wiki_url": "https://pt.wikipedia.org/?curid=5762546"
+  },
+  "santos/Tomás Rincón": {
+    "file": "tomás_rincón.svg",
+    "source": "fallback"
+  },
+  "santos/Tiquinho Soares": {
+    "file": "tiquinho_soares.svg",
+    "source": "fallback"
+  },
+  "santos/Neymar": {
+    "file": "neymar.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Neymar",
+    "wiki_url": "https://pt.wikipedia.org/?curid=2222761"
+  },
+  "santos/Luan Peres": {
+    "file": "luan_peres.png",
+    "source": "wikipedia",
+    "wiki_title": "Luan Peres",
+    "wiki_url": "https://pt.wikipedia.org/?curid=5185199"
+  },
+  "santos/Thaciano": {
+    "file": "thaciano.svg",
+    "source": "fallback"
+  },
+  "santos/Lautaro Díaz": {
+    "file": "lautaro_díaz.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Nico Paz",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7555329"
+  },
+  "santos/JP Chermont": {
+    "file": "jp_chermont.jpg",
+    "source": "wikipedia",
+    "wiki_title": "JP Chermont",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7482520"
+  },
+  "santos/João Pedro": {
+    "file": "joão_pedro.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "santos/Zé Rafael": {
+    "file": "zé_rafael.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Zé Roberto (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=198551"
+  },
+  "santos/Evandro": {
+    "file": "evandro.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Júnior (futebolista, 1954)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=1064"
+  },
+  "santos/Igor Vinícius": {
+    "file": "igor_vinícius.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Igor Vinícius",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7041675"
+  },
+  "santos/Matheus Nascimento": {
+    "file": "matheus_nascimento.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Matheus Cunha",
+    "wiki_url": "https://pt.wikipedia.org/?curid=5772141"
+  },
+  "santos/Mendoza": {
+    "file": "mendoza.svg",
+    "source": "fallback"
+  },
+  "atletico_mineiro/Everson": {
+    "file": "everson.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "atletico_mineiro/Gustavo Scarpa": {
+    "file": "gustavo_scarpa.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "atletico_mineiro/Natanael": {
+    "file": "natanael.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "atletico_mineiro/Hulk": {
+    "file": "hulk.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "atletico_mineiro/Junior Alonso": {
+    "file": "junior_alonso.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "atletico_mineiro/Rony": {
+    "file": "rony.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "atletico_mineiro/Igor Gomes": {
+    "file": "igor_gomes.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "atletico_mineiro/Alan Franco": {
+    "file": "alan_franco.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "atletico_mineiro/Bernard": {
+    "file": "bernard.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "atletico_mineiro/Guilherme Arana": {
+    "file": "guilherme_arana.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "atletico_mineiro/Gabriel Menino": {
+    "file": "gabriel_menino.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "atletico_mineiro/Lyanco": {
+    "file": "lyanco.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "atletico_mineiro/Tomás Cuello": {
+    "file": "tomás_cuello.png",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "atletico_mineiro/Caio": {
+    "file": "caio.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "atletico_mineiro/Vitor Hugo": {
+    "file": "vitor_hugo.svg",
+    "source": "fallback"
+  },
+  "atletico_mineiro/Saravia": {
+    "file": "saravia.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "atletico_mineiro/Rubens": {
+    "file": "rubens.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "atletico_mineiro/Alexsander": {
+    "file": "alexsander.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "atletico_mineiro/Júnior Santos": {
+    "file": "júnior_santos.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "atletico_mineiro/Dudu": {
+    "file": "dudu.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "flamengo/Rossi": {
+    "file": "rossi.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Paolo Rossi",
+    "wiki_url": "https://pt.wikipedia.org/?curid=280624"
+  },
+  "flamengo/Léo Pereira": {
+    "file": "léo_pereira.svg",
+    "source": "fallback"
+  },
+  "flamengo/Léo Ortiz": {
+    "file": "léo_ortiz.svg",
+    "source": "fallback"
+  },
+  "flamengo/Wesley": {
     "file": "wesley.svg",
     "source": "fallback"
   },
-  "internacional/Carbonero": {
-    "file": "carbonero.svg",
+  "flamengo/Ayrton Lucas": {
+    "file": "ayrton_lucas.svg",
     "source": "fallback"
   },
-  "internacional/Bruno Tabata": {
-    "file": "bruno_tabata.svg",
+  "flamengo/Pulgar": {
+    "file": "pulgar.png",
+    "source": "wikipedia",
+    "wiki_title": "Erick Pulgar",
+    "wiki_url": "https://pt.wikipedia.org/?curid=5107633"
+  },
+  "flamengo/De La Cruz": {
+    "file": "de_la_cruz.svg",
     "source": "fallback"
   },
-  "internacional/Ronaldo": {
-    "file": "ronaldo.svg",
+  "flamengo/Gerson": {
+    "file": "gerson.svg",
     "source": "fallback"
   },
-  "internacional/Victor Gabriel": {
-    "file": "victor_gabriel.svg",
+  "flamengo/Arrascaeta": {
+    "file": "arrascaeta.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Lista de futebolistas do Cruzeiro Esporte Clube convocados para Copa do Mundo da FIFA",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7035785"
+  },
+  "flamengo/Pedro": {
+    "file": "pedro.jpg",
+    "source": "wikipedia",
+    "wiki_title": "João Pedro (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7157023"
+  },
+  "flamengo/Bruno Henrique": {
+    "file": "bruno_henrique.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "flamengo/Léo Pereira II": {
+    "file": "léo_pereira_ii.svg",
     "source": "fallback"
   },
-  "internacional/Valencia": {
-    "file": "valencia.svg",
+  "flamengo/Pablo": {
+    "file": "pablo.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Gavi (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=6699733"
+  },
+  "flamengo/Plata": {
+    "file": "plata.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Carlos Alcaraz (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7422017"
+  },
+  "flamengo/Everton Cebolinha": {
+    "file": "everton_cebolinha.svg",
     "source": "fallback"
   },
-  "internacional/Mercado": {
-    "file": "mercado.svg",
+  "flamengo/Lyanco": {
+    "file": "lyanco.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "flamengo/Thiago Maia": {
+    "file": "thiago_maia.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "flamengo/Matheus Cunha": {
+    "file": "matheus_cunha.jpg",
+    "source": "wikipedia",
+    "wiki_title": "João Pedro (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7157023"
+  },
+  "flamengo/Filipe Luís": {
+    "file": "filipe_luís.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Filipe Luís",
+    "wiki_url": "https://pt.wikipedia.org/?curid=1272628"
+  },
+  "flamengo/Michael": {
+    "file": "michael.svg",
     "source": "fallback"
   },
-  "internacional/Fernando": {
-    "file": "fernando.svg",
+  "bahia/Ronaldo": {
+    "file": "ronaldo.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "bahia/Gilberto": {
+    "file": "gilberto.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Gilberto Silva",
+    "wiki_url": "https://pt.wikipedia.org/?curid=72463"
+  },
+  "bahia/David Duarte": {
+    "file": "david_duarte.svg",
     "source": "fallback"
   },
-  "internacional/Bruno Gomes": {
-    "file": "bruno_gomes.svg",
+  "bahia/Ramos Mingo": {
+    "file": "ramos_mingo.png",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "bahia/Luciano Juba": {
+    "file": "luciano_juba.png",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "bahia/Acevedo": {
+    "file": "acevedo.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "bahia/Jean Lucas": {
+    "file": "jean_lucas.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "bahia/Everton Ribeiro": {
+    "file": "everton_ribeiro.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "bahia/Ademir": {
+    "file": "ademir.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "bahia/Pulga": {
+    "file": "pulga.png",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "bahia/Willian José": {
+    "file": "willian_josé.png",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
+  },
+  "bahia/Cauly": {
+    "file": "cauly.png",
+    "source": "wikipedia",
+    "wiki_title": "São Paulo Futebol Clube",
+    "wiki_url": "https://pt.wikipedia.org/?curid=1752"
+  },
+  "bahia/Estupiñán": {
+    "file": "estupiñán.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Pervis Estupiñán",
+    "wiki_url": "https://pt.wikipedia.org/?curid=5363449"
+  },
+  "bahia/Luciano Rodríguez": {
+    "file": "luciano_rodríguez.svg",
     "source": "fallback"
   },
-  "internacional/Rômulo": {
-    "file": "rômulo.svg",
+  "bahia/Caio Alexandre": {
+    "file": "caio_alexandre.svg",
     "source": "fallback"
   },
-  "juventude/Gustavo": {
-    "file": "gustavo.svg",
+  "bahia/Everaldo": {
+    "file": "everaldo.svg",
     "source": "fallback"
   },
-  "juventude/Jadson": {
-    "file": "jadson.svg",
+  "bahia/Vitor Hugo": {
+    "file": "vitor_hugo.svg",
     "source": "fallback"
   },
-  "juventude/Ewerthon": {
-    "file": "ewerthon.svg",
+  "bahia/Nestor": {
+    "file": "nestor.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Néstor Lorenzo",
+    "wiki_url": "https://pt.wikipedia.org/?curid=2807502"
+  },
+  "bahia/Marcos Felipe": {
+    "file": "marcos_felipe.png",
+    "source": "wikipedia",
+    "wiki_title": "Felipe (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=3909204"
+  },
+  "bahia/Rafael Ramos": {
+    "file": "rafael_ramos.svg",
     "source": "fallback"
   },
-  "juventude/Batalla": {
-    "file": "batalla.svg",
+  "palmeiras/Weverton": {
+    "file": "weverton.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Fabinho (futebolista, 1993)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=4083638"
+  },
+  "palmeiras/Gustavo Gómez": {
+    "file": "gustavo_gómez.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Maurício (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=6414620"
+  },
+  "palmeiras/Murilo": {
+    "file": "murilo.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Amaral (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=1051940"
+  },
+  "palmeiras/Piquerez": {
+    "file": "piquerez.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Joaquín Piquerez",
+    "wiki_url": "https://pt.wikipedia.org/?curid=6649200"
+  },
+  "palmeiras/Giay": {
+    "file": "giay.svg",
     "source": "fallback"
   },
-  "juventude/Giraldo": {
-    "file": "giraldo.svg",
+  "palmeiras/Aníbal Moreno": {
+    "file": "aníbal_moreno.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Aníbal Moreno",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7175344"
+  },
+  "palmeiras/Richard Ríos": {
+    "file": "richard_ríos.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Richard Ríos",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7094702"
+  },
+  "palmeiras/Raphael Veiga": {
+    "file": "raphael_veiga.svg",
     "source": "fallback"
   },
-  "juventude/Abner": {
-    "file": "abner.svg",
+  "palmeiras/Emiliano Martínez": {
+    "file": "emiliano_martínez.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Emiliano Martínez (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=6794435"
+  },
+  "palmeiras/Facundo Torres": {
+    "file": "facundo_torres.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Facundo Torres",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7498856"
+  },
+  "palmeiras/Estêvão": {
+    "file": "estêvão.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Estêvão (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7251036"
+  },
+  "palmeiras/Flaco López": {
+    "file": "flaco_lópez.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Flaco López",
+    "wiki_url": "https://pt.wikipedia.org/?curid=6992884"
+  },
+  "palmeiras/Vitor Roque": {
+    "file": "vitor_roque.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Rômulo (futebolista, 2002)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7322726"
+  },
+  "palmeiras/Maurício": {
+    "file": "maurício.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Maurício (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=6414620"
+  },
+  "palmeiras/Allan": {
+    "file": "allan.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Allan (futebolista, 2004)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=7790303"
+  },
+  "palmeiras/Felipe Anderson": {
+    "file": "felipe_anderson.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Nenê (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=2095654"
+  },
+  "palmeiras/Vanderlan": {
+    "file": "vanderlan.svg",
     "source": "fallback"
   },
-  "juventude/Mandaca": {
-    "file": "mandaca.svg",
-    "source": "fallback"
+  "palmeiras/Bruno Fuchs": {
+    "file": "bruno_fuchs.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Bruno Fuchs",
+    "wiki_url": "https://pt.wikipedia.org/?curid=6122390"
   },
-  "juventude/Ênio": {
-    "file": "ênio.svg",
-    "source": "fallback"
+  "palmeiras/Gabriel Menino": {
+    "file": "gabriel_menino.jpg",
+    "source": "wikipedia",
+    "wiki_title": "",
+    "wiki_url": ""
   },
-  "juventude/Alan Ruschel": {
-    "file": "alan_ruschel.svg",
-    "source": "fallback"
-  },
-  "juventude/Marcos Paulo": {
-    "file": "marcos_paulo.svg",
-    "source": "fallback"
-  },
-  "juventude/Erick Farias": {
-    "file": "erick_farias.svg",
-    "source": "fallback"
-  },
-  "juventude/Felipinho": {
-    "file": "felipinho.svg",
-    "source": "fallback"
-  },
-  "juventude/Taliari": {
-    "file": "taliari.svg",
-    "source": "fallback"
-  },
-  "juventude/Adriano Martins": {
-    "file": "adriano_martins.svg",
-    "source": "fallback"
-  },
-  "juventude/Jean Carlos": {
-    "file": "jean_carlos.svg",
-    "source": "fallback"
-  },
-  "juventude/Giovanny": {
-    "file": "giovanny.svg",
-    "source": "fallback"
-  },
-  "juventude/Wilker Ángel": {
-    "file": "wilker_ángel.svg",
-    "source": "fallback"
-  },
-  "juventude/Gilberto": {
-    "file": "gilberto.svg",
-    "source": "fallback"
-  },
-  "juventude/Nenê": {
-    "file": "nenê.svg",
-    "source": "fallback"
-  },
-  "juventude/Moreschi": {
-    "file": "moreschi.svg",
-    "source": "fallback"
+  "palmeiras/Marcos Rocha": {
+    "file": "marcos_rocha.jpg",
+    "source": "wikipedia",
+    "wiki_title": "Marcos Rocha (futebolista)",
+    "wiki_url": "https://pt.wikipedia.org/?curid=2155424"
   }
 }

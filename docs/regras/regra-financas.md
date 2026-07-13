@@ -141,7 +141,7 @@ Se a folha salarial exceder o limite, é exibido alerta "Folha acima do limite r
 
 ### Bônus de Performance
 
-Podem ser incluídos nas ofertas com 40% de chance. Tipos:
+Podem ser incluídos nas ofertas com 50% de chance. Tipos:
 
 | Tipo | Condição de Disparo |
 |------|---------------------|

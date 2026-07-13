@@ -80,7 +80,28 @@ Scouts podem gerar recomendações automáticas de jogadores:
 
 Cada scout possui campos de experiência que evoluem ao longo do jogo:
 
-- **`experience`:** Pontos de experiência acumulados. A cada missão concluída, o scout ganha experiência.
+- **`experience`:** Pontos de experiência acumulados.
+  - Missão concluída: ganha **10 + weeksTotal** pontos de experiência.
+  - Missão ativa (em progresso semanal): ganha **3 pontos** por semana.
 - **`missionsCompleted`:** Número total de missões concluídas.
+- **Evolução de atributos:**
+  - A cada **50 pontos** de experiência: +1 em `judgingAbility` (limite 20).
+  - A cada **70 pontos** de experiência: +1 em `judgingPotential` (limite 20).
+- Ao concluir uma missão, o scout é liberado (`assigned: false`).
 - O painel de olheiros na aba Scouting mostra esses valores com barra de progresso.
 - Scouts com mais experiência tendem a gerar relatórios mais precisos.
+
+---
+
+## Decaimento de Conhecimento
+
+Conhecimento de jogadores que **não estão sendo observados ativamente** decai semanalmente via `decayScoutKnowledge`:
+
+| Conhecimento | Decaimento |
+|--------------|------------|
+| ≥ 75 | -2 por semana |
+| 25-74 | -1 por semana |
+| < 25 | 0 (não decai) |
+
+- Jogadores na **shortlist** decaem **metade** do valor (arredondado para baixo).
+- Jogadores com missão ativa **não decaem**.

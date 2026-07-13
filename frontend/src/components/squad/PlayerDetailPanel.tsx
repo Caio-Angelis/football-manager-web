@@ -1,5 +1,6 @@
 import React from 'react';
 import { StatBar } from '../ui/StatBar';
+import { PlayerAvatar } from '../ui/PlayerAvatar';
 import type { Player } from '../../types/game';
 import { getFullName } from '../../utils/player';
 import { getPositionColor, getRatingColor } from '../../utils/statusColors';
@@ -36,6 +37,7 @@ export const PlayerDetailPanel: React.FC<PlayerDetailPanelProps> = ({
       </div>
 
       <div className="fm-player-detail-panel__identity">
+        <PlayerAvatar player={player} size={72} className="fm-player-detail-panel__photo" />
         <div className="fm-player-detail-panel__position-badge" style={{ backgroundColor: getPositionColor(player.position) }}>
           {player.position}
         </div>
