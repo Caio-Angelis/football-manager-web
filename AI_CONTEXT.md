@@ -6,7 +6,20 @@
 
 **Localização:** `c:\Users\caioa\Desktop\football-manager-web`
 
-**Progresso estimado:** ~99% da especificação single-player completa (ver `IMPLMENTATION_CHECKLIST.md`). Fluxos completos documentados em `docs/fluxo.md`. Database real de 20 clubes do Brasileirão integrada (ver `DataBase jogadores/`). Sistema multi-temporada (até 3), IA adversária ativa, dinâmica de moral semanal e relatórios pós-jogo implementados. **Modo online multiplayer** (draft de clubes, salas com código, ready-check por rodada, negociações humano×humano) implementado (ver `PlanoOnline.md`).
+**Progresso estimado:** ~99% da especificação single-player completa. Fluxos completos documentados em `docs/fluxo.md`. Database real de 20 clubes do Brasileirão integrada (ver `DataBase jogadores/`). Sistema multi-temporada (até 3), IA adversária ativa, dinâmica de moral semanal e relatórios pós-jogo implementados. **Modo online multiplayer** (draft de clubes, salas com código, ready-check por rodada, negociações humano×humano) implementado (ver `PlanoOnline.md`).
+
+## Atualização recente — .gitignore (2026-07-15)
+
+- Ignora de fato `graphify-out/` (e zip), relatórios de harness/finanças (`balance_report.txt`, `finance_*`, `*_output.json`, `*_report.txt`), venv Python e worktrees locais. Artefatos gerados removidos do índice Git (permanecem no disco).
+
+## Atualização recente — Motor v2 checklist fechada (2026-07-15)
+
+- **Checklist `PlanoMatchEngine-CHECKLIST.md` concluída e removida.** Fonte de verdade restante: `PlanoMatchEngine.md` (design) + `matchEngineV2.spec.ts` (TDD).
+- **TDD completo:** 41 testes ativos sob `MATCH_ENGINE=v2` (0 todo/skip); sob default `v1`: 25 pass / 16 skip. Default do motor permanece **v1**; v2 atrás de flag.
+- **Calibração Fase 3:** `lowBlockCompactness` / `possessionHunger` — parking the bus e “domino posse” emergentes; transição com `transitionTicksForLoss` + exposição por mentalidade; tracking `chancesByOrigin.transição`.
+- **Fases 4–11:** testes reais para transição, instruções relacionais, estado dinâmico, bola parada/árbitro, IA (`aiManagerV2`), previsão unificada, relatório pós-jogo e sanity de invariantes/upset.
+- **Novo orçamento:** `PERF_BUDGET_PREDICTION_MS` em `engineInvariants.ts`.
+- Batch completo (`python run_batch.py --v1v2`, 30–100 runs) continua manual; smoke do harness coberto no spec.
 
 ## Atualização recente — Match Live Fullscreen / FM clássico 2D (2026-07-09)
 
@@ -191,7 +204,7 @@
 football-manager-web/
 ├── package.json                # Root: scripts dev/build/install:all (concurrently)
 ├── AI_CONTEXT.md
-├── IMPLMENTATION_CHECKLIST.md
+├── PlanoMatchEngine.md        # Blueprint do motor v2 (checklist de fases concluída/removida)
 ├── PRODUCT.md
 ├── Projeto.md
 ├── DESIGN.md
@@ -1343,7 +1356,7 @@ Gerar clubes → Assumir → Save 1 → Voltar → painel de saves OK
 → Carregar → jogo restaurado → F5 → Carregar slot 2
 ```
 
-Console sem erros. Ver também `IMPLMENTATION_CHECKLIST.md`.
+Console sem erros. Ver também `PlanoMatchEngine.md` e `matchEngineV2.spec.ts`.
 
 ---
 

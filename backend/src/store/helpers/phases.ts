@@ -33,6 +33,67 @@ function moraleFactor(player: Player): number {
   return clamp(1.0 + ((morale - 50) / 50) * 0.25, 0.75, 1.20);
 }
 
+/**
+ * Quão "estacionado" está o bloco defensivo (0–1).
+ * Bloco baixo + mentalidade defensiva + contain → parking the bus.
+ */
+export function lowBlockCompactness(team: Team): number {
+  let f = 0;
+  if (team.defensiveLine === 'low') f += 0.40;
+  if (team.teamMentality === 'very defensive') f += 0.35;
+  else if (team.teamMentality === 'defensive') f += 0.20;
+  if (team.tacklingStyle === 'contain') f += 0.15;
+  if (team.pressIntensity === 'low') f += 0.10;
+  return clamp(f, 0, 1);
+}
+
+/**
+ * Quão "faminto por posse" é o time (0–1).
+ * Saída curta + pressão alta + mentalidade ofensiva → domina a bola.
+ */
+export function possessionHunger(team: Team): number {
+  let f = 0;
+  if (team.passingStyle === 'short') f += 0.35;
+  if (team.pressIntensity === 'high' || team.highPress) f += 0.30;
+  if (team.teamMentality === 'very offensive') f += 0.25;
+  else if (team.teamMentality === 'offensive') f += 0.18;
+  if (team.defensiveLine === 'high') f += 0.10;
+  return clamp(f, 0, 1);
+}
+
+/**
+ * Ticks de transição após perda de posse.
+ * Perda adiantada (attackProgress alto) → transição mais longa/perigosa.
+ * Counter-attack instruction aumenta a duração.
+ */
+export function transitionTicksForLoss(
+  attackProgress: number,
+  recoveringTeam?: Team,
+): number {
+  // Campo próprio (~0–0.33): 2 ticks; meio: 3; terço ofensivo: 4–5
+  let ticks = 2;
+  if (attackProgress > 0.60) ticks = 3 + Math.round(attackProgress * 2); // 3–5
+  else if (attackProgress > 0.33) ticks = 3;
+
+  if (recoveringTeam?.afterGainingPossession === 'counterAttack') {
+    ticks += 1;
+  }
+  return ticks;
+}
+
+/**
+ * Exposição na transição: mentalidade ofensiva do time que PERDEU a bola
+ * deixa mais espaço nas costas (avanço extra do contra-ataque).
+ */
+export function transitionMentalityExposure(losingTeam: Team): number {
+  const m = losingTeam.teamMentality ?? 'balanced';
+  if (m === 'very offensive') return 0.10;
+  if (m === 'offensive') return 0.06;
+  if (m === 'defensive') return -0.03;
+  if (m === 'very defensive') return -0.06;
+  return 0;
+}
+
 // ============================================================
 // Estado de fase — determina qual fase o lance está
 // ============================================================
@@ -206,25 +267,37 @@ export function simulateTickV2(
     const ticksLeft = (state.transitionTicks ?? 0) - 1;
     newState.transitionTicks = ticksLeft > 0 ? ticksLeft : undefined;
 
-    // Mentalidade ofensiva do time que PERDEU a posse (defendingTeam) aumenta exposição:
-    // jogadores mais adiantados demoram a recompor → transição adversária mais perigosa
-    const losingTeamMentality = defendingTeam.teamMentality ?? 'balanced';
-    const mentalityExposure = losingTeamMentality === 'very offensive' ? 0.08
-      : losingTeamMentality === 'offensive' ? 0.05
-      : losingTeamMentality === 'defensive' ? -0.03
-      : losingTeamMentality === 'very defensive' ? -0.06
-      : 0;
+    // Mentalidade ofensiva do time que PERDEU a posse (defendingTeam) aumenta exposição
+    const mentalityExposure = transitionMentalityExposure(defendingTeam);
+
+    // afterGainingPossession === counterAttack: avanço mais vertical
+    const counterBoost = attackingTeam.afterGainingPossession === 'counterAttack' ? 0.05 : 0;
 
     // Na transição, passes são mais rápidos e diretos
     const receiver = attOccupants.find(o => o.player.id !== holder.id);
     if (receiver) {
       const passSuccess = rng() < 0.80 * holderFatigue * (1 + swing * 0.15); // transição = mais arriscado
       if (passSuccess) {
-        const advance = 0.15 + rng() * 0.12 + mentalityExposure; // avanço rápido + exposição por mentalidade
+        const advance = 0.15 + rng() * 0.12 + mentalityExposure + counterBoost;
         newState.ballPos = clamp(currentBallPos + advance * attackDir, 0.02, 0.98);
         newState.ballPosY = clamp(currentBallY + (rng() - 0.5) * 0.20, 0.04, 0.96);
         newState.ballHolderId = receiver.player.id;
         newState.passChain = state.passChain + 1;
+
+        // Chance por origem "transição" quando o contra-ataque entra no terço final
+        const newProgress = side === 'home' ? newState.ballPos : 1 - newState.ballPos;
+        if (newProgress > 0.68) {
+          newState.chancesByOrigin = {
+            ...newState.chancesByOrigin,
+            transição: (newState.chancesByOrigin?.transição ?? 0) + 1,
+          };
+          const wide = clamp(Math.abs((newState.ballPosY ?? 0.5) - 0.5) * 2, 0, 1);
+          const xg = calculateXG('transition', newProgress, wide, holder);
+          newState.xgByPhase = {
+            ...newState.xgByPhase,
+            transition: (newState.xgByPhase?.transition ?? 0) + xg,
+          };
+        }
 
         newActions.push({
           minute,
@@ -261,52 +334,75 @@ export function simulateTickV2(
   // FASE: BUILDUP (construção — posse segura no próprio campo)
   // ============================================================
   else if (phase === 'buildup') {
-    // Passe seguro, baixo risco, baixo avanço
-    const receiver = attOccupants.find(o =>
-      o.player.id !== holder.id &&
-      Math.abs(o.effectiveX - currentBallPos) < 0.3
-    ) ?? attOccupants.find(o => o.player.id !== holder.id);
+    const block = lowBlockCompactness(attackingTeam); // time com a bola "estacionado"?
+    const hunger = possessionHunger(attackingTeam);
+    const defBlock = lowBlockCompactness(defendingTeam);
 
-    if (receiver) {
-      const passSuccess = rng() < 0.92 * holderFatigue * (1 + swing * 0.15); // buildup = muito seguro
-      if (passSuccess) {
-        const advance = 0.03 + rng() * 0.06;
-        newState.ballPos = clamp(currentBallPos + advance * attackDir, 0.02, 0.98);
-        newState.ballPosY = clamp(currentBallY + (rng() - 0.5) * 0.10, 0.04, 0.96);
-        newState.ballHolderId = receiver.player.id;
-        newState.passChain = state.passChain + 1;
+    // Parking the bus: com a bola, limpa mais cedo (cede posse → posse baixa)
+    if (block >= 0.5 && state.passChain >= 1 && rng() < 0.35 + block * 0.25) {
+      const defender = pickZoneDefender(defOccupants, zone, rng);
+      newState.possession = side === 'home' ? 'away' : 'home';
+      newState.ballHolderId = defender?.player.id ?? defendingTeam.squad[0].id;
+      newState.passChain = 0;
+      newState.ballPos = clamp(currentBallPos + 0.20 * attackDir, 0.02, 0.98); // alívio longo
+      newActions.push({
+        minute,
+        type: 'pass',
+        team: side,
+        playerId: holder.id,
+        playerName: holder.name,
+        success: false,
+        description: `${holder.name} alivia a bola — bloco baixo cede a posse`,
+        ballPos: newState.ballPos,
+      });
+    } else {
+      // Passe seguro, baixo risco; hunger aumenta retenção; defBlock reduz avanço
+      const receiver = attOccupants.find(o =>
+        o.player.id !== holder.id &&
+        Math.abs(o.effectiveX - currentBallPos) < 0.3
+      ) ?? attOccupants.find(o => o.player.id !== holder.id);
 
-        newActions.push({
-          minute,
-          type: 'pass',
-          team: side,
-          playerId: holder.id,
-          playerName: holder.name,
-          success: true,
-          description: `${holder.name} troca com ${receiver.player.name}`,
-          ballPos: newState.ballPos,
-        });
-      } else {
-        // Perda de posse no buildup — raro mas possível
-        const defender = pickZoneDefender(defOccupants, zone, rng);
-        if (defender) {
-          // Perda adiantada → transição perigosa para o adversário
-          newState.possession = side === 'home' ? 'away' : 'home';
-          newState.ballHolderId = defender.player.id;
-          newState.passChain = 0;
-          // Perda no campo de defesa → transição moderada (2 ticks)
-          newState.transitionTicks = 2;
+      if (receiver) {
+        const passProb = clamp(0.92 + hunger * 0.06 - block * 0.08, 0.75, 0.97);
+        const passSuccess = rng() < passProb * holderFatigue * (1 + swing * 0.15);
+        if (passSuccess) {
+          // Domino: retenção com pouco avanço contra bloco baixo
+          const advance = (0.03 + rng() * 0.06) * (1 - defBlock * 0.45) * (1 - hunger * 0.25);
+          newState.ballPos = clamp(currentBallPos + advance * attackDir, 0.02, 0.98);
+          newState.ballPosY = clamp(currentBallY + (rng() - 0.5) * 0.10, 0.04, 0.96);
+          newState.ballHolderId = receiver.player.id;
+          newState.passChain = state.passChain + 1;
 
           newActions.push({
             minute,
-            type: 'interception',
-            team: side === 'home' ? 'away' : 'home',
-            playerId: defender.player.id,
-            playerName: defender.player.name,
+            type: 'pass',
+            team: side,
+            playerId: holder.id,
+            playerName: holder.name,
             success: true,
-            description: `${defender.player.name} rouba a bola no campo de defesa!`,
-            ballPos: currentBallPos,
+            description: `${holder.name} troca com ${receiver.player.name}`,
+            ballPos: newState.ballPos,
           });
+        } else {
+          // Perda de posse no buildup — raro mas possível
+          const defender = pickZoneDefender(defOccupants, zone, rng);
+          if (defender) {
+            newState.possession = side === 'home' ? 'away' : 'home';
+            newState.ballHolderId = defender.player.id;
+            newState.passChain = 0;
+            newState.transitionTicks = transitionTicksForLoss(attackProgress, defendingTeam);
+
+            newActions.push({
+              minute,
+              type: 'interception',
+              team: side === 'home' ? 'away' : 'home',
+              playerId: defender.player.id,
+              playerName: defender.player.name,
+              success: true,
+              description: `${defender.player.name} rouba a bola no campo de defesa!`,
+              ballPos: currentBallPos,
+            });
+          }
         }
       }
     }
@@ -316,15 +412,25 @@ export function simulateTickV2(
   // FASE: PROGRESSION (progressão — meio-campo, avançando)
   // ============================================================
   else if (phase === 'progression') {
+    const defBlock = lowBlockCompactness(defendingTeam);
+    const hunger = possessionHunger(attackingTeam);
+    const attBlock = lowBlockCompactness(attackingTeam);
+
     // Passe mais arriscado, tenta avançar; duelo se há defensor na zona
     const zoneDefender = pickZoneDefender(defOccupants, zone, rng);
 
-    // 30% chance de duelo se há defensor próximo
-    if (zoneDefender && rng() < 0.30) {
-      // Duelo na zona
+    // Contra bloco baixo: mais duelos (zaga compacta no meio)
+    const duelChance = 0.30 + defBlock * 0.25;
+    if (zoneDefender && rng() < duelChance) {
       const attackerOccupant = attOccupants.find(o => o.player.id === holder.id) ?? attOccupants[0];
       if (attackerOccupant) {
-        const duel = resolveDuel(attackerOccupant, zoneDefender, rng, overloadMod * (1 + relationalMod) * (1 + swing * 0.15));
+        // Bloco baixo favorece o defensor no duelo
+        const duel = resolveDuel(
+          attackerOccupant,
+          zoneDefender,
+          rng,
+          overloadMod * (1 + relationalMod) * (1 + swing * 0.15) * (1 - defBlock * 0.30),
+        );
         logDuel({
           zone,
           attackerId: holder.id,
@@ -334,8 +440,7 @@ export function simulateTickV2(
         });
 
         if (duel.winner === 'attacker') {
-          // Venceu o duelo — avança
-          const advance = 0.08 + rng() * 0.10;
+          const advance = (0.08 + rng() * 0.10) * (1 - defBlock * 0.40);
           newState.ballPos = clamp(currentBallPos + advance * attackDir, 0.02, 0.98);
           newState.ballPosY = clamp(currentBallY + (rng() - 0.5) * 0.14, 0.04, 0.96);
           newState.passChain = state.passChain + 1;
@@ -351,10 +456,10 @@ export function simulateTickV2(
             ballPos: newState.ballPos,
           });
         } else {
-          // Perdeu o duelo — posse para o defensor
           newState.possession = side === 'home' ? 'away' : 'home';
           newState.ballHolderId = zoneDefender.player.id;
           newState.passChain = 0;
+          newState.transitionTicks = transitionTicksForLoss(attackProgress, defendingTeam);
 
           newActions.push({
             minute,
@@ -369,16 +474,17 @@ export function simulateTickV2(
         }
       }
     } else {
-      // Passe de progressão
+      // Passe de progressão — hunger retém; bloco baixo reduz avanço
       const receiver = attOccupants.find(o =>
         o.player.id !== holder.id &&
         Math.abs(o.effectiveX - currentBallPos) < 0.35
       ) ?? attOccupants.find(o => o.player.id !== holder.id);
 
       if (receiver) {
-        const passSuccess = rng() < 0.85 * holderFatigue * (1 + swing * 0.15);
+        const passProb = clamp(0.85 + hunger * 0.08 - attBlock * 0.10, 0.70, 0.94);
+        const passSuccess = rng() < passProb * holderFatigue * (1 + swing * 0.15);
         if (passSuccess) {
-          const advance = 0.05 + rng() * 0.08;
+          const advance = (0.05 + rng() * 0.08) * (1 - defBlock * 0.50) * (1 - hunger * 0.20);
           newState.ballPos = clamp(currentBallPos + advance * attackDir, 0.02, 0.98);
           newState.ballPosY = clamp(currentBallY + (rng() - 0.5) * 0.12, 0.04, 0.96);
           newState.ballHolderId = receiver.player.id;
@@ -395,12 +501,12 @@ export function simulateTickV2(
             ballPos: newState.ballPos,
           });
         } else {
-          // Perda no meio-campo
           const defender = pickZoneDefender(defOccupants, zone, rng);
           if (defender) {
             newState.possession = side === 'home' ? 'away' : 'home';
             newState.ballHolderId = defender.player.id;
             newState.passChain = 0;
+            newState.transitionTicks = transitionTicksForLoss(attackProgress, defendingTeam);
 
             newActions.push({
               minute,
@@ -422,21 +528,21 @@ export function simulateTickV2(
   // FASE: CHANCE_CREATION (criação — terço ofensivo, buscando chance)
   // ============================================================
   else if (phase === 'chanceCreation') {
-    // Mais arriscado ainda; "domino posse mas não crio" emerge quando o bloco
-    // adversário está bem posicionado (muitos defensores na zona → overload baixo)
+    // "domino posse mas não crio" / parking the bus: bloco baixo anula criação
+    const defBlock = lowBlockCompactness(defendingTeam);
 
     const zoneDefender = pickZoneDefender(defOccupants, zone, rng);
 
-    // Se há muitos defensores (overload < 1), é difícil criar
-    const canCreate = overloadMod >= 0.85 || rng() < 0.55 + swing * 0.3;
+    // Contra bloco baixo bem posicionado, criação quase sempre estagna
+    const createThreshold = 0.85 + defBlock * 0.35;
+    const createLuck = 0.55 - defBlock * 0.40 + swing * 0.3;
+    const canCreate = overloadMod >= createThreshold || rng() < createLuck;
 
     if (!canCreate && zoneDefender) {
-      // Bloco baixo bem posicionado — posse estagnada
-      // Bola recua um pouco (não há espaço)
-      newState.ballPos = clamp(currentBallPos - 0.04 * attackDir, 0.02, 0.98);
+      // Bloco baixo bem posicionado — posse estagnada (recua / circula)
+      newState.ballPos = clamp(currentBallPos - (0.04 + defBlock * 0.04) * attackDir, 0.02, 0.98);
       newState.passChain = state.passChain + 1;
 
-      // Registra volume de chegada (sem qualidade)
       const origin = Math.abs(currentBallY - 0.5) > 0.24 ? 'lateral' : 'centro';
       newState.chancesByOrigin = {
         ...newState.chancesByOrigin,
@@ -453,11 +559,15 @@ export function simulateTickV2(
         description: `${holder.name} tenta encontrar espaço mas a zaga fecha`,
         ballPos: newState.ballPos,
       });
-    } else if (zoneDefender && rng() < 0.45) {
-      // Duelo ofensivo na zona de criação
+    } else if (zoneDefender && rng() < 0.45 + defBlock * 0.15) {
       const attackerOccupant = attOccupants.find(o => o.player.id === holder.id) ?? attOccupants[0];
       if (attackerOccupant) {
-        const duel = resolveDuel(attackerOccupant, zoneDefender, rng, overloadMod * (1 + relationalMod) * (1 + swing * 0.15));
+        const duel = resolveDuel(
+          attackerOccupant,
+          zoneDefender,
+          rng,
+          overloadMod * (1 + relationalMod) * (1 + swing * 0.15) * (1 - defBlock * 0.35),
+        );
         logDuel({
           zone,
           attackerId: holder.id,
@@ -467,8 +577,7 @@ export function simulateTickV2(
         });
 
         if (duel.winner === 'attacker') {
-          // Venceu — chance de finalizar ou cruzar
-          const advance = 0.06 + rng() * 0.08;
+          const advance = (0.06 + rng() * 0.08) * (1 - defBlock * 0.45);
           newState.ballPos = clamp(currentBallPos + advance * attackDir, 0.02, 0.98);
           newState.passChain = state.passChain + 1;
 
@@ -483,10 +592,10 @@ export function simulateTickV2(
             ballPos: newState.ballPos,
           });
         } else {
-          // Perdeu — posse para o defensor
           newState.possession = side === 'home' ? 'away' : 'home';
           newState.ballHolderId = zoneDefender.player.id;
           newState.passChain = 0;
+          newState.transitionTicks = transitionTicksForLoss(attackProgress, defendingTeam);
 
           newActions.push({
             minute,
@@ -501,16 +610,15 @@ export function simulateTickV2(
         }
       }
     } else {
-      // Passe de criação — tenta encontrar alguém mais à frente
       const receiver = attOccupants.find(o =>
         o.player.id !== holder.id &&
         Math.abs(o.effectiveX - currentBallPos) < 0.30
       ) ?? attOccupants.find(o => o.player.id !== holder.id);
 
       if (receiver) {
-        const passSuccess = rng() < 0.78 * holderFatigue * (1 + swing * 0.15); // criação = arriscado
+        const passSuccess = rng() < (0.78 - defBlock * 0.15) * holderFatigue * (1 + swing * 0.15);
         if (passSuccess) {
-          const advance = 0.04 + rng() * 0.08;
+          const advance = (0.04 + rng() * 0.08) * (1 - defBlock * 0.50);
           newState.ballPos = clamp(currentBallPos + advance * attackDir, 0.02, 0.98);
           newState.ballPosY = clamp(currentBallY + (rng() - 0.5) * 0.16, 0.04, 0.96);
           newState.ballHolderId = receiver.player.id;
@@ -527,15 +635,12 @@ export function simulateTickV2(
             ballPos: newState.ballPos,
           });
         } else {
-          // Perda na criação — pode gerar contra-ataque
           const defender = pickZoneDefender(defOccupants, zone, rng);
           if (defender) {
             newState.possession = side === 'home' ? 'away' : 'home';
             newState.ballHolderId = defender.player.id;
             newState.passChain = 0;
-            // Perda adiantada (terço ofensivo) → transição perigosa (4 ticks)
-            // Quanto mais perto do gol adversário a perda acontece, mais perigosa a transição
-            newState.transitionTicks = 3 + Math.round(attackProgress * 2); // 3-5 ticks
+            newState.transitionTicks = transitionTicksForLoss(attackProgress, defendingTeam);
 
             newActions.push({
               minute,
@@ -557,27 +662,28 @@ export function simulateTickV2(
   // FASE: FINISHING (finalização — bola na zona de gol)
   // ============================================================
   else if (phase === 'finishing') {
-    // Finalização: chance de chute baseada em fase, atributos e posição
-    // Fase 6: swing combinado de fadiga+moral+momentum+casa (clamp ±0.15)
-    const shotChance = (0.47 + (attackProgress - 0.75) * 1.0) * attMentality.shotMod * (1 + swing);
+    const defBlock = lowBlockCompactness(defendingTeam);
+    // Bloco baixo: menos chutes (e os que saem são de fora / bloqueados)
+    const shotChance = (0.47 + (attackProgress - 0.75) * 1.0)
+      * attMentality.shotMod
+      * (1 + swing)
+      * (1 - defBlock * 0.65);
     const wide = clamp(Math.abs(currentBallY - 0.5) * 2, 0, 1);
 
     if (rng() < shotChance) {
-      // CHUTE — calcula xG
-      const xg = calculateXG('finishing', attackProgress, wide, holder);
+      // CHUTE — xG reduzido contra bloco baixo (chute de fora / ângulo ruim)
+      const xg = calculateXG('finishing', attackProgress, wide, holder) * (1 - defBlock * 0.45);
       const fin = (holder.technical?.finishing ?? 10) / 20;
       const comp = (holder.mental?.composure ?? 10) / 20;
       const goalRoll = rng();
-      const goalThreshold = xg * (0.8 + fin * 0.2 + comp * 0.1);
+      const goalThreshold = xg * (0.8 + fin * 0.2 + comp * 0.1) * (1 - defBlock * 0.35);
       const isGoal = goalRoll < goalThreshold;
 
-      // Acumula xG por fase
       newState.xgByPhase = {
         ...newState.xgByPhase,
         finishing: (newState.xgByPhase?.finishing ?? 0) + xg,
       };
 
-      // Registra origem da chance
       const origin = wide > 0.4 ? 'lateral' : 'centro';
       newState.chancesByOrigin = {
         ...newState.chancesByOrigin,
@@ -593,7 +699,9 @@ export function simulateTickV2(
         success: isGoal,
         description: isGoal
           ? `GOL! ${holder.name} finaliza com precisão!`
-          : `${holder.name} finaliza — não entrou`,
+          : defBlock >= 0.5
+            ? `${holder.name} chuta de fora — bloqueado pelo bloco baixo`
+            : `${holder.name} finaliza — não entrou`,
         ballPos: currentBallPos,
       });
 
@@ -624,7 +732,6 @@ export function simulateTickV2(
           scorerName: holder.name,
         }];
 
-        // Reinicia do meio-campo
         newState.possession = side === 'home' ? 'away' : 'home';
         newState.ballPos = 0.5;
         newState.ballPosY = 0.5;
@@ -632,7 +739,6 @@ export function simulateTickV2(
         newState.passChain = 0;
         newState.transitionTicks = undefined;
       } else {
-        // Não foi gol — posse para o goleiro adversário (defesa ou tiro de meta)
         newState.possession = side === 'home' ? 'away' : 'home';
         const gk = defendingTeam.squad.find(p => p.position === 'GK') ?? defendingTeam.squad[0];
         newState.ballHolderId = gk.id;
@@ -641,46 +747,61 @@ export function simulateTickV2(
         newState.ballPosY = 0.4 + rng() * 0.2;
       }
     } else {
-      // Não chutou — tenta passar para alguém melhor posicionado
-      const receiver = attOccupants.find(o =>
-        o.player.id !== holder.id &&
-        o.effectiveX > currentBallPos * (side === 'home' ? 0.9 : 1.1) // mais à frente
-      ) ?? attOccupants.find(o => o.player.id !== holder.id);
+      // Não chutou — contra bloco baixo, frequentemente recua em vez de forçar
+      if (defBlock >= 0.45 && rng() < 0.55) {
+        newState.ballPos = clamp(currentBallPos - 0.06 * attackDir, 0.02, 0.98);
+        newState.passChain = state.passChain + 1;
+        newActions.push({
+          minute,
+          type: 'pass',
+          team: side,
+          playerId: holder.id,
+          playerName: holder.name,
+          success: true,
+          description: `${holder.name} recua — sem ângulo contra o bloco baixo`,
+          ballPos: newState.ballPos,
+        });
+      } else {
+        const receiver = attOccupants.find(o =>
+          o.player.id !== holder.id &&
+          o.effectiveX > currentBallPos * (side === 'home' ? 0.9 : 1.1)
+        ) ?? attOccupants.find(o => o.player.id !== holder.id);
 
-      if (receiver) {
-        const passSuccess = rng() < 0.70 * holderFatigue * (1 + swing * 0.15); // zona de gol = muito pressão
-        if (passSuccess) {
-          newState.ballHolderId = receiver.player.id;
-          newState.passChain = state.passChain + 1;
-
-          newActions.push({
-            minute,
-            type: 'pass',
-            team: side,
-            playerId: holder.id,
-            playerName: holder.name,
-            success: true,
-            description: `${holder.name} toca para ${receiver.player.name} na área`,
-            ballPos: currentBallPos,
-          });
-        } else {
-          // Perda na zona de gol — defesa recupera
-          const defender = pickZoneDefender(defOccupants, zone, rng);
-          if (defender) {
-            newState.possession = side === 'home' ? 'away' : 'home';
-            newState.ballHolderId = defender.player.id;
-            newState.passChain = 0;
+        if (receiver) {
+          const passSuccess = rng() < 0.70 * holderFatigue * (1 + swing * 0.15);
+          if (passSuccess) {
+            newState.ballHolderId = receiver.player.id;
+            newState.passChain = state.passChain + 1;
 
             newActions.push({
               minute,
-              type: 'interception',
-              team: side === 'home' ? 'away' : 'home',
-              playerId: defender.player.id,
-              playerName: defender.player.name,
+              type: 'pass',
+              team: side,
+              playerId: holder.id,
+              playerName: holder.name,
               success: true,
-              description: `${defender.player.name} afasta o perigo!`,
+              description: `${holder.name} toca para ${receiver.player.name} na área`,
               ballPos: currentBallPos,
             });
+          } else {
+            const defender = pickZoneDefender(defOccupants, zone, rng);
+            if (defender) {
+              newState.possession = side === 'home' ? 'away' : 'home';
+              newState.ballHolderId = defender.player.id;
+              newState.passChain = 0;
+              newState.transitionTicks = transitionTicksForLoss(attackProgress, defendingTeam);
+
+              newActions.push({
+                minute,
+                type: 'interception',
+                team: side === 'home' ? 'away' : 'home',
+                playerId: defender.player.id,
+                playerName: defender.player.name,
+                success: true,
+                description: `${defender.player.name} afasta o perigo!`,
+                ballPos: currentBallPos,
+              });
+            }
           }
         }
       }

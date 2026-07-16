@@ -15,7 +15,7 @@ export { ballToZone, computeZoneOccupancy, occupantsInZone, resolveDuel, pickZon
 export type { ZoneId, ZoneThird, ZoneFlank, ZoneOccupant, DuelResult, DuelTracker } from './zones';
 
 // Re-export de símbolos da Fase 3 (phases.ts)
-export { determinePhase, calculateXG, simulateTickV2, resetPhaseState } from './phases';
+export { determinePhase, calculateXG, simulateTickV2, resetPhaseState, transitionTicksForLoss, transitionMentalityExposure, lowBlockCompactness, possessionHunger } from './phases';
 
 // Re-export de símbolos da Fase 5 (instructions.ts)
 export { relationalModifier, v2TacticalModifier, mentalityRiskShift, effectiveDuty, mentalityActionMod, deriveActiveInstruction } from './instructions';

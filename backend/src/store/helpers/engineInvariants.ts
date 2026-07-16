@@ -3,6 +3,8 @@
 
 export const PERF_BUDGET_MATCH_MS = 50;   // orçamento de perf para 1 partida (90')
 export const PERF_BUDGET_ROUND_MS = 1000; // orçamento de perf para 1 rodada de liga (partidas de fundo)
+/** Orçamento para N sims de previsão pré-jogo (Fase 9; ~100× simulateFullMatchV2). */
+export const PERF_BUDGET_PREDICTION_MS = 5000;
 
 export const INVARIANTS = {
   goalsPerMatch:    { min: 2.5, max: 2.9 },
@@ -14,6 +16,7 @@ export const INVARIANTS = {
   upsetRatePct:     { min: 25,  max: 35  },
   perfMatchMs:      PERF_BUDGET_MATCH_MS,
   perfRoundMs:      PERF_BUDGET_ROUND_MS,
+  perfPredictionMs: PERF_BUDGET_PREDICTION_MS,
 } as const;
 
 // Seeds fixas para reprodutibilidade do harness v1×v2

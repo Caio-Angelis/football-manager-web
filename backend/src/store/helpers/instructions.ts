@@ -25,6 +25,7 @@ const RELATIONAL_MATRIX: RelationalMatchup[] = [
   { attInstruction: 'directBuildup', defInstruction: 'highPress', modifier: 0.06, description: 'saída direta bypassa pressão alta' },
   { attInstruction: 'shortBuildup', defInstruction: 'lowPress', modifier: 0.05, description: 'saída curta confortável contra pressão baixa' },
   { attInstruction: 'directBuildup', defInstruction: 'lowPress', modifier: -0.03, description: 'saída direta desperdiça posse contra bloco baixo' },
+  { attInstruction: 'counterAttack', defInstruction: 'highPress', modifier: 0.09, description: 'contra-ataque rápido bypassa pressão alta' },
 
   // Linha defensiva alta vs ataque rápido
   { attInstruction: 'counterAttack', defInstruction: 'highLine', modifier: 0.10, description: 'contra-ataque explora linha alta' },

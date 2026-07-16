@@ -6,6 +6,7 @@
 
 import type { Team, Player, LiveMatchState } from '../../types/game';
 import { FORMATION_LAYOUT, effectiveStrength, positionFamiliarity, type SlotCoord } from './roles';
+import { effectiveDuty } from './instructions';
 
 // ============================================================
 // 2.1 — Mapa de zonas (grade 3×3 = 9 zonas)
@@ -91,11 +92,20 @@ export function computeZoneOccupancy(team: Team, attacksTowardOne: boolean): Zon
     const slotCoord = formation[slot];
     const roleEntry = roles.find(r => r.slotIndex === slot);
     const role = roleEntry?.role ?? 'centralMidfielder';
-    const duty = roleEntry?.duty ?? 'balance';
+    const rawDuty = roleEntry?.duty ?? 'balance';
+    // Mentalidade global desloca a régua de duty (Fase 5)
+    const duty = effectiveDuty(rawDuty, team);
 
     // Posição efetiva: base da formação + deslocamento por duty + deslocamento por role
     let effX = slotCoord.x + (DUTY_X_SHIFT[duty] ?? 0);
     let effY = slotCoord.y + (ROLE_Y_SHIFT[role] ?? 0);
+
+    // Bloco baixo: puxa a linha para o próprio gol (parking the bus)
+    if (team.defensiveLine === 'low') {
+      effX -= 0.10;
+    } else if (team.defensiveLine === 'high') {
+      effX += 0.06;
+    }
 
     // Se o time ataca rumo a 0 (away), inverter x
     if (!attacksTowardOne) {

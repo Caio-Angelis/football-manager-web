@@ -63,7 +63,7 @@ O motor v2 está sendo construído atrás de uma flag (`MATCH_ENGINE=v2`), com o
 
 **Harness comparativo:** `headless_v1v2.ts` roda 50 confrontos com seeds fixas nos dois motores + 100 sims de upset. `run_batch.py --v1v2` roda 30× e agrega médias + variância.
 
-**Blueprint completo:** `PlanoMatchEngine.md` (design) + `PlanoMatchEngine-CHECKLIST.md` (fases 0-11) + `matchEngineV2.spec.ts` (TDD executável).
+**Blueprint completo:** `PlanoMatchEngine.md` (design) + `matchEngineV2.spec.ts` (TDD executável; checklist de fases 0–11 concluída e removida).
 
 ### Partida do Usuário vs. Partidas da IA
 
